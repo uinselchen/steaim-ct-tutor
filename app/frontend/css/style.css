@@ -1,0 +1,115 @@
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #eef1f7;
+  color: #1f2430;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.startscreen {
+  width: 100%;
+  padding: 24px;
+}
+
+.start-card {
+  max-width: 880px;
+  margin: 0 auto;
+  background: #f3f5f8;
+  border: 1px solid rgba(34, 43, 71, 0.08);
+  border-radius: 32px;
+  box-shadow: 0 24px 60px rgba(38, 42, 60, 0.12);
+  padding: 48px 40px;
+  text-align: center;
+}
+
+.logo {
+  max-width: 190px;
+  margin: 0 auto 32px;
+  display: block;
+}
+
+h1 {
+  margin: 0 0 28px;
+  font-size: clamp(2.5rem, 4vw, 4rem);
+  line-height: 1.05;
+  color: #12141d;
+}
+
+.description {
+  margin: 0 auto 18px;
+  max-width: 760px;
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: #4f5668;
+}
+
+.button-row {
+  display: grid;
+  gap: 16px;
+  margin-top: 34px;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 24px;
+  border: none;
+  border-radius: 18px;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  min-height: 64px;
+}
+
+.button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  flex-shrink: 0;
+}
+
+.button-text {
+  flex: 1;
+}
+
+.button-arrow {
+  font-size: 1.4rem;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #4f55ff 0%, #7b5cff 100%);
+}
+
+.secondary-button {
+  background: linear-gradient(135deg, #ff6dbf 0%, #d1419d 100%);
+}
+
+.tertiary-button {
+  background: linear-gradient(135deg, #ff9b4b 0%, #ff6d00 100%);
+}
+
+@media (max-width: 680px) {
+  .start-card {
+    padding: 32px 24px;
+  }
+
+  .button-row {
+    grid-template-columns: 1fr;
+  }
+
+  .button-arrow {
+    margin-left: auto;
+  }
+}
