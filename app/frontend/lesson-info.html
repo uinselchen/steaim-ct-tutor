@@ -3,21 +3,130 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lesson Info — STEaiM-CT AI Tutor</title>
+  <title>AI Tutor for Lesson Plans</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
-  <main class="startscreen">
-    <section class="start-card">
-      <h1>Lesson plan details</h1>
-      <p class="description">
-        This page will guide you through the first step of the tutor workflow.
-        You can upload a lesson plan and provide the country, subject, and age group.
-      </p>
-      <div class="button-row">
-        <a href="start.html" class="secondary-button" style="text-decoration: none; display: inline-block;">Back to start</a>
+<body class="lesson-info-page">
+  <header class="page-header">
+    <div class="header-left">
+      <img class="header-logo" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
+      <div>
+        <p class="header-subtitle">AI Tutor for Lesson Plans</p>
+        <p class="header-note">Prototype v0.2</p>
       </div>
-    </section>
+    </div>
+    <button class="header-button secondary-button" id="moreInfoButton">Need more information?</button>
+  </header>
+
+  <section class="progress-bar">
+    <div class="progress-step active">
+      <span class="step-number">1</span>
+      <span class="step-label">Tell us about your lesson idea</span>
+    </div>
+    <span class="progress-connector active"></span>
+    <div class="progress-step inactive">
+      <span class="step-number">2</span>
+      <span class="step-label">First analysis and suggestions</span>
+    </div>
+    <span class="progress-connector inactive"></span>
+    <div class="progress-step inactive">
+      <span class="step-number">3</span>
+      <span class="step-label">Refining and improving</span>
+    </div>
+    <span class="progress-connector inactive"></span>
+    <div class="progress-step inactive">
+      <span class="step-number">4</span>
+      <span class="step-label">Download result</span>
+    </div>
+  </section>
+
+  <main class="lesson-card">
+    <div class="lesson-card-main">
+      <div class="section-heading">
+        <h1>Please answer these questions</h1>
+        <p class="section-text">The more information you provide, the better the feedback will be. Fields marked with * are mandatory.</p>
+      </div>
+
+      <form id="lessonInfoForm" class="lesson-form" novalidate>
+        <div class="form-field">
+          <label for="country">* Country</label>
+          <select id="country" name="country">
+            <option value="">Select country</option>
+          </select>
+          <input type="text" id="countryOther" name="countryOther" class="hidden-input" placeholder="Please specify" />
+          <button type="button" id="addCountryButton" class="action-button secondary-button small-button">Add country to list</button>
+          <p class="field-error" id="countryError"></p>
+        </div>
+
+        <div class="form-field">
+          <div class="field-label-row">
+            <label>* Subject(s)</label>
+            <span class="field-helper">You can select more than one.</span>
+          </div>
+          <div id="subjectCheckboxes" class="checkbox-group"></div>
+          <input type="text" id="subjectOther" name="subjectOther" class="hidden-input" placeholder="Please specify" />
+          <button type="button" id="addSubjectButton" class="action-button secondary-button small-button">Add subject to list</button>
+          <p class="field-error" id="subjectsError"></p>
+        </div>
+
+        <div class="field-row">
+          <div class="form-field half">
+            <label>* Grade(s)</label>
+            <div class="range-inputs">
+              <input type="text" id="gradeFrom" name="gradeFrom" placeholder="From" inputmode="numeric" pattern="[0-9]*" />
+              <input type="text" id="gradeTo" name="gradeTo" placeholder="To (optional)" inputmode="numeric" pattern="[0-9]*" />
+            </div>
+            <p class="field-note">Required. Enter one grade or a range, e.g. 4 or 4–6.</p>
+            <p class="field-error" id="gradeError"></p>
+          </div>
+
+          <div class="form-field half">
+            <label>Age of children (optional)</label>
+            <div class="range-inputs">
+              <input type="text" id="ageFrom" name="ageFrom" placeholder="From" inputmode="numeric" pattern="[0-9]*" />
+              <input type="text" id="ageTo" name="ageTo" placeholder="To" inputmode="numeric" pattern="[0-9]*" />
+            </div>
+            <p class="field-note">Optional. e.g. 11</p>
+            <p class="field-error" id="ageError"></p>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>Specifics (optional)</label>
+          <textarea id="specifics" name="specifics" placeholder="Any specific information we should know?"></textarea>
+          <p class="field-helper">Special needs, project type, focus areas, etc.</p>
+        </div>
+
+        <div class="form-field">
+          <label for="lessonPlanUpload">* Upload your lesson plan</label>
+          <div id="fileDropzone" class="file-dropzone">
+            <p class="dropzone-text">Drag & drop your file here</p>
+            <p class="dropzone-subtext">or click to browse</p>
+            <p class="dropzone-hint">Accepted: PDF, DOCX, TXT • max. 20 MB</p>
+            <input type="file" id="lessonPlanUpload" name="lessonPlanUpload" accept=".pdf,.docx,.txt" hidden />
+          </div>
+          <p class="file-name" id="fileName"></p>
+          <p class="field-error" id="fileError"></p>
+        </div>
+
+        <div class="form-actions">
+          <a class="action-link secondary-button" href="start.html">Back</a>
+          <button type="button" class="action-button primary-button" id="continueButton">Continue</button>
+        </div>
+      </form>
+    </div>
+
+    <aside class="help-panel">
+      <div class="help-box">
+        <div class="help-icon">💡</div>
+        <div>
+          <p class="help-title">Why we ask</p>
+          <p>Your information helps us adapt the feedback to your context and curriculum.</p>
+        </div>
+      </div>
+    </aside>
   </main>
+
+  <script src="js/lesson-info.js"></script>
 </body>
 </html>

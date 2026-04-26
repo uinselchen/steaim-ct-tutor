@@ -47,26 +47,43 @@ h1 {
 }
 
 .button-row {
-  display: grid;
-  gap: 16px;
-  margin-top: 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 28px;
+  align-items: center;
+}
+
+.action-button,
+.action-link,
+.header-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px 22px;
+  border: none;
+  border-radius: 18px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 60px;
+  white-space: normal;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.action-link {
+  justify-content: center;
+}
+
+.header-button {
+  min-height: auto;
+  padding: 12px 18px;
 }
 
 .action-button {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  width: 100%;
-  padding: 18px 24px;
-  border: none;
-  border-radius: 18px;
-  color: #ffffff;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: left;
-  min-height: 64px;
 }
 
 .button-icon {
@@ -81,7 +98,8 @@ h1 {
 }
 
 .button-text {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .button-arrow {
@@ -100,16 +118,331 @@ h1 {
   background: linear-gradient(135deg, #ff9b4b 0%, #ff6d00 100%);
 }
 
-@media (max-width: 680px) {
-  .start-card {
-    padding: 32px 24px;
-  }
+.lesson-info-page {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
 
-  .button-row {
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-logo {
+  width: 56px;
+  height: auto;
+}
+
+.header-subtitle {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.header-note {
+  margin: 6px 0 0;
+  color: #6f7280;
+}
+
+.header-button {
+  align-self: center;
+}
+
+.progress-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 32px;
+  width: 100%;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 0;
+  min-width: 120px;
+}
+
+.step-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.progress-step.active .step-number {
+  background: #7b5cff;
+  color: #ffffff;
+}
+
+.progress-step.inactive .step-number {
+  background: #eef0fb;
+  color: #6f7280;
+}
+
+.step-label {
+  color: #4f5668;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.progress-connector {
+  flex: 1;
+  min-width: 44px;
+  height: 4px;
+  border-radius: 99px;
+  background: #d9d9e4;
+}
+
+.progress-connector.active {
+  background: #7b5cff;
+}
+
+.lesson-card {
+  display: grid;
+  grid-template-columns: 1.6fr 0.9fr;
+  gap: 24px;
+  background: #ffffff;
+  border-radius: 32px;
+  box-shadow: 0 18px 40px rgba(18, 20, 29, 0.08);
+  padding: 32px;
+}
+
+.lesson-card-main {
+  min-width: 0;
+}
+
+.section-heading h1 {
+  margin: 0 0 12px;
+  font-size: clamp(2.1rem, 3vw, 3rem);
+  color: #12141d;
+}
+
+.section-text {
+  margin: 0;
+  color: #4f5668;
+  line-height: 1.75;
+}
+
+.lesson-form .form-field {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lesson-form label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 700;
+  color: #1f2430;
+}
+
+.lesson-form select,
+.lesson-form input,
+.lesson-form textarea {
+  width: 100%;
+  border: 1px solid #d7d8df;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 1rem;
+  background: #fafbfe;
+  color: #1f2430;
+  box-sizing: border-box;
+}
+
+.lesson-form textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.field-helper,
+.field-note {
+  margin: 8px 0 0;
+  color: #6f7280;
+  font-size: 0.92rem;
+}
+
+.field-error {
+  margin: 8px 0 0;
+  color: #d55679;
+  font-size: 0.92rem;
+  min-height: 18px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.range-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.range-inputs input {
+  min-width: 0;
+}
+
+.lesson-form input[type="number"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.file-dropzone {
+  border: 2px dashed #d7d8df;
+  background: #fafbfe;
+  border-radius: 20px;
+  padding: 28px;
+  text-align: center;
+  cursor: pointer;
+  color: #4f5668;
+}
+
+.file-dropzone.drag-over {
+  border-color: #7b5cff;
+  background: rgba(123, 92, 255, 0.06);
+}
+
+.file-name {
+  margin-top: 10px;
+  color: #393f4f;
+  font-size: 0.95rem;
+}
+
+.help-panel {
+  display: flex;
+  align-items: flex-start;
+}
+
+.help-box {
+  width: 100%;
+  background: #f5f1ff;
+  border: 1px solid #e7e1ff;
+  border-radius: 24px;
+  padding: 22px;
+  display: flex;
+  gap: 16px;
+  color: #2d2f41;
+}
+
+.help-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(123, 92, 255, 0.14);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.help-title {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.action-link.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 130px;
+  text-decoration: none;
+  text-align: center;
+}
+
+#subjectOther,
+#countryOther,
+#addSubjectButton,
+#addCountryButton {
+  display: none;
+  margin-top: 12px;
+}
+
+.hidden-input {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid #d7d8df;
+  border-radius: 16px;
+  background: #fafbfe;
+  padding: 14px 16px;
+  font-size: 1rem;
+  color: #1f2430;
+  box-sizing: border-box;
+}
+
+.hidden-input::placeholder {
+  color: #8a92ab;
+}
+
+.small-button {
+  padding: 10px 16px;
+  min-height: auto;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 980px) {
+  .lesson-card {
     grid-template-columns: 1fr;
   }
+}
 
-  .button-arrow {
-    margin-left: auto;
+@media (max-width: 680px) {
+  .lesson-card {
+    padding: 24px;
+  }
+
+  .progress-step,
+  .progress-connector {
+    min-width: unset;
+  }
+
+  .header-button,
+  .form-actions {
+    width: 100%;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

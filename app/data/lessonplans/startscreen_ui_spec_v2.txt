@@ -1,0 +1,107 @@
+
+UI Specification – Start Screen (STEaiM-CT AI Tutor)
+
+Layout
+
+At the top of the screen, the STEaiM-CT-AI logo is displayed centered above the title. 
+The logo serves as visual project identification and branding.
+
+
+Title
+
+Welcome!
+
+The title is large, bold, and dark grey to black. It serves as the entry headline of the interface and signals the beginning of the tutor workflow.
+
+
+Introductory text (three paragraphs)
+
+Prototype v0.2 of an AI tutor that should give feedback to lesson plans.
+
+Tell the tool your country, subject, the age of the children and upload your lesson plan without mentioning any personal data.
+
+You are welcome to use your native language of course ;)
+
+The text explains the purpose of the tutor, the required inputs, and clarifies that personal data must not be included. 
+It also reassures users that they can interact in their preferred language.
+
+
+Buttons
+
+Below the text, three large horizontal rounded buttons are displayed.
+Each button includes:
+- an icon on the left
+- centered text
+- a right arrow indicating navigation to another screen
+
+
+Button 1 (Primary action)
+
+Text:
+I understand and want to proceed
+
+Color:
+Blue-to-violet gradient
+
+Icon:
+Checkmark inside a circle
+
+Function:
+This button starts the tutor workflow.
+It navigates to Step 1 of the process where the teacher selects:
+- country
+- subject
+- student age group
+and uploads the lesson plan document.
+
+This is the main entry point into the structured lesson plan feedback process.
+
+
+Button 2
+
+Text:
+I need more information
+
+Color:
+Pink-to-magenta gradient
+
+Icon:
+Document symbol
+
+Function:
+This button opens an information screen explaining:
+- how the AI tutor analyses lesson plans
+- what types of feedback are generated
+- how uploaded lesson plans are processed
+- how long data is stored
+- what users should expect during the workflow
+
+It supports users who want clarification before continuing.
+
+
+Button 3
+
+Text:
+Information about the project
+
+Color:
+Orange gradient
+
+Icon:
+Information symbol inside a circle
+
+Function:
+This button opens a project information page describing:
+- the STEaiM-CT project background
+- the research context of the tutor
+- the goals of the prototype
+- the institutions involved
+- contact or attribution information
+
+It provides transparency about the origin and purpose of the system.
+
+
+Container
+
+All elements are placed on a centered light grey card with rounded corners and a subtle shadow.
+This card forms the main visual surface of the start screen and separates the interaction area from the background.
