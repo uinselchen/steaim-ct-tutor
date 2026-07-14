@@ -17,6 +17,7 @@ set "REQUIREMENTS=%SERVER%\requirements.txt"
 set "ENV_FILE=%SERVER%\.env"
 set "ENV_EXAMPLE=%SERVER%\.env.example"
 set "CONFIG_FILE=%DATA%\config.json"
+set "TUTOR_URL=http://localhost:8000"
 set "WARNINGS=0"
 
 title STEaiM-CT Tutor
@@ -166,12 +167,14 @@ if /I "%~1"=="--check" (
 
 echo.
 echo Starting local tutor...
+echo Opening browser at %TUTOR_URL%
 echo Server log: "%LOGFILE%"
 echo Prompt log: "%PROMPT_LOG%"
 echo.
 
 pushd "%SERVER%"
 echo ==== %DATE% %TIME% ==== > "%LOGFILE%"
+start "" "%TUTOR_URL%"
 "%PY%" app.py >> "%LOGFILE%" 2>&1
 set "EXIT_CODE=%ERRORLEVEL%"
 popd
