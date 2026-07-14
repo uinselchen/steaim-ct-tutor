@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal EnableExtensions EnableDelayedExpansion
 
 set "ROOT=%~dp0"
 set "APP=%ROOT%app"
@@ -21,30 +21,30 @@ set "TUTOR_URL=http://localhost:8000"
 set "WARNINGS=0"
 
 title STEaiM-CT Tutor
-echo.
+echo(
 echo STEaiM-CT Tutor startup check
 echo =============================
-echo.
+echo(
 
-call :ensure_dir "%APP%"
-call :ensure_dir "%SERVER%"
-call :ensure_dir "%FRONTEND%"
-call :ensure_dir "%FRONTEND%\css"
-call :ensure_dir "%FRONTEND%\js"
-call :ensure_dir "%FRONTEND%\assets"
-call :ensure_dir "%DATA%"
-call :ensure_dir "%DATA%\curricula"
-call :ensure_dir "%DATA%\amendments"
-call :ensure_dir "%DATA%\lessonplans"
-call :ensure_dir "%DATA%\lessonplans\uploads"
-call :ensure_dir "%DATA%\templates"
-call :ensure_dir "%LOGDIR%"
-call :ensure_dir "%LOGDIR%\exports"
-call :ensure_dir "%LOGDIR%\step3-sessions"
+call :ensure_dir "%APP%" || goto fail
+call :ensure_dir "%SERVER%" || goto fail
+call :ensure_dir "%FRONTEND%" || goto fail
+call :ensure_dir "%FRONTEND%\css" || goto fail
+call :ensure_dir "%FRONTEND%\js" || goto fail
+call :ensure_dir "%FRONTEND%\assets" || goto fail
+call :ensure_dir "%DATA%" || goto fail
+call :ensure_dir "%DATA%\curricula" || goto fail
+call :ensure_dir "%DATA%\amendments" || goto fail
+call :ensure_dir "%DATA%\lessonplans" || goto fail
+call :ensure_dir "%DATA%\lessonplans\uploads" || goto fail
+call :ensure_dir "%DATA%\templates" || goto fail
+call :ensure_dir "%LOGDIR%" || goto fail
+call :ensure_dir "%LOGDIR%\exports" || goto fail
+call :ensure_dir "%LOGDIR%\step3-sessions" || goto fail
 
-call :ensure_file "%ANALYSIS_LOG%"
-call :ensure_file "%PROMPT_LOG%"
-call :ensure_file "%LOGFILE%"
+call :ensure_file "%ANALYSIS_LOG%" || goto fail
+call :ensure_file "%PROMPT_LOG%" || goto fail
+call :ensure_file "%LOGFILE%" || goto fail
 
 if not exist "%CONFIG_FILE%" (
     echo Creating default config...
@@ -58,7 +58,7 @@ if not exist "%ENV_EXAMPLE%" (
     echo Creating .env.example...
     > "%ENV_EXAMPLE%" echo MISTRAL_API_KEY=your_mistral_api_key_here
     >> "%ENV_EXAMPLE%" echo MISTRAL_MODEL=mistral-small-latest
-    >> "%ENV_EXAMPLE%" echo.
+    >> "%ENV_EXAMPLE%" echo(
     >> "%ENV_EXAMPLE%" echo # Optional email settings
     >> "%ENV_EXAMPLE%" echo SMTP_HOST=
     >> "%ENV_EXAMPLE%" echo SMTP_PORT=587
@@ -113,39 +113,16 @@ if not exist "%REQUIREMENTS%" (
     >> "%REQUIREMENTS%" echo reportlab^>=4.2.0
 )
 
-if exist "%PY%" (
-    "%PY%" -c "import sys" >nul 2>nul
-    if errorlevel 1 (
-        echo Local Python environment is broken. Recreating it...
-        rmdir /s /q "%VENV%"
-    )
-)
-
-if not exist "%PY%" (
-    call :create_venv
-)
-
-if not exist "%PY%" (
-    echo.
-    echo Could not create the local Python environment.
-    echo Please install Python 3.11 or newer and run this file again.
-    pause
-    exit /b 1
-)
+call :ensure_python || goto fail
 
 echo Checking Python packages...
-"%PY%" -c "import docx, reportlab" >nul 2>nul
+call :probe_python_packages
 if errorlevel 1 (
     echo Installing required Python packages...
     "%PY%" -m pip install --upgrade pip
+    if errorlevel 1 goto package_fail
     "%PY%" -m pip install -r "%REQUIREMENTS%"
-    if errorlevel 1 (
-        echo.
-        echo Package installation failed.
-        echo Please check your internet connection and run start_tutor.bat again.
-        pause
-        exit /b 1
-    )
+    if errorlevel 1 goto package_fail
 )
 
 if not exist "%DATA%\curricula\austria_lehrplan_volksschule_ris_2025_anlage_a.txt" (
@@ -153,11 +130,11 @@ if not exist "%DATA%\curricula\austria_lehrplan_volksschule_ris_2025_anlage_a.tx
     echo WARNING: Austrian curriculum text was not found. Curriculum matching may be limited.
 )
 
-echo.
+echo(
 if "%WARNINGS%"=="0" (
     echo Startup check passed.
 ) else (
-    echo Startup check finished with %WARNINGS% warning(s).
+    echo Startup check finished with %WARNINGS% warnings.
 )
 
 if /I "%~1"=="--check" (
@@ -165,12 +142,11 @@ if /I "%~1"=="--check" (
     exit /b 0
 )
 
-echo.
+echo(
 echo Starting local tutor...
-echo Opening browser at %TUTOR_URL%
 echo Server log: "%LOGFILE%"
 echo Prompt log: "%PROMPT_LOG%"
-echo.
+echo(
 
 pushd "%SERVER%"
 echo ==== %DATE% %TIME% ==== > "%LOGFILE%"
@@ -180,7 +156,7 @@ set "EXIT_CODE=%ERRORLEVEL%"
 popd
 
 if not "%EXIT_CODE%"=="0" (
-    echo.
+    echo(
     echo The tutor stopped with error code %EXIT_CODE%.
     echo See "%LOGFILE%" for the full server log.
     pause
@@ -193,6 +169,10 @@ exit /b 0
 if not exist "%~1\" (
     echo Creating folder: %~1
     mkdir "%~1" >nul 2>nul
+    if errorlevel 1 (
+        echo Could not create folder: %~1
+        exit /b 1
+    )
 )
 exit /b 0
 
@@ -200,6 +180,10 @@ exit /b 0
 if not exist "%~1" (
     echo Creating file: %~1
     type nul > "%~1"
+    if errorlevel 1 (
+        echo Could not create file: %~1
+        exit /b 1
+    )
 )
 exit /b 0
 
@@ -210,42 +194,113 @@ if not exist "%~1" (
 )
 exit /b 0
 
-:create_venv
-echo Creating local Python environment...
-set "PYTHON_CMD="
+:ensure_python
+if not exist "%PY%" goto create_python_env
 
-if exist "%BUNDLED_PY%" (
-    set "PYTHON_CMD="%BUNDLED_PY%""
-) else (
-    where py >nul 2>nul
-    if not errorlevel 1 (
-        set "PYTHON_CMD=py -3"
-    ) else (
-        where python >nul 2>nul
-        if not errorlevel 1 (
-            set "PYTHON_CMD=python"
-        )
-    )
-)
+call :probe_python
+if not errorlevel 1 exit /b 0
 
-if "!PYTHON_CMD!"=="" (
-    where winget >nul 2>nul
-    if not errorlevel 1 (
-        echo Python was not found. Trying to install Python with winget...
-        winget install -e --id Python.Python.3.12 --scope user --accept-package-agreements --accept-source-agreements
-        where py >nul 2>nul
-        if not errorlevel 1 set "PYTHON_CMD=py -3"
-        if "!PYTHON_CMD!"=="" (
-            where python >nul 2>nul
-            if not errorlevel 1 set "PYTHON_CMD=python"
-        )
-    )
-)
-
-if "!PYTHON_CMD!"=="" (
-    echo Python 3 was not found.
+echo Local Python environment is broken. Recreating it...
+rmdir /s /q "%VENV%" >nul 2>nul
+if exist "%PY%" (
+    echo Could not remove the broken Python environment.
+    echo Please close all tutor/server windows and run start_tutor.bat again.
     exit /b 1
 )
 
-!PYTHON_CMD! -m venv "%VENV%"
+:create_python_env
+call :create_venv
+if errorlevel 1 exit /b 1
+
+if not exist "%PY%" (
+    echo Could not create the local Python environment.
+    echo Please install Python 3.11 or newer and run this file again.
+    exit /b 1
+)
+
+call :probe_python
+if errorlevel 1 (
+    echo The new local Python environment does not start correctly.
+    exit /b 1
+)
 exit /b 0
+
+:probe_python
+set "PY_CHECK=%TEMP%\steaimct_pycheck_%RANDOM%.txt"
+"%PY%" -c "print('PYTHON_OK')" > "%PY_CHECK%" 2>nul
+findstr /C:"PYTHON_OK" "%PY_CHECK%" >nul 2>nul
+if errorlevel 1 (
+    set "PROBE_RESULT=1"
+) else (
+    set "PROBE_RESULT=0"
+)
+del "%PY_CHECK%" >nul 2>nul
+exit /b %PROBE_RESULT%
+
+:probe_python_packages
+set "PKG_CHECK=%TEMP%\steaimct_pkgcheck_%RANDOM%.txt"
+"%PY%" -c "import docx, reportlab; print('PACKAGES_OK')" > "%PKG_CHECK%" 2>nul
+findstr /C:"PACKAGES_OK" "%PKG_CHECK%" >nul 2>nul
+if errorlevel 1 (
+    set "PROBE_RESULT=1"
+) else (
+    set "PROBE_RESULT=0"
+)
+del "%PKG_CHECK%" >nul 2>nul
+exit /b %PROBE_RESULT%
+
+:create_venv
+echo Creating local Python environment...
+
+if exist "%BUNDLED_PY%" (
+    "%BUNDLED_PY%" -m venv "%VENV%"
+    exit /b %ERRORLEVEL%
+)
+
+where py >nul 2>nul
+if not errorlevel 1 (
+    py -3 -m venv "%VENV%"
+    exit /b %ERRORLEVEL%
+)
+
+where python >nul 2>nul
+if not errorlevel 1 (
+    python -m venv "%VENV%"
+    exit /b %ERRORLEVEL%
+)
+
+where winget >nul 2>nul
+if not errorlevel 1 (
+    echo Python was not found. Trying to install Python with winget...
+    winget install -e --id Python.Python.3.12 --scope user --accept-package-agreements --accept-source-agreements
+    if errorlevel 1 exit /b 1
+
+    where py >nul 2>nul
+    if not errorlevel 1 (
+        py -3 -m venv "%VENV%"
+        exit /b %ERRORLEVEL%
+    )
+
+    where python >nul 2>nul
+    if not errorlevel 1 (
+        python -m venv "%VENV%"
+        exit /b %ERRORLEVEL%
+    )
+)
+
+echo Python 3 was not found.
+exit /b 1
+
+:package_fail
+echo(
+echo Package installation failed.
+echo Please check your internet connection and run start_tutor.bat again.
+pause
+exit /b 1
+
+:fail
+echo(
+echo Startup failed. The tutor could not be started.
+echo Please check the messages above.
+pause
+exit /b 1
