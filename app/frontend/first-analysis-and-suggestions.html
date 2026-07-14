@@ -252,6 +252,51 @@
       return fallback;
     }
 
+    function getCategoryDefaults(category) {
+      var id = category && category.id ? String(category.id) : "";
+      var description = category && category.description ? String(category.description) : "";
+      var key = id;
+
+      if (!key && /timing|time/i.test(description)) {
+        key = "time_scope";
+      } else if (!key && /goals|competenc/i.test(description)) {
+        key = "goals_competencies";
+      } else if (!key && /adaptable|different speeds|competence levels/i.test(description)) {
+        key = "adaptability";
+      } else if (!key && /detail level|restrictive/i.test(description)) {
+        key = "detail_level";
+      } else if (!key && /target group|UI context|grade|age/i.test(description)) {
+        key = "target_group";
+      } else if (!key && /curriculum/i.test(description)) {
+        key = "curriculum_alignment";
+      }
+
+      var defaults = {
+        time_scope: { title: "Time scope", accent: "red" },
+        goals_competencies: { title: "Goals / competencies", accent: "orange" },
+        adaptability: { title: "Adaptability", accent: "pink" },
+        detail_level: { title: "Detail level", accent: "blue" },
+        target_group: { title: "Target group", accent: "green" },
+        curriculum_alignment: { title: "Curriculum alignment", accent: "purple" },
+        didactical_approaches: { title: "Didactical approaches", accent: "orange" },
+        skills: { title: "Skills that could/would be trained", accent: "pink" },
+        curriculum_connections: { title: "Connections to the curriculum", accent: "green" },
+        challenges: { title: "Challenges (potential problems)", accent: "red" },
+        hidden_opportunities: { title: "Hidden opportunities", accent: "blue" }
+      };
+
+      return Object.assign({ id: key, title: "Category", accent: "purple" }, defaults[key] || {});
+    }
+
+    function normalizeCategory(category) {
+      var mapped = Object.assign({}, category || {});
+      var defaults = getCategoryDefaults(mapped);
+      mapped.id = mapped.id || defaults.id;
+      mapped.title = mapped.title && mapped.title !== "Category" ? mapped.title : defaults.title;
+      mapped.accent = mapped.accent || defaults.accent;
+      return mapped;
+    }
+
     function renderCategory(container, category) {
       var card = document.createElement("section");
       card.className = "category-card";
@@ -279,10 +324,6 @@
       left.appendChild(icon);
       left.appendChild(titleWrap);
       header.appendChild(left);
-
-      var descBox = document.createElement("div");
-      descBox.className = "category-card-description";
-      descBox.textContent = category.description || "";
 
       var tableWrap = document.createElement("div");
       tableWrap.className = "item-table-wrap";
@@ -365,7 +406,6 @@
       tableWrap.appendChild(table);
 
       card.appendChild(header);
-      card.appendChild(descBox);
       card.appendChild(tableWrap);
       container.appendChild(card);
     }
@@ -534,23 +574,7 @@
       var sectionsRoot = document.getElementById("analysisSections");
       sectionsRoot.innerHTML = "";
       categories.forEach(function (category) {
-        var mapped = Object.assign({}, category);
-        if (!mapped.accent) {
-          var accentMap = {
-            time_scope: "red",
-            goals_competencies: "orange",
-            adaptability: "pink",
-            detail_level: "blue",
-            target_group: "green",
-            curriculum_alignment: "purple",
-            didactical_approaches: "orange",
-            skills: "pink",
-            curriculum_connections: "green",
-            challenges: "red",
-            hidden_opportunities: "blue"
-            };
-          mapped.accent = accentMap[mapped.id] || "purple";
-        }
+        var mapped = normalizeCategory(category);
         renderCategory(sectionsRoot, mapped);
       });
 

@@ -642,13 +642,14 @@
       thread.scrollTop = thread.scrollHeight;
     }
 
-    function renderQuickReplies(node) {
+    function renderQuickReplies(node, customReplies) {
       var container = document.getElementById("quickReplies");
       container.innerHTML = "";
-      if (!node) {
+      var replies = Array.isArray(customReplies) ? customReplies : (node && Array.isArray(node.quickReplies) ? node.quickReplies : []);
+      if (!replies.length) {
         return;
       }
-      node.quickReplies.forEach(function (label) {
+      replies.forEach(function (label) {
         var button = document.createElement("button");
         button.type = "button";
         button.className = "quick-reply";
@@ -1164,7 +1165,8 @@
             startNextNode();
           } else {
             state.activeNode = state.nodes[state.currentNodeIndex] || null;
-            renderQuickReplies(state.activeNode);
+            var nextReplies = response && Array.isArray(response.quick_replies) ? response.quick_replies : [];
+            renderQuickReplies(state.activeNode, nextReplies);
             input.placeholder = "Type your answer or add more details...";
           }
         })

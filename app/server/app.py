@@ -57,6 +57,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 APP_ROOT = os.path.abspath(os.path.join(HERE, ".."))
 FRONTEND_ROOT = os.path.join(APP_ROOT, "frontend")
 DATA_ROOT = os.path.join(APP_ROOT, "data")
+PROMPTS_ROOT = os.path.join(HERE, "prompts")
 CURRICULA_ROOT = os.path.join(DATA_ROOT, "curricula")
 AMENDMENTS_ROOT = os.path.join(DATA_ROOT, "amendments")
 LESSONPLANS_ROOT = os.path.join(DATA_ROOT, "lessonplans")
@@ -128,6 +129,16 @@ def log_mistral_prompt(label, system_prompt, user_prompt, request_body=None):
     entry_lines.append("")
     with open(MISTRAL_PROMPT_LOG_FILE, "a", encoding="utf-8") as log_file:
         log_file.write("\n".join(entry_lines) + "\n")
+
+
+def load_prompt_file(filename):
+    path = os.path.join(PROMPTS_ROOT, filename)
+    try:
+        with open(path, "r", encoding="utf-8") as prompt_file:
+            return prompt_file.read().strip()
+    except OSError as error:
+        log_message(f"[prompt] Unable to load {filename}: {error}")
+        raise
 
 
 def load_env_file():
@@ -297,6 +308,13 @@ def step3_state_path(session_id):
     return os.path.join(STEP3_STATE_ROOT, f"{session}.json")
 
 
+def step3_conversation_log_path(session_id):
+    session = str(session_id or "").strip()
+    if not session:
+        return ""
+    return os.path.join(STEP3_STATE_ROOT, f"{session}-conversation.txt")
+
+
 def save_step3_state(session_id, state):
     path = step3_state_path(session_id)
     if not path:
@@ -442,6 +460,104 @@ def build_conversation_text(conversation):
         prefix = f"[{time}] {role}: " if time else f"{role}: "
         lines.append(prefix + text)
     return "\n".join(lines).strip()
+
+
+def get_step3_focus_label(payload):
+    current_node = payload.get("currentNode") if isinstance(payload.get("currentNode"), dict) else {}
+    focus_title = str(current_node.get("pointTitle", "")).strip()
+    focus_label = str(current_node.get("label", "")).strip()
+    focus_id = str(current_node.get("id", "")).strip()
+    focus_parts = [item for item in (focus_label, focus_title, focus_id) if item]
+    return " - ".join(focus_parts) if focus_parts else "No active focus"
+
+
+def summarize_step3_changes(draft):
+    draft = draft if isinstance(draft, dict) else {}
+    changes = draft.get("changes") if isinstance(draft.get("changes"), list) else []
+    lines = []
+    for index, change in enumerate(changes[-8:], start=1):
+        change = change if isinstance(change, dict) else {}
+        title = str(change.get("title") or change.get("kind") or "Change").strip()
+        reason = str(change.get("reason", "")).strip()
+        before_value = str(change.get("beforeValue", "")).strip()
+        after_value = str(change.get("afterValue", "")).strip()
+        before_after = ""
+        if before_value or after_value:
+            before_after = f" ({before_value or '?'} -> {after_value or '?'})"
+        line = f"{index}. {title}{before_after}"
+        if reason:
+            line += f": {reason}"
+        lines.append(line)
+    return lines
+
+
+def build_step3_memory_summary(payload, conversation=None, draft=None):
+    payload = payload if isinstance(payload, dict) else {}
+    draft = draft if isinstance(draft, dict) else payload.get("draft")
+    draft = draft if isinstance(draft, dict) else {}
+    conversation = conversation if isinstance(conversation, list) else payload.get("conversation")
+    conversation = conversation if isinstance(conversation, list) else []
+
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    subjects = payload.get("subjects") if isinstance(payload.get("subjects"), list) else meta.get("subjects")
+    subjects = subjects if isinstance(subjects, list) else []
+    latest_teacher_reply = str(payload.get("userMessage", "")).strip()
+    current_focus = get_step3_focus_label(payload)
+    changes = summarize_step3_changes(draft)
+    recent_conversation = build_conversation_text(conversation[-10:])
+
+    lines = [
+        "Step 3 local memory summary",
+        f"Session: {payload.get('sessionId', '') or 'unknown'}",
+        f"Country: {payload.get('country') or meta.get('country') or 'unknown'}",
+        f"Subjects: {', '.join(str(item) for item in subjects) if subjects else 'unknown'}",
+        f"Current focus: {current_focus}",
+        f"Latest teacher reply: {latest_teacher_reply or '(none)'}",
+        "",
+        "Decisions and changes already applied:",
+    ]
+    lines.extend(changes if changes else ["(none yet)"])
+    lines.extend([
+        "",
+        "Recent conversation:",
+        recent_conversation or "(no conversation yet)",
+        "",
+        "Instruction for the next answer:",
+        "Treat the recent conversation and applied changes as memory. Do not contradict them. "
+        "If the teacher challenges a previous suggestion, acknowledge it and continue from the saved context.",
+    ])
+    return "\n".join(lines).strip()
+
+
+def save_step3_conversation_log(session_id, conversation, payload, result):
+    path = step3_conversation_log_path(session_id)
+    if not path:
+        return False
+    try:
+        draft = None
+        if isinstance(result, dict) and isinstance(result.get("updated_draft"), dict):
+            draft = result.get("updated_draft")
+        elif isinstance(payload, dict) and isinstance(payload.get("draft"), dict):
+            draft = payload.get("draft")
+
+        memory_summary = build_step3_memory_summary(payload, conversation, draft)
+        conversation_text = build_conversation_text(conversation)
+        content = [
+            memory_summary,
+            "",
+            "=" * 72,
+            "Full conversation log",
+            "=" * 72,
+            conversation_text or "(no conversation yet)",
+            "",
+        ]
+        with open(path, "w", encoding="utf-8") as log_file:
+            log_file.write("\n".join(content))
+        return True
+    except OSError:
+        log_message(f"[step3-conversation-log] Unable to save session={session_id}")
+        traceback.print_exc()
+        return False
 
 
 def send_summary_email(payload):
@@ -1496,6 +1612,59 @@ def parse_json_response_block(text):
         raise first_error
 
 
+def format_context_range(from_value, to_value, unknown_label="not provided"):
+    start = str(from_value or "").strip()
+    end = str(to_value or "").strip()
+    if start and end:
+        return f"{start} to {end}"
+    if start:
+        return f"{start} to ?"
+    if end:
+        return f"? to {end}"
+    return unknown_label
+
+
+def build_ui_target_context(metadata):
+    subjects = metadata.get("subjects", [])
+    if isinstance(subjects, str):
+        subjects = parse_subjects_value(subjects)
+    return {
+        "country": str(metadata.get("country", "")).strip(),
+        "subjects": subjects,
+        "gradeRange": {
+            "from": str(metadata.get("gradeFrom", "")).strip(),
+            "to": str(metadata.get("gradeTo", "")).strip(),
+            "display": format_context_range(metadata.get("gradeFrom", ""), metadata.get("gradeTo", "")),
+        },
+        "ageRange": {
+            "from": str(metadata.get("ageFrom", "")).strip(),
+            "to": str(metadata.get("ageTo", "")).strip(),
+            "display": format_context_range(metadata.get("ageFrom", ""), metadata.get("ageTo", "")),
+        },
+        "specifics": str(metadata.get("specifics", "")).strip(),
+        "priority": "Use this teacher-entered UI context as the intended lesson context. Check the uploaded document against it.",
+    }
+
+
+def build_analysis_context_summary(payload):
+    context = payload.get("ui_target_context") if isinstance(payload.get("ui_target_context"), dict) else {}
+    subjects = context.get("subjects") if isinstance(context.get("subjects"), list) else []
+    grade_range = context.get("gradeRange") if isinstance(context.get("gradeRange"), dict) else {}
+    age_range = context.get("ageRange") if isinstance(context.get("ageRange"), dict) else {}
+    lines = [
+        "Teacher-entered UI target context (read this first):",
+        f"- Country: {context.get('country') or 'not provided'}",
+        f"- Subject(s): {', '.join(subjects) if subjects else 'not provided'}",
+        f"- Intended grade range: {grade_range.get('display') or 'not provided'}",
+        f"- Intended age range: {age_range.get('display') or 'not provided'}",
+        f"- Specific teacher notes: {context.get('specifics') or 'none'}",
+        "",
+        "Analysis instruction:",
+        "Use the UI target context as the teacher's intended use case. Extract what the document says, then check whether the lesson plan fits this UI context based on the actual tasks and activity load. If the document claims a different grade or age than the UI context, report the mismatch clearly.",
+    ]
+    return "\n".join(lines)
+
+
 def call_mistral_analysis(payload):
     if not MISTRAL_API_KEY:
         log_message("[mistral] Missing MISTRAL_API_KEY")
@@ -1503,91 +1672,10 @@ def call_mistral_analysis(payload):
             "error": "MISTRAL_API_KEY is not configured in app/server/.env"
         }
 
-    system_prompt = (
-        "You are a helpful curriculum analysis assistant. "
-        "You support teachers analyzing uploaded worksheets, lesson plans, or curriculum excerpts. "
-        "Your job is to give constructive, practical feedback. "
-        "Your style is calm, clear, respectful, simple, and concrete. "
-        "Avoid jargon, vague praise, and vague criticism. "
-        "Assume teachers are experts in didactics, pedagogy, and their subject. "
-        "Respond in the same language as the user. "
-        "If personal data is clearly visible, include a short, neutral note that such data should not be processed in a production setting and that the response is for test purposes only. "
-        "Focus your analysis on these questions: "
-        "Is the time scope realistic? "
-        "Are goals or competencies clear? "
-        "Is the material adaptable for learners with different speeds and competency levels? "
-        "Is the level of detail helpful or restrictive? "
-        "Is the target group clearly described? "
-        "Is there a recognizable link to the curriculum of the indicated country? "
-        "If a country is provided, try to align the lesson with the corresponding curriculum for the subject and school level. "
-        "If no clear alignment is possible, state that transparently. "
-        "Return only raw JSON and nothing else. "
-        "Do not wrap the answer in markdown, code fences, or commentary. "
-        "Do not prefix the output with 'json'. "
-        "Return one JSON object with exactly this structure:\n"
-        "{\n"
-        '  "screen": "first_analysis_and_suggestions",\n'
-        '  "lesson_plan_summary": {\n'
-        '    "short_summary": "brief neutral summary",\n'
-        '    "detected_subjects": ["Science"],\n'
-        '    "detected_age_range": {"from": 10, "to": 12},\n'
-        '    "detected_grade_range": {"from": 5, "to": 6},\n'
-        '    "confidence": {"level": "medium", "note": "overall confidence for the summary"},\n'
-        '    "notes_for_teacher": "optional short note"\n'
-        "  },\n"
-        '  "analysis_focus": {\n'
-        '    "time_scope": {"status": "good", "confidence": "high", "note": "short judgement about timing"},\n'
-        '    "goals_competencies": {"status": "clear", "confidence": "high", "note": "short judgement about goals and competencies"},\n'
-        '    "adaptability": {"status": "good", "confidence": "medium", "note": "short judgement about differentiation and adaptability"},\n'
-        '    "detail_level": {"status": "balanced", "confidence": "high", "note": "short judgement about how detailed the plan is"},\n'
-        '    "target_group": {"status": "clear", "confidence": "high", "note": "short judgement about target group clarity"},\n'
-        '    "curriculum_alignment": {"status": "evident", "confidence": "medium", "note": "short judgement about curriculum linkage"}\n'
-        "  },\n"
-        '  "categories": [\n'
-        "    {\n"
-        '      "id": "time_scope",\n'
-        '      "title": "Time scope",\n'
-        '      "description": "Points that show whether the planned timing is realistic or needs adjustment.",\n'
-        '      "items": [\n'
-        "        {\n"
-        '          "id": "time_scope_001",\n'
-        '          "title": "Timing seems tight",\n'
-        '          "short_explanation": "Short teacher-friendly explanation.",\n'
-        '          "why_it_matters": "Why this matters for the lesson flow and pace.",\n'
-        '          "citation": {\n'
-        '            "label": "p. 2, section \\"Learning activities\\", lines 12-18",\n'
-        '            "page": 2,\n'
-        '            "section": "Learning activities",\n'
-        '            "line_start": 12,\n'
-        '            "line_end": 18,\n'
-        '            "cited_text": "Short cited passage.",\n'
-        '            "context_before": ["..."],\n'
-        '            "context_after": ["..."]\n'
-        "          },\n"
-        '          "suggested_next_action": "If selected, the tutor can help improve this point.",\n'
-        '          "confidence": "medium",\n'
-        '          "teacher_comment_placeholder": "Add more details or correct this interpretation..."\n'
-        "        }\n"
-        "      ]\n"
-        "    }\n"
-        "  ]\n"
-        "}\n"
-        "Rules:\n"
-        "- Use only these category ids: time_scope, goals_competencies, adaptability, detail_level, target_group, curriculum_alignment.\n"
-        "- The screen is a prioritization interface, not a final report.\n"
-        "- Use the uploaded lesson plan together with the provided country, subjects, grade range, age range, and specifics fields.\n"
-        "- Keep the focus on concrete, evidence-based observations about realism, clarity of goals, adaptability, level of detail, target group, and curriculum alignment.\n"
-        "- If relevant information is missing, say so transparently and use low or medium confidence.\n"
-        "- Include only the most important points, maximum 8 items per category.\n"
-        "- Fewer than 8 is good if there are fewer truly important points.\n"
-        "- Do not invent citations. If a citation is uncertain, say so in the explanation and use low confidence.\n"
-          "- Be concrete, traceable, teacher-friendly, non-judgemental, actionable, and evidence-based.\n"
-          "- Prefer short titles and concise explanations that a teacher can scan quickly.\n"
-          "- Avoid double quotes inside string values whenever possible; rephrase quoted titles or labels instead of nesting quotation marks.\n"
-          "- Use the analysis_focus block to summarize the six core lenses succinctly before listing the detailed categories."
-      )
+    system_prompt = load_prompt_file("analysis_system_prompt.txt")
 
-    user_prompt = json.dumps(payload, ensure_ascii=False, indent=2)
+    context_summary = build_analysis_context_summary(payload)
+    user_prompt = context_summary + "\n\nFull uploaded lesson payload:\n" + json.dumps(payload, ensure_ascii=False, indent=2)
     request_body = {
         "model": MISTRAL_MODEL,
         "messages": [
@@ -1643,53 +1731,19 @@ def call_mistral_refinement(payload):
             "error": "MISTRAL_API_KEY is not configured in app/server/.env"
         }
 
-    system_prompt = (
-        "You are a refinement tutor for lesson plans. "
-        "You continue an interactive dialogue with a teacher who is improving a lesson plan. "
-        "Use the current draft, the selected focus point, the previous conversation, and the latest teacher reply. "
-        "Prefer the current focus point from Step 2 as the active topic until it has been handled. "
-        "Do not ask the user why they want a change if the selected focus already explains it. "
-        "Do not open a new preference loop once the teacher has already answered a question. "
-        "If the teacher challenges your suggestion, answer briefly with a concrete reason and the concrete change you propose. "
-        "Only ask a follow-up question when a critical detail is truly missing and the answer would materially change the edit. "
-        "When you ask a follow-up, ask only one short question and do not add extra meta discussion. "
-        "If the current meta data is incomplete, say so transparently in one brief sentence and continue with the best available suggestion. "
-        "Respond in the same language as the teacher. "
-        "Keep the tone calm, concrete, practical, and respectful. "
-        "Favor direct editing language over explanation-heavy discussion. "
-        "Keep responses short unless a longer answer is necessary to make the edit understandable. "
-        "Return only raw JSON and nothing else. "
-        "Do not wrap the answer in markdown, code fences, or commentary. "
-        "Return one JSON object with exactly this structure:\n"
-        "{\n"
-        '  "assistant_message": "short tutor reply or follow-up question",\n'
-        '  "advance": true,\n'
-        '  "focus_used": "time_scope",\n'
-        '  "updated_draft": {\n'
-        '    "title": "string",\n'
-        '    "section": "steps",\n'
-        '    "summary": "string",\n'
-        '    "meta": {"country": "string", "subjects": ["string"], "gradeRange": "string", "ageRange": "string", "focus": "string"},\n'
-        '    "goals": ["string"],\n'
-        '    "skills": ["string"],\n'
-        '    "steps": [{"title": "string", "duration": "string", "description": "string", "status": "string", "note": "string"}],\n'
-        '    "materials": ["string"],\n'
-        '    "assessment": ["string"],\n'
-        '    "reflection": "string",\n'
-        '    "changes": [{"kind": "string", "title": "string", "reason": "string", "beforeValue": "string", "afterValue": "string", "source": "string", "time": "string"}]\n'
-        "  },\n"
-        '  "changes_made": [{"section": "steps", "title": "string", "reason": "string"}]\n'
-        "}\n"
-        "Rules:\n"
-        "- Keep the updated_draft structure intact.\n"
-        "- Only change fields that are relevant to the current focus and the latest teacher reply.\n"
-        "- If you need another clarification before changing anything, set advance to false and ask one concise follow-up question in assistant_message.\n"
-        "- If no change is needed, keep updated_draft close to the input draft.\n"
-        "- Use the provided current draft as the base, not a fresh template.\n"
-        "- Be careful with JSON escaping and quote strings normally.\n"
-    )
+    system_prompt = load_prompt_file("refinement_system_prompt.txt")
 
-    user_prompt = json.dumps(payload, ensure_ascii=False, indent=2)
+    memory_summary = build_step3_memory_summary(payload)
+    raw_payload = json.dumps(payload, ensure_ascii=False, indent=2)
+    user_prompt = (
+        memory_summary
+        + "\n\n"
+        + "=" * 72
+        + "\nRaw current payload follows. Use it as source data, but prioritize the memory summary for dialogue continuity.\n"
+        + "=" * 72
+        + "\n"
+        + raw_payload
+    )
     request_body = {
         "model": MISTRAL_MODEL,
         "messages": [
@@ -1743,15 +1797,16 @@ def call_mistral_hello():
         log_message("[mistral-test] Missing MISTRAL_API_KEY")
         return {"error": "MISTRAL_API_KEY is not configured in app/server/.env"}
 
+    system_prompt = load_prompt_file("mistral_test_system_prompt.txt")
     request_body = {
         "model": MISTRAL_MODEL,
         "messages": [
-            {"role": "system", "content": "Reply with exactly: hello"},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Say hello."},
         ],
         "temperature": 0,
     }
-    log_mistral_prompt("test", "Reply with exactly: hello", "Say hello.", request_body)
+    log_mistral_prompt("test", system_prompt, "Say hello.", request_body)
 
     request = urllib.request.Request(
         "https://api.mistral.ai/v1/chat/completions",
@@ -1969,13 +2024,23 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         log_message(f"[analyze] Extracted chars={len(extracted_text)}")
 
         specifics = form.getvalue("specifics", "").strip()
-        subjects_value = form.getvalue("subjects", "")
-        if isinstance(subjects_value, list):
-            subjects_value = ", ".join(subjects_value)
+        subjects_value = []
+        if "subjects[]" in form:
+            subjects_field = form["subjects[]"]
+            if isinstance(subjects_field, list):
+                subjects_value = [item.value for item in subjects_field]
+            else:
+                subjects_value = [subjects_field.value]
+        elif "subjects" in form:
+            subjects_value = parse_subjects_value(form.getvalue("subjects", ""))
+        subject_other = form.getvalue("subjectOther", "").strip()
+        if subject_other:
+            subjects_value.append(subject_other)
+        subjects_value = parse_subjects_value(subjects_value)
         metadata = {
             "filename": filename,
             "country": form.getvalue("country", "").strip(),
-            "subjects": subjects_value.strip() if isinstance(subjects_value, str) else str(subjects_value),
+            "subjects": subjects_value,
             "gradeFrom": form.getvalue("gradeFrom", "").strip(),
             "gradeTo": form.getvalue("gradeTo", "").strip(),
             "ageFrom": form.getvalue("ageFrom", "").strip(),
@@ -1992,7 +2057,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         log_message(
             "[analyze] Meta country={country} subjects={subjects} grade={g1}-{g2} age={a1}-{a2}".format(
                 country=metadata["country"],
-                subjects=metadata["subjects"],
+                subjects=", ".join(metadata["subjects"]),
                 g1=metadata["gradeFrom"],
                 g2=metadata["gradeTo"],
                 a1=metadata["ageFrom"],
@@ -2004,6 +2069,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
 
         analysis_request_metadata = dict(metadata)
         analysis_request_metadata.pop("sourceDocument", None)
+        analysis_request_metadata["ui_target_context"] = build_ui_target_context(metadata)
         analysis = call_mistral_analysis(analysis_request_metadata)
         if isinstance(analysis, dict):
             analysis["sourceDocument"] = metadata["sourceDocument"]
@@ -2224,6 +2290,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
                 "result": result,
             }
             save_step3_state(session_id, state_snapshot)
+            save_step3_conversation_log(session_id, saved_conversation, payload, result)
         if "error" in result:
             log_message(f"[mistral-step3] Failed: {result.get('error')}")
             self.send_response(HTTPStatus.BAD_GATEWAY)

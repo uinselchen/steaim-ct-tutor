@@ -1173,6 +1173,7 @@ body.analysis-page {
 
 .analysis-page.refinement-page .chat-row {
   display: flex;
+  align-items: flex-start;
 }
 
 .analysis-page.refinement-page .chat-row.tutor {
@@ -1184,7 +1185,9 @@ body.analysis-page {
 }
 
 .analysis-page.refinement-page .chat-bubble {
-  max-width: min(78%, 560px);
+  display: inline-block;
+  width: fit-content;
+  max-width: min(72%, 520px);
   border-radius: 18px;
   padding: 12px 14px;
   background: #ffffff;
@@ -1193,6 +1196,7 @@ body.analysis-page {
 }
 
 .analysis-page.refinement-page .chat-row.teacher .chat-bubble {
+  align-self: flex-end;
   background: linear-gradient(135deg, rgba(102, 88, 255, 0.14), rgba(102, 88, 255, 0.08));
   border-color: rgba(102, 88, 255, 0.18);
 }

@@ -106,6 +106,9 @@ call :require_file "%FRONTEND%\js\app.js" "start screen script"
 call :require_file "%FRONTEND%\js\lesson-info.js" "step 1 script"
 call :require_file "%FRONTEND%\assets\STEaiM_Logo_lowres.png" "STEaiM logo"
 call :require_file "%FRONTEND%\assets\EN Co-Funded by the EU_POS.png" "EU co-funded logo"
+call :require_file "%SERVER%\prompts\analysis_system_prompt.txt" "analysis prompt"
+call :require_file "%SERVER%\prompts\refinement_system_prompt.txt" "refinement prompt"
+call :require_file "%SERVER%\prompts\mistral_test_system_prompt.txt" "Mistral test prompt"
 
 if not exist "%REQUIREMENTS%" (
     echo Creating Python requirements file...
