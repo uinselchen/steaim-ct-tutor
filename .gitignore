@@ -24,3 +24,10 @@ Thumbs.db
 # Generated files
 *.sqlite3
 *.db
+
+# Local tutor runtime data
+app/data/amendments/
+app/data/lessonplans/uploads/
+app/data/outputs/*
+!app/data/outputs/.gitkeep
+app/server/.env

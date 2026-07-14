@@ -9,7 +9,9 @@ document.addEventListener("DOMContentLoaded", function () {
   var fileInput = document.getElementById("lessonPlanUpload");
   var fileName = document.getElementById("fileName");
   var continueButton = document.getElementById("continueButton");
+  var analysisHello = document.getElementById("analysisHello");
   var moreInfoButton = document.getElementById("moreInfoButton");
+  var originalContinueLabel = continueButton ? continueButton.textContent : "Continue";
 
   var currentSubjects = [];
   var currentCountries = [];
@@ -23,6 +25,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function clearError(id) {
     setError(id, "");
+  }
+
+  function setErrorDetail(message) {
+    var element = document.getElementById("fileErrorDetail");
+    if (element) {
+      element.textContent = message || "";
+    }
   }
 
   function updateFileDisplay() {
@@ -150,8 +159,8 @@ document.addEventListener("DOMContentLoaded", function () {
       input.type = "checkbox";
       input.name = "subjects";
       input.value = subject;
-      label.appendChild(input);
       label.appendChild(document.createTextNode(" " + subject));
+      label.appendChild(input);
       subjectCheckboxes.appendChild(label);
     });
 
@@ -161,8 +170,8 @@ document.addEventListener("DOMContentLoaded", function () {
     otherInput.name = "subjects";
     otherInput.value = "Other";
     otherInput.id = "subjectOtherCheckbox";
-    otherLabel.appendChild(otherInput);
     otherLabel.appendChild(document.createTextNode(" Other"));
+    otherLabel.appendChild(otherInput);
     subjectCheckboxes.appendChild(otherLabel);
 
     var otherCheckbox = document.getElementById("subjectOtherCheckbox");
@@ -217,6 +226,7 @@ document.addEventListener("DOMContentLoaded", function () {
     clearError("gradeError");
     clearError("ageError");
     clearError("fileError");
+    setErrorDetail("");
 
     var country = countrySelect.value.trim();
     var countryOtherText = countryOtherInput.value.trim();
@@ -344,7 +354,48 @@ document.addEventListener("DOMContentLoaded", function () {
     var country = countrySelect.value;
     var countryOtherText = country === "Other" ? countryOtherInput.value.trim() : "";
     var customCountry = country === "Other" ? countryOtherText : "";
-    var upload = function () {
+    var analyze = function () {
+      function sendClientLog(message) {
+        return fetch("/client-log", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ message: message })
+        }).catch(function () {
+          return null;
+        });
+      }
+
+      function runMistralHello() {
+        return fetch("/mistral-test", {
+          method: "POST"
+        }).then(function (response) {
+          return response.text().then(function (text) {
+            var data = null;
+            try {
+              data = text ? JSON.parse(text) : null;
+            } catch (error) {
+              data = null;
+            }
+            if (!response.ok) {
+              var message = (data && data.error) ? data.error : "Mistral hello failed";
+              return Promise.reject({
+                message: message,
+                raw: text,
+                data: data,
+                status: response.status
+              });
+            }
+            return {
+              data: data,
+              raw: text,
+              status: response.status
+            };
+          });
+        });
+      }
+
       var formData = new FormData();
       formData.append("country", customCountry || country);
       if (customCountry) {
@@ -363,21 +414,90 @@ document.addEventListener("DOMContentLoaded", function () {
       formData.append("specifics", document.getElementById("specifics").value.trim());
       formData.append("lessonPlan", fileInput.files[0]);
 
-      fetch("/upload", {
-        method: "POST",
-        body: formData
-      })
-        .then(function (response) {
-          if (!response.ok) {
-            throw new Error("Upload failed");
+      sendClientLog("Analysis started for " + (fileInput.files[0] ? fileInput.files[0].name : "unknown file"));
+      if (analysisHello) {
+        analysisHello.textContent = "checking...";
+      }
+      continueButton.disabled = true;
+      continueButton.textContent = "Analyzing...";
+
+      runMistralHello()
+        .then(function (helloResult) {
+          var helloValue = "hello";
+          if (helloResult && helloResult.data && helloResult.data.hello) {
+            helloValue = helloResult.data.hello;
           }
-          return response.json();
+          if (analysisHello) {
+            analysisHello.textContent = helloValue;
+          }
+          sendClientLog("Mistral hello returned: " + helloValue);
+          return fetch("/analyze", {
+            method: "POST",
+            body: formData
+          });
         })
-        .then(function () {
+        .then(function (response) {
+          sendClientLog("Analysis response status " + response.status);
+          if (!response.ok) {
+            return response.text().then(function (text) {
+              var errorData = null;
+              try {
+                errorData = text ? JSON.parse(text) : null;
+              } catch (error) {
+                errorData = null;
+              }
+              console.error("Analysis response error:", errorData || text);
+              sendClientLog("Analysis failed: " + ((errorData && errorData.error) ? errorData.error : "unknown error"));
+              setErrorDetail(text ? "Raw response:\n" + text : "Raw response: <empty>");
+              throw new Error((errorData && errorData.error) ? errorData.error : "Analysis failed");
+            });
+          }
+          return response.text().then(function (text) {
+            var analysis = {};
+            try {
+              analysis = text ? JSON.parse(text) : {};
+            } catch (error) {
+              analysis = {};
+            }
+            return analysis;
+          });
+        })
+        .then(function (analysis) {
+          console.log("Analysis result:", analysis);
+          setErrorDetail("");
+          if (analysis && analysis.error) {
+            sendClientLog("Analysis returned error: " + analysis.error);
+          } else {
+            sendClientLog("Analysis succeeded and result was stored");
+          }
+          window.localStorage.setItem("step2Analysis", JSON.stringify(analysis));
+            window.localStorage.setItem("step2UploadMeta", JSON.stringify({
+              country: formData.get("country"),
+              subjects: subjects,
+              gradeFrom: formData.get("gradeFrom"),
+              gradeTo: formData.get("gradeTo"),
+              ageFrom: formData.get("ageFrom"),
+              ageTo: formData.get("ageTo"),
+              specifics: formData.get("specifics"),
+              filename: fileInput.files[0] ? fileInput.files[0].name : "",
+              sourceDocument: analysis && (analysis.sourceDocument || analysis.source_document) ? (analysis.sourceDocument || analysis.source_document) : null
+            }));
           window.location.href = "first-analysis-and-suggestions.html";
         })
-        .catch(function () {
-          setError("fileError", "The upload failed. Please try again.");
+        .catch(function (error) {
+          console.error("Analysis request failed:", error);
+          sendClientLog("Analysis request failed: " + (error && error.message ? error.message : "unknown"));
+          if (analysisHello && !analysisHello.textContent) {
+            analysisHello.textContent = "error";
+          }
+          if (error && error.raw) {
+            setErrorDetail("Raw response:\n" + error.raw);
+          }
+          setError("fileError", error.message || "The analysis failed. Please try again.");
+        })
+        .finally(function () {
+          continueButton.disabled = false;
+          continueButton.textContent = originalContinueLabel;
         });
     };
 
@@ -407,13 +527,13 @@ document.addEventListener("DOMContentLoaded", function () {
     if (saveTasks.length) {
       Promise.all(saveTasks)
         .then(function () {
-          upload();
+          analyze();
         })
         .catch(function () {
-          upload();
+          analyze();
         });
     } else {
-      upload();
+      analyze();
     }
   }
 

@@ -3,31 +3,246 @@ setlocal enabledelayedexpansion
 
 set "ROOT=%~dp0"
 set "APP=%ROOT%app"
+set "SERVER=%APP%\server"
+set "FRONTEND=%APP%\frontend"
+set "DATA=%APP%\data"
 set "VENV=%APP%\venv"
+set "PY=%VENV%\Scripts\python.exe"
+set "BUNDLED_PY=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+set "LOGDIR=%DATA%\outputs"
+set "LOGFILE=%LOGDIR%\server.log"
+set "ANALYSIS_LOG=%LOGDIR%\analysis-log.txt"
+set "PROMPT_LOG=%LOGDIR%\mistral-prompt-log.txt"
+set "REQUIREMENTS=%SERVER%\requirements.txt"
+set "ENV_FILE=%SERVER%\.env"
+set "ENV_EXAMPLE=%SERVER%\.env.example"
+set "CONFIG_FILE=%DATA%\config.json"
+set "WARNINGS=0"
 
-set "DIRS=app app\server app\frontend app\frontend\css app\frontend\js app\frontend\assets app\data app\data\curricula app\data\lessonplans app\data\templates app\data\outputs"
-for %%D in (%DIRS%) do (
-    if not exist "%ROOT%%%D\" (
-        mkdir "%ROOT%%%D\"
+title STEaiM-CT Tutor
+echo.
+echo STEaiM-CT Tutor startup check
+echo =============================
+echo.
+
+call :ensure_dir "%APP%"
+call :ensure_dir "%SERVER%"
+call :ensure_dir "%FRONTEND%"
+call :ensure_dir "%FRONTEND%\css"
+call :ensure_dir "%FRONTEND%\js"
+call :ensure_dir "%FRONTEND%\assets"
+call :ensure_dir "%DATA%"
+call :ensure_dir "%DATA%\curricula"
+call :ensure_dir "%DATA%\amendments"
+call :ensure_dir "%DATA%\lessonplans"
+call :ensure_dir "%DATA%\lessonplans\uploads"
+call :ensure_dir "%DATA%\templates"
+call :ensure_dir "%LOGDIR%"
+call :ensure_dir "%LOGDIR%\exports"
+call :ensure_dir "%LOGDIR%\step3-sessions"
+
+call :ensure_file "%ANALYSIS_LOG%"
+call :ensure_file "%PROMPT_LOG%"
+call :ensure_file "%LOGFILE%"
+
+if not exist "%CONFIG_FILE%" (
+    echo Creating default config...
+    > "%CONFIG_FILE%" echo {
+    >> "%CONFIG_FILE%" echo   "countries": ["Slovakia", "Germany", "Austria", "Spain", "Czech Republic", "Poland", "Portugal", "Italy"],
+    >> "%CONFIG_FILE%" echo   "subjects": ["Mathematics", "Informatics / CS", "Biology", "Physics", "Chemistry", "Arts"]
+    >> "%CONFIG_FILE%" echo }
+)
+
+if not exist "%ENV_EXAMPLE%" (
+    echo Creating .env.example...
+    > "%ENV_EXAMPLE%" echo MISTRAL_API_KEY=your_mistral_api_key_here
+    >> "%ENV_EXAMPLE%" echo MISTRAL_MODEL=mistral-small-latest
+    >> "%ENV_EXAMPLE%" echo.
+    >> "%ENV_EXAMPLE%" echo # Optional email settings
+    >> "%ENV_EXAMPLE%" echo SMTP_HOST=
+    >> "%ENV_EXAMPLE%" echo SMTP_PORT=587
+    >> "%ENV_EXAMPLE%" echo SMTP_USERNAME=
+    >> "%ENV_EXAMPLE%" echo SMTP_PASSWORD=
+    >> "%ENV_EXAMPLE%" echo SMTP_USE_TLS=true
+    >> "%ENV_EXAMPLE%" echo SMTP_USE_SSL=false
+    >> "%ENV_EXAMPLE%" echo MAIL_FROM_ADDRESS=
+    >> "%ENV_EXAMPLE%" echo MAIL_TO_ADDRESS=
+)
+
+if not exist "%ENV_FILE%" (
+    echo Creating .env from .env.example...
+    copy "%ENV_EXAMPLE%" "%ENV_FILE%" >nul
+    set /a WARNINGS+=1
+    echo WARNING: Add your Mistral API key to "%ENV_FILE%".
+)
+
+findstr /B /C:"MISTRAL_API_KEY=your_mistral_api_key_here" "%ENV_FILE%" >nul 2>nul
+if not errorlevel 1 (
+    set /a WARNINGS+=1
+    echo WARNING: MISTRAL_API_KEY still contains the placeholder.
+)
+
+findstr /B /C:"MISTRAL_API_KEY=" "%ENV_FILE%" >nul 2>nul
+if errorlevel 1 (
+    set /a WARNINGS+=1
+    echo WARNING: MISTRAL_API_KEY is missing in "%ENV_FILE%".
+)
+
+findstr /X /C:"MISTRAL_API_KEY=" "%ENV_FILE%" >nul 2>nul
+if not errorlevel 1 (
+    set /a WARNINGS+=1
+    echo WARNING: MISTRAL_API_KEY is empty in "%ENV_FILE%".
+)
+
+call :require_file "%SERVER%\app.py" "server"
+call :require_file "%FRONTEND%\start.html" "start screen"
+call :require_file "%FRONTEND%\lesson-info.html" "step 1 screen"
+call :require_file "%FRONTEND%\first-analysis-and-suggestions.html" "step 2 screen"
+call :require_file "%FRONTEND%\refining-and-improving.html" "step 3 screen"
+call :require_file "%FRONTEND%\download-result.html" "step 4 screen"
+call :require_file "%FRONTEND%\css\style.css" "stylesheet"
+call :require_file "%FRONTEND%\js\app.js" "start screen script"
+call :require_file "%FRONTEND%\js\lesson-info.js" "step 1 script"
+call :require_file "%FRONTEND%\assets\STEaiM_Logo_lowres.png" "STEaiM logo"
+call :require_file "%FRONTEND%\assets\EN Co-Funded by the EU_POS.png" "EU co-funded logo"
+
+if not exist "%REQUIREMENTS%" (
+    echo Creating Python requirements file...
+    > "%REQUIREMENTS%" echo python-docx^>=1.1.2
+    >> "%REQUIREMENTS%" echo reportlab^>=4.2.0
+)
+
+if exist "%PY%" (
+    "%PY%" -c "import sys" >nul 2>nul
+    if errorlevel 1 (
+        echo Local Python environment is broken. Recreating it...
+        rmdir /s /q "%VENV%"
     )
 )
 
-if not exist "%VENV%\Scripts\python.exe" (
-    echo Creating local virtual environment...
-    python -m venv "%VENV%" 2>nul
+if not exist "%PY%" (
+    call :create_venv
+)
+
+if not exist "%PY%" (
+    echo.
+    echo Could not create the local Python environment.
+    echo Please install Python 3.11 or newer and run this file again.
+    pause
+    exit /b 1
+)
+
+echo Checking Python packages...
+"%PY%" -c "import docx, reportlab" >nul 2>nul
+if errorlevel 1 (
+    echo Installing required Python packages...
+    "%PY%" -m pip install --upgrade pip
+    "%PY%" -m pip install -r "%REQUIREMENTS%"
     if errorlevel 1 (
-        py -3 -m venv "%VENV%" 2>nul
-    )
-    if not exist "%VENV%\Scripts\python.exe" (
-        echo Failed to create local virtual environment.
-        echo Please install Python 3 and make it available on PATH.
+        echo.
+        echo Package installation failed.
+        echo Please check your internet connection and run start_tutor.bat again.
         pause
         exit /b 1
     )
 )
 
+if not exist "%DATA%\curricula\austria_lehrplan_volksschule_ris_2025_anlage_a.txt" (
+    set /a WARNINGS+=1
+    echo WARNING: Austrian curriculum text was not found. Curriculum matching may be limited.
+)
+
+echo.
+if "%WARNINGS%"=="0" (
+    echo Startup check passed.
+) else (
+    echo Startup check finished with %WARNINGS% warning(s).
+)
+
+if /I "%~1"=="--check" (
+    echo Check mode finished. Server was not started.
+    exit /b 0
+)
+
+echo.
 echo Starting local tutor...
-call "%VENV%\Scripts\activate.bat"
-pushd "%APP%\server"
-python app.py
+echo Server log: "%LOGFILE%"
+echo Prompt log: "%PROMPT_LOG%"
+echo.
+
+pushd "%SERVER%"
+echo ==== %DATE% %TIME% ==== > "%LOGFILE%"
+"%PY%" app.py >> "%LOGFILE%" 2>&1
+set "EXIT_CODE=%ERRORLEVEL%"
 popd
+
+if not "%EXIT_CODE%"=="0" (
+    echo.
+    echo The tutor stopped with error code %EXIT_CODE%.
+    echo See "%LOGFILE%" for the full server log.
+    pause
+    exit /b %EXIT_CODE%
+)
+
+exit /b 0
+
+:ensure_dir
+if not exist "%~1\" (
+    echo Creating folder: %~1
+    mkdir "%~1" >nul 2>nul
+)
+exit /b 0
+
+:ensure_file
+if not exist "%~1" (
+    echo Creating file: %~1
+    type nul > "%~1"
+)
+exit /b 0
+
+:require_file
+if not exist "%~1" (
+    set /a WARNINGS+=1
+    echo WARNING: Missing %~2: "%~1"
+)
+exit /b 0
+
+:create_venv
+echo Creating local Python environment...
+set "PYTHON_CMD="
+
+if exist "%BUNDLED_PY%" (
+    set "PYTHON_CMD="%BUNDLED_PY%""
+) else (
+    where py >nul 2>nul
+    if not errorlevel 1 (
+        set "PYTHON_CMD=py -3"
+    ) else (
+        where python >nul 2>nul
+        if not errorlevel 1 (
+            set "PYTHON_CMD=python"
+        )
+    )
+)
+
+if "!PYTHON_CMD!"=="" (
+    where winget >nul 2>nul
+    if not errorlevel 1 (
+        echo Python was not found. Trying to install Python with winget...
+        winget install -e --id Python.Python.3.12 --scope user --accept-package-agreements --accept-source-agreements
+        where py >nul 2>nul
+        if not errorlevel 1 set "PYTHON_CMD=py -3"
+        if "!PYTHON_CMD!"=="" (
+            where python >nul 2>nul
+            if not errorlevel 1 set "PYTHON_CMD=python"
+        )
+    )
+)
+
+if "!PYTHON_CMD!"=="" (
+    echo Python 3 was not found.
+    exit /b 1
+)
+
+!PYTHON_CMD! -m venv "%VENV%"
+exit /b 0

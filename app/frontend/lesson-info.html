@@ -7,9 +7,12 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body class="lesson-info-page">
-  <header class="page-header">
-    <div class="header-left">
-      <img class="header-logo" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
+    <header class="page-header">
+      <div class="header-left">
+        <div class="brand-logos header-brand-logos">
+          <img class="header-logo header-logo-main" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
+          <img class="header-logo header-logo-erasmus" src="assets/EN Co-Funded by the EU_POS.png" alt="Co-funded by the EU logo" />
+        </div>
       <div>
         <p class="header-subtitle">AI Tutor for Lesson Plans</p>
         <p class="header-note">Prototype v0.2</p>
@@ -49,10 +52,12 @@
 
       <form id="lessonInfoForm" class="lesson-form" novalidate>
         <div class="form-field">
-          <label for="country">* Country</label>
-          <select id="country" name="country">
-            <option value="">Select country</option>
-          </select>
+          <div class="country-inline-row">
+            <label for="country">* Country</label>
+            <select id="country" name="country">
+              <option value="">Select country</option>
+            </select>
+          </div>
           <input type="text" id="countryOther" name="countryOther" class="hidden-input" placeholder="Please specify" />
           <button type="button" id="addCountryButton" class="action-button secondary-button small-button">Add country to list</button>
           <p class="field-error" id="countryError"></p>
@@ -107,11 +112,15 @@
           </div>
           <p class="file-name" id="fileName"></p>
           <p class="field-error" id="fileError"></p>
+          <p class="field-note file-error-detail" id="fileErrorDetail"></p>
         </div>
 
         <div class="form-actions">
           <a class="action-link secondary-button" href="start.html">Back</a>
-          <button type="button" class="action-button primary-button" id="continueButton">Continue</button>
+          <div class="action-cluster">
+            <button type="button" class="action-button primary-button" id="continueButton">Continue</button>
+            <span id="analysisHello" class="analysis-hello" aria-live="polite"></span>
+          </div>
         </div>
       </form>
     </div>

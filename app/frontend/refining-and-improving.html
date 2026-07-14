@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Refining and Improving</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="analysis-page refinement-page">
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="header-left">
+        <div class="brand-logos header-brand-logos">
+          <img class="header-logo header-logo-main" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
+          <img class="header-logo header-logo-erasmus" src="assets/EN Co-Funded by the EU_POS.png" alt="Co-funded by the EU logo" />
+        </div>
+        <div>
+          <p class="header-subtitle">AI Tutor for Lesson Plans</p>
+          <p class="header-note">Prototype v0.2</p>
+        </div>
+      </div>
+      <button class="header-button secondary-button" id="moreInfoButton" type="button">Need more information?</button>
+    </header>
+
+    <section class="progress-bar" aria-label="Progress">
+      <div class="progress-step active">
+        <span class="step-number">1</span>
+        <span class="step-label">Tell us about your lesson idea</span>
+      </div>
+      <span class="progress-connector active"></span>
+      <div class="progress-step active">
+        <span class="step-number">2</span>
+        <span class="step-label">First analysis and suggestions</span>
+      </div>
+      <span class="progress-connector active"></span>
+      <div class="progress-step active">
+        <span class="step-number">3</span>
+        <span class="step-label">Refining and improving</span>
+      </div>
+      <span class="progress-connector"></span>
+      <div class="progress-step inactive">
+        <span class="step-number">4</span>
+        <span class="step-label">Download result</span>
+      </div>
+    </section>
+
+    <main class="analysis-content refinement-workspace">
+      <section class="analysis-hero refinement-hero">
+        <div>
+          <h1>Refinement dialogue</h1>
+          <p class="analysis-hero-copy">
+            Your AI tutor asks one focused question at a time. Selected points from Step 2 come first. If nothing was selected, we start with the most useful refinements.
+          </p>
+        </div>
+        <div class="analysis-callout">
+          <div class="analysis-callout-icon">i</div>
+          <p id="refinementCalloutText">
+            The left side is the decision space. The right side shows the lesson plan as it changes.
+          </p>
+        </div>
+      </section>
+
+      <section class="refinement-grid">
+        <div class="refinement-panel refinement-chat-panel">
+          <div class="refinement-panel-header">
+            <div>
+              <h2 class="refinement-panel-title">Refinement dialogue</h2>
+              <p class="refinement-panel-subtitle">Your AI tutor is asking questions to improve your lesson plan.</p>
+            </div>
+            <button id="clearConversationButton" class="text-button" type="button">Clear conversation</button>
+          </div>
+
+          <div id="focusStrip" class="focus-strip" aria-label="Starting points"></div>
+
+          <div id="chatThread" class="chat-thread" aria-live="polite"></div>
+
+          <div id="quickReplies" class="quick-replies" aria-label="Quick answer options"></div>
+
+          <form id="replyForm" class="chat-input-bar">
+            <input
+              id="replyInput"
+              class="chat-input"
+              type="text"
+              placeholder="Type your answer or add more details..."
+              autocomplete="off"
+            />
+            <button type="submit" class="action-button primary-button send-button">
+              <span class="button-text">Send</span>
+              <span class="button-arrow">-></span>
+            </button>
+          </form>
+          <p class="chat-hint">The more details you provide, the more precise the update will be.</p>
+        </div>
+
+        <div class="refinement-panel refinement-preview-panel">
+          <div class="refinement-panel-header">
+            <div>
+              <h2 class="refinement-panel-title">My lesson plan</h2>
+              <p class="refinement-panel-subtitle">Document preview with live updates based on our discussion.</p>
+            </div>
+            <div class="preview-header-actions">
+              <button id="exportDraftButton" class="action-button secondary-button preview-action" type="button">
+                <span class="button-text">Export draft</span>
+                <span class="button-arrow">-></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="preview-layout">
+            <nav class="preview-sidebar" id="previewTabs" aria-label="Lesson plan sections"></nav>
+            <div class="preview-document">
+              <div id="previewSection"></div>
+            </div>
+          </div>
+
+          <div class="preview-footer">
+            <div>
+              <div id="changeSummary" class="change-summary-line"></div>
+              <div id="changeBreakdown" class="change-breakdown"></div>
+            </div>
+            <button id="changeHistoryButton" class="action-button secondary-button preview-action" type="button">
+              <span class="button-text">Show change history</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="analysis-actions refinement-actions">
+        <a href="first-analysis-and-suggestions.html" class="action-link secondary-button">Back</a>
+        <a id="continueButton" class="action-button primary-button" href="download-result.html">
+          <span class="button-text">Continue to download</span>
+          <span class="button-arrow">-></span>
+        </a>
+      </section>
+    </main>
+  </div>
+
+  <div id="historyModalBackdrop" class="citation-modal-backdrop" aria-hidden="true">
+    <div class="citation-modal refinement-history-modal" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
+      <h3 id="historyModalTitle">Change history</h3>
+      <div id="historyModalBody" class="change-history-list"></div>
+      <div class="citation-modal-actions">
+        <button type="button" class="action-button secondary-button" id="closeHistoryModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function safeParse(raw, fallback) {
+      try {
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function normalizeItems(value) {
+      if (!value) {
+        return [];
+      }
+      if (Array.isArray(value)) {
+        return value.map(function (item) {
+          return String(item || "").trim();
+        }).filter(Boolean);
+      }
+      return String(value).split(",").map(function (item) {
+        return item.trim();
+      }).filter(Boolean);
+    }
+
+    function formatRange(value) {
+      if (!value) {
+        return "n/a";
+      }
+      if (typeof value === "string") {
+        return value;
+      }
+      var fromValue = value.from === 0 || value.from ? String(value.from) : "?";
+      var toValue = value.to === 0 || value.to ? String(value.to) : "?";
+      return fromValue + " to " + toValue;
+    }
+
+    function formatTextList(items) {
+      return (items || []).join(", ");
+    }
+
+    function getTimeStamp() {
+      var now = new Date();
+      return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function setText(id, value) {
+      var element = document.getElementById(id);
+      if (element) {
+        element.textContent = value || "";
+      }
+    }
+
+    function clone(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    var analysis = safeParse(window.localStorage.getItem("step2Analysis"), null);
+    var meta = safeParse(window.localStorage.getItem("step2UploadMeta"), {});
+    var selections = safeParse(window.localStorage.getItem("step2Selections"), []);
+    var preparation = safeParse(window.localStorage.getItem("step2Preparation"), null);
+    var currentSessionId = preparation && preparation.sessionId ? String(preparation.sessionId) : "";
+
+    var initialDraftKey = "step3Draft";
+    var initialConversationKey = "step3Conversation";
+    var initialProgressKey = "step3Progress";
+    var initialSessionKey = "step3Session";
+    var storedDraft = safeParse(window.localStorage.getItem(initialDraftKey), null);
+    var storedConversation = safeParse(window.localStorage.getItem(initialConversationKey), null);
+    var storedProgress = safeParse(window.localStorage.getItem(initialProgressKey), null);
+    var storedSessionId = window.localStorage.getItem(initialSessionKey) || "";
+    var sessionChanged = false;
+
+    if (currentSessionId && storedSessionId !== currentSessionId) {
+      window.localStorage.removeItem(initialDraftKey);
+      window.localStorage.removeItem(initialConversationKey);
+      window.localStorage.removeItem(initialProgressKey);
+      storedDraft = null;
+      storedConversation = [];
+      storedProgress = null;
+      sessionChanged = true;
+    }
+
+    var state = {
+      section: storedProgress && storedProgress.section ? storedProgress.section : (storedDraft && storedDraft.section ? storedDraft.section : "steps"),
+      nodes: [],
+      currentNodeIndex: storedProgress && typeof storedProgress.currentNodeIndex === "number" ? storedProgress.currentNodeIndex : 0,
+      awaitingFreeText: storedProgress && typeof storedProgress.awaitingFreeText === "boolean" ? storedProgress.awaitingFreeText : false,
+      draft: storedDraft || null,
+      conversation: Array.isArray(storedConversation) ? storedConversation : [],
+      changes: storedDraft && Array.isArray(storedDraft.changes) ? storedDraft.changes : [],
+      activeNode: null
+    };
+
+    if (sessionChanged) {
+      state.draft = null;
+      state.conversation = [];
+      state.changes = [];
+      state.currentNodeIndex = 0;
+      state.awaitingFreeText = false;
+      state.activeNode = null;
+      state.section = "steps";
+    }
+
+    function getCountryLabel() {
+      if (meta && meta.country) {
+        return meta.country;
+      }
+      if (preparation && preparation.country) {
+        return preparation.country;
+      }
+      return "Unknown country";
+    }
+
+    function getSubjectLabels() {
+      var list = [];
+      if (meta && meta.subjects) {
+        list = normalizeItems(meta.subjects);
+      }
+      if (!list.length && preparation && preparation.subjects) {
+        list = preparation.subjects.map(function (item) {
+          return item.subject;
+        }).filter(Boolean);
+      }
+      return list;
+    }
+
+    function buildBaseDraft() {
+      var summary = analysis && analysis.lesson_plan_summary ? analysis.lesson_plan_summary.short_summary : "";
+      var subjects = getSubjectLabels();
+      var gradeRange = meta && (meta.gradeFrom || meta.gradeTo) ? formatRange({
+        from: meta.gradeFrom,
+        to: meta.gradeTo
+      }) : formatRange(analysis && analysis.lesson_plan_summary ? analysis.lesson_plan_summary.detected_grade_range : null);
+      var ageRange = meta && (meta.ageFrom || meta.ageTo) ? formatRange({
+        from: meta.ageFrom,
+        to: meta.ageTo
+      }) : formatRange(analysis && analysis.lesson_plan_summary ? analysis.lesson_plan_summary.detected_age_range : null);
+
+      return {
+        title: (summary || "Lesson plan draft").replace(/\s+/g, " ").trim(),
+        section: state.section || "steps",
+        summary: summary || "A lesson plan draft ready for refinement.",
+        meta: {
+          country: getCountryLabel(),
+          subjects: subjects,
+          gradeRange: gradeRange,
+          ageRange: ageRange,
+          focus: meta && meta.specifics ? meta.specifics : ""
+        },
+        goals: [
+          "Clarify the main learning goal for the lesson.",
+          "Make the connection between task and outcome easier to follow."
+        ],
+        skills: [
+          "Critical thinking",
+          "Problem solving",
+          "Communication"
+        ],
+        steps: [
+          {
+            title: "Introduction",
+            duration: "15 min",
+            description: "Introduce the topic and activate prior knowledge.",
+            status: "No major changes"
+          },
+          {
+            title: "Input & Example",
+            duration: "20 min",
+            description: "Provide essential information and present an example.",
+            status: "No major changes"
+          },
+          {
+            title: "Inquiry Phase",
+            duration: "25 min",
+            description: "Students explore guiding questions in small groups and gather information.",
+            status: "No major changes"
+          },
+          {
+            title: "Group Sharing",
+            duration: "20 min",
+            description: "Groups present their findings and discuss key insights.",
+            status: "No major changes"
+          },
+          {
+            title: "Consolidation",
+            duration: "15 min",
+            description: "Summarize the main takeaways together.",
+            status: "No major changes"
+          },
+          {
+            title: "Reflection",
+            duration: "10 min",
+            description: "Students reflect on what they learned and how they learned it.",
+            status: "No major changes"
+          }
+        ],
+        materials: [
+          "Worksheets or task cards",
+          "Boards or shared digital notes",
+          "Any subject-specific materials from the lesson plan"
+        ],
+        assessment: [
+          "Observation during group work",
+          "Short reflection or exit ticket",
+          "Optional presentation criteria"
+        ],
+        reflection: "Leave space for a closing reflection on what was learned and what should change next time.",
+        changes: []
+      };
+    }
+
+    function ensureDraft() {
+      if (!state.draft) {
+        state.draft = buildBaseDraft();
+      }
+      if (!Array.isArray(state.draft.changes)) {
+        state.draft.changes = [];
+      }
+      state.changes = state.draft.changes;
+      return state.draft;
+    }
+
+    function persistState() {
+      window.localStorage.setItem(initialDraftKey, JSON.stringify(state.draft));
+      window.localStorage.setItem(initialConversationKey, JSON.stringify(state.conversation));
+      window.localStorage.setItem(initialProgressKey, JSON.stringify({
+        section: state.section,
+        currentNodeIndex: state.currentNodeIndex,
+        awaitingFreeText: state.awaitingFreeText
+      }));
+      if (currentSessionId) {
+        window.localStorage.setItem(initialSessionKey, currentSessionId);
+      }
+    }
+
+    function addConversation(role, text, extraClass) {
+      state.conversation.push({
+        role: role,
+        text: text,
+        time: getTimeStamp(),
+        extraClass: extraClass || ""
+      });
+      persistState();
+      renderConversation();
+    }
+
+    function addChange(kind, title, reason, beforeValue, afterValue, source) {
+      ensureDraft();
+      var change = {
+        kind: kind,
+        title: title,
+        reason: reason,
+        beforeValue: beforeValue,
+        afterValue: afterValue,
+        source: source || "",
+        time: getTimeStamp()
+      };
+      state.draft.changes.push(change);
+      persistState();
+      renderPreview();
+    }
+
+    function buildConversationNodes() {
+      var categories = [
+        { id: "time_scope", label: "Time scope", defaultPrompt: "I want to check whether the timing still feels realistic." },
+        { id: "goals_competencies", label: "Goals and competencies", defaultPrompt: "I want to make the learning goal easier to see in the plan." },
+        { id: "adaptability", label: "Adaptability", defaultPrompt: "I want to make the lesson easier to adapt for different learners." },
+        { id: "curriculum_alignment", label: "Curriculum alignment", defaultPrompt: "I want to add a clear curriculum reference." },
+        { id: "detail_level", label: "Detail level", defaultPrompt: "I want to adjust how detailed the plan is." },
+        { id: "target_group", label: "Target group", defaultPrompt: "I want to clarify who this lesson is for." }
+      ];
+      var categoryMap = {};
+      categories.forEach(function (entry) {
+        categoryMap[entry.id] = entry;
+      });
+
+      var prioritized = [];
+      (selections || []).forEach(function (selection) {
+        if (!selection || !selection.category_id || prioritized.some(function (item) { return item.id === selection.category_id; })) {
+          return;
+        }
+        var entry = categoryMap[selection.category_id];
+        if (entry) {
+          prioritized.push({
+            id: entry.id,
+            label: entry.label,
+            pointTitle: selection.title || entry.label,
+            teacherComment: selection.teacher_comment || "",
+            prompt: entry.defaultPrompt,
+            quickReplies: getRepliesForCategory(entry.id)
+          });
+        }
+      });
+
+      if (!prioritized.length && analysis && analysis.categories) {
+        categories.forEach(function (entry) {
+          var category = (analysis.categories || []).find(function (item) {
+            return item && item.id === entry.id;
+          });
+          var firstPoint = category && category.items && category.items[0] ? category.items[0] : null;
+          prioritized.push({
+            id: entry.id,
+            label: entry.label,
+            pointTitle: firstPoint ? firstPoint.title : entry.label,
+            teacherComment: "",
+            prompt: entry.defaultPrompt,
+            quickReplies: getRepliesForCategory(entry.id)
+          });
+        });
+      }
+
+      if (!prioritized.length && selections && selections.length) {
+        selections.forEach(function (selection) {
+          if (selection && selection.title && !prioritized.some(function (item) { return item.pointTitle === selection.title; })) {
+            prioritized.push({
+              id: selection.category_id || "time_scope",
+              label: selection.title,
+              pointTitle: selection.title,
+              teacherComment: selection.teacher_comment || "",
+              prompt: "I want to discuss this selected point first.",
+              quickReplies: getRepliesForCategory(selection.category_id || "time_scope")
+            });
+          }
+        });
+      }
+
+      if (!prioritized.length) {
+        prioritized = [
+          {
+            id: "time_scope",
+            label: "Time scope",
+            pointTitle: "Timing",
+            teacherComment: "",
+            prompt: "I want to check whether the timing still feels realistic.",
+            quickReplies: getRepliesForCategory("time_scope")
+          }
+        ];
+      }
+
+      return prioritized;
+    }
+
+    function getRepliesForCategory(categoryId) {
+      var replies = {
+        time_scope: ["Add more time", "Keep as is", "Split into two lessons", "Suggest another option"],
+        goals_competencies: ["Make it explicit", "Keep as is", "Suggest wording", "Add an example goal"],
+        adaptability: ["Add differentiation", "Keep as is", "Add supports", "Suggest alternative"],
+        curriculum_alignment: ["Add curriculum link", "Keep as is", "Suggest wording", "Add subject note"],
+        detail_level: ["Keep this detail", "Simplify it", "Add more structure", "Suggest alternative"],
+        target_group: ["Clarify target group", "Keep broad", "Add age note", "Suggest alternative"]
+      };
+      return replies[categoryId] || ["Yes, add that", "No, keep as is", "Suggest alternative", "Skip for now"];
+    }
+
+    function applyConversationReply(node, replyText) {
+      ensureDraft();
+      var reply = String(replyText || "").toLowerCase();
+      var draft = state.draft;
+      var didChange = false;
+
+      if (node.id === "time_scope") {
+        if (reply.indexOf("split") !== -1) {
+          var beforeSplit = draft.steps[2].duration;
+          draft.steps[2].duration = "2 x 25 min";
+          draft.steps[2].note = "Split into two sessions after discussion";
+          draft.steps[3].duration = "20 min";
+          addChange("time adjustment", "Timing redistributed", "The lesson was split across two sessions.", beforeSplit, draft.steps[2].duration, node.label);
+          didChange = true;
+        } else if (reply.indexOf("more time") !== -1 || reply.indexOf("longer") !== -1 || reply.indexOf("add") !== -1) {
+          var beforeTime = draft.steps[2].duration;
+          draft.steps[2].duration = "30 min";
+          draft.steps[3].duration = "25 min";
+          draft.steps[3].note = "More time allocated after discussion";
+          addChange("time adjustment", "Timing adjusted", "More room was added for inquiry and sharing.", beforeTime, draft.steps[2].duration, node.label);
+          didChange = true;
+        }
+      }
+
+      if (node.id === "goals_competencies") {
+        if (reply.indexOf("explicit") !== -1 || reply.indexOf("wording") !== -1 || reply.indexOf("example") !== -1 || reply.indexOf("add") !== -1) {
+          var beforeGoal = draft.goals[0];
+          draft.goals.unshift("Students investigate how the lesson topic works and explain their findings.");
+          addChange("content update", "Goal clarified", "The learning goal was made more explicit.", beforeGoal, draft.goals[0], node.label);
+          didChange = true;
+        }
+      }
+
+      if (node.id === "adaptability") {
+        if (reply.indexOf("differentiation") !== -1 || reply.indexOf("supports") !== -1 || reply.indexOf("add") !== -1) {
+          var beforeMaterial = draft.materials.slice();
+          draft.materials.push("Optional support cards for learners who need more guidance");
+          draft.materials.push("Extension prompts for learners who finish quickly");
+          addChange("addition", "Adaptation options added", "The lesson now includes support and extension options.", beforeMaterial.join("; "), draft.materials.join("; "), node.label);
+          didChange = true;
+        }
+      }
+
+      if (node.id === "curriculum_alignment") {
+        if (reply.indexOf("curriculum") !== -1 || reply.indexOf("link") !== -1 || reply.indexOf("subject") !== -1 || reply.indexOf("add") !== -1) {
+          var beforeReflection = draft.reflection;
+          draft.reflection = "Connect the closing reflection to the selected curriculum goals and subject vocabulary.";
+          addChange("content update", "Curriculum note added", "The draft now points back to the selected country and subject context.", beforeReflection, draft.reflection, node.label);
+          didChange = true;
+        }
+      }
+
+      if (node.id === "detail_level") {
+        if (reply.indexOf("simplify") !== -1) {
+          var beforeStep = draft.steps[1].description;
+          draft.steps[1].description = "Provide essential information in a shorter and clearer format.";
+          addChange("clarification", "Detail level simplified", "One step was made less prescriptive.", beforeStep, draft.steps[1].description, node.label);
+          didChange = true;
+        } else if (reply.indexOf("structure") !== -1 || reply.indexOf("add more") !== -1) {
+          var beforeStepAdd = draft.steps[1].description;
+          draft.steps[1].description = "Provide essential information, present an example, and keep the implementation structure visible.";
+          addChange("content update", "More structure added", "The input phase now gives the teacher a clearer sequence.", beforeStepAdd, draft.steps[1].description, node.label);
+          didChange = true;
+        }
+      }
+
+      if (node.id === "target_group") {
+        if (reply.indexOf("clarify") !== -1 || reply.indexOf("age") !== -1 || reply.indexOf("add") !== -1) {
+          var beforeMeta = draft.meta.gradeRange + " / " + draft.meta.ageRange;
+          draft.meta.targetGroupNote = "Grades " + draft.meta.gradeRange + ", ages " + draft.meta.ageRange;
+          addChange("clarification", "Target group clarified", "The target group note is now explicit in the preview.", beforeMeta, draft.meta.targetGroupNote, node.label);
+          didChange = true;
+        }
+      }
+
+      if (!didChange && reply.indexOf("skip") !== -1) {
+        addConversation("tutor", "No problem, we will keep this point for later.");
+      } else if (!didChange && reply.indexOf("keep") !== -1) {
+        addConversation("tutor", "Understood. I will leave this part as it is for now.");
+      } else if (!didChange && reply.indexOf("alternative") !== -1) {
+        addConversation("tutor", "Please type the alternative you want, and I will apply it.");
+        state.awaitingFreeText = true;
+        persistState();
+        renderQuickReplies(node);
+        renderPreview();
+        return false;
+      }
+
+      if (didChange) {
+        addConversation("tutor", "Done. I updated the draft based on your input.");
+      }
+
+      persistState();
+      renderPreview();
+      return didChange;
+    }
+
+    function renderFocusStrip() {
+      var strip = document.getElementById("focusStrip");
+      var labels = [];
+      if (selections && selections.length) {
+        labels = selections.slice(0, 4).map(function (item) {
+          return item.title || item.category_id;
+        });
+      } else {
+        labels = state.nodes.slice(0, 4).map(function (node) {
+          return node.pointTitle || node.label;
+        });
+      }
+      strip.innerHTML = "";
+      labels.forEach(function (label) {
+        var chip = document.createElement("span");
+        chip.className = "focus-chip";
+        chip.textContent = label;
+        strip.appendChild(chip);
+      });
+    }
+
+    function renderConversation() {
+      var thread = document.getElementById("chatThread");
+      thread.innerHTML = "";
+      state.conversation.forEach(function (message) {
+        var row = document.createElement("div");
+        row.className = "chat-row " + message.role;
+        if (message.extraClass) {
+          row.className += " " + message.extraClass;
+        }
+
+        var bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        var text = document.createElement("div");
+        text.className = "chat-text";
+        text.textContent = message.text;
+        var time = document.createElement("div");
+        time.className = "chat-meta";
+        time.textContent = message.time;
+        bubble.appendChild(text);
+        bubble.appendChild(time);
+        row.appendChild(bubble);
+        thread.appendChild(row);
+      });
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    function renderQuickReplies(node) {
+      var container = document.getElementById("quickReplies");
+      container.innerHTML = "";
+      if (!node) {
+        return;
+      }
+      node.quickReplies.forEach(function (label) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "quick-reply";
+        button.textContent = label;
+        button.addEventListener("click", function () {
+          var input = document.getElementById("replyInput");
+          input.value = label;
+          submitReply();
+        });
+        container.appendChild(button);
+      });
+    }
+
+    function buildPreviewTabs() {
+      return [
+        { id: "goals", label: "Goals" },
+        { id: "skills", label: "Skills" },
+        { id: "steps", label: "Steps" },
+        { id: "materials", label: "Materials" },
+        { id: "assessment", label: "Assessment" },
+        { id: "reflection", label: "Reflection" }
+      ];
+    }
+
+    function renderPreviewTabs() {
+      var tabs = document.getElementById("previewTabs");
+      tabs.innerHTML = "";
+      buildPreviewTabs().forEach(function (tab) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "preview-tab" + (state.section === tab.id ? " active" : "");
+        button.textContent = tab.label;
+        button.addEventListener("click", function () {
+          state.section = tab.id;
+          ensureDraft().section = tab.id;
+          persistState();
+          renderPreview();
+        });
+        tabs.appendChild(button);
+      });
+    }
+
+    function renderSectionContent() {
+      var draft = ensureDraft();
+      var container = document.getElementById("previewSection");
+      container.innerHTML = "";
+
+      var header = document.createElement("div");
+      header.className = "document-header";
+      var title = document.createElement("h3");
+      title.className = "document-title";
+      title.textContent = draft.title || "Lesson Plan";
+      header.appendChild(title);
+
+      var metaRow = document.createElement("div");
+      metaRow.className = "document-meta";
+      [
+        "Subject(s): " + formatTextList(draft.meta.subjects),
+        "Grade range: " + draft.meta.gradeRange,
+        "Age range: " + draft.meta.ageRange,
+        "Country: " + draft.meta.country
+      ].forEach(function (item) {
+        var span = document.createElement("span");
+        span.className = "document-meta-item";
+        span.textContent = item;
+        metaRow.appendChild(span);
+      });
+      header.appendChild(metaRow);
+      container.appendChild(header);
+
+      function sectionCard(sectionTitle, status, note, bodyNodes) {
+        var card = document.createElement("section");
+        card.className = "section-card";
+        var head = document.createElement("div");
+        head.className = "section-heading";
+        var headTitle = document.createElement("h4");
+        headTitle.textContent = sectionTitle;
+        head.appendChild(headTitle);
+        var badge = document.createElement("span");
+        badge.className = "change-pill";
+        badge.textContent = status;
+        head.appendChild(badge);
+        card.appendChild(head);
+        if (note) {
+          var noteNode = document.createElement("p");
+          noteNode.className = "section-note";
+          noteNode.textContent = note;
+          card.appendChild(noteNode);
+        }
+        bodyNodes.forEach(function (node) {
+          card.appendChild(node);
+        });
+        container.appendChild(card);
+      }
+
+      if (state.section === "goals") {
+        var goalList = document.createElement("ul");
+        goalList.className = "preview-list";
+        draft.goals.forEach(function (goal) {
+          var li = document.createElement("li");
+          li.textContent = goal;
+          goalList.appendChild(li);
+        });
+        sectionCard("Goals", draft.changes.some(function (change) { return change.kind === "content update"; }) ? "Updated" : "Ready", "The teacher can read the current learning intention here.", [goalList]);
+      } else if (state.section === "skills") {
+        var skillList = document.createElement("ul");
+        skillList.className = "preview-list";
+        draft.skills.forEach(function (skill) {
+          var li = document.createElement("li");
+          li.textContent = skill;
+          skillList.appendChild(li);
+        });
+        sectionCard("Skills", "Ready", "Skills that support the lesson flow.", [skillList]);
+      } else if (state.section === "steps") {
+        draft.steps.forEach(function (step, index) {
+          var stepCard = document.createElement("div");
+          stepCard.className = "preview-step-card" + (step.status !== "No major changes" ? " changed" : "");
+          var top = document.createElement("div");
+          top.className = "preview-step-top";
+          var left = document.createElement("div");
+          var titleLine = document.createElement("strong");
+          titleLine.textContent = (index + 1) + ". " + step.title;
+          left.appendChild(titleLine);
+          var duration = document.createElement("span");
+          duration.className = "step-duration";
+          duration.textContent = step.duration;
+          left.appendChild(document.createTextNode(" "));
+          left.appendChild(duration);
+          top.appendChild(left);
+          var badge = document.createElement("span");
+          badge.className = "change-pill";
+          badge.textContent = step.status;
+          top.appendChild(badge);
+          stepCard.appendChild(top);
+          var desc = document.createElement("p");
+          desc.textContent = step.description;
+          stepCard.appendChild(desc);
+          if (step.note) {
+            var note = document.createElement("p");
+            note.className = "step-note";
+            note.textContent = step.note;
+            stepCard.appendChild(note);
+          }
+          container.appendChild(stepCard);
+        });
+      } else if (state.section === "materials") {
+        var materialList = document.createElement("ul");
+        materialList.className = "preview-list";
+        draft.materials.forEach(function (item) {
+          var li = document.createElement("li");
+          li.textContent = item;
+          materialList.appendChild(li);
+        });
+        sectionCard("Materials", "Ready", "Materials and resources for the lesson.", [materialList]);
+      } else if (state.section === "assessment") {
+        var assessmentList = document.createElement("ul");
+        assessmentList.className = "preview-list";
+        draft.assessment.forEach(function (item) {
+          var li = document.createElement("li");
+          li.textContent = item;
+          assessmentList.appendChild(li);
+        });
+        sectionCard("Assessment", "Ready", "How the lesson can be checked or reflected on.", [assessmentList]);
+      } else if (state.section === "reflection") {
+        var reflection = document.createElement("p");
+        reflection.className = "preview-paragraph";
+        reflection.textContent = draft.reflection;
+        sectionCard("Reflection", "Ready", "A closing prompt for the lesson.", [reflection]);
+      }
+    }
+
+    function renderChangeSummary() {
+      var draft = ensureDraft();
+      var changes = draft.changes || [];
+      var summary = document.getElementById("changeSummary");
+      var breakdown = document.getElementById("changeBreakdown");
+      var counts = {
+        addition: 0,
+        "time adjustment": 0,
+        "content update": 0,
+        clarification: 0
+      };
+
+      changes.forEach(function (change) {
+        if (counts.hasOwnProperty(change.kind)) {
+          counts[change.kind] += 1;
+        }
+      });
+
+      summary.textContent = changes.length ? (changes.length + " changes made") : "No changes made yet";
+      breakdown.textContent = [
+        counts.addition ? counts.addition + " addition" + (counts.addition === 1 ? "" : "s") : "",
+        counts["time adjustment"] ? counts["time adjustment"] + " time adjustment" + (counts["time adjustment"] === 1 ? "" : "s") : "",
+        counts["content update"] ? counts["content update"] + " content update" + (counts["content update"] === 1 ? "" : "s") : "",
+        counts.clarification ? counts.clarification + " clarification" + (counts.clarification === 1 ? "" : "s") : ""
+      ].filter(Boolean).join("  ");
+    }
+
+    function renderPreview() {
+      ensureDraft();
+      renderPreviewTabs();
+      renderSectionContent();
+      renderChangeSummary();
+    }
+
+    function renderHistoryModal() {
+      var body = document.getElementById("historyModalBody");
+      body.innerHTML = "";
+      (ensureDraft().changes || []).slice().reverse().forEach(function (change) {
+        var item = document.createElement("div");
+        item.className = "history-item";
+        var title = document.createElement("strong");
+        title.textContent = change.title || change.kind;
+        item.appendChild(title);
+        var metaLine = document.createElement("div");
+        metaLine.className = "history-meta";
+        metaLine.textContent = change.time + " - " + (change.source || "tutor");
+        item.appendChild(metaLine);
+        var reason = document.createElement("p");
+        reason.textContent = change.reason || "";
+        item.appendChild(reason);
+        if (change.beforeValue || change.afterValue) {
+          var before = document.createElement("p");
+          before.textContent = "Before: " + (change.beforeValue || "n/a");
+          item.appendChild(before);
+          var after = document.createElement("p");
+          after.textContent = "After: " + (change.afterValue || "n/a");
+          item.appendChild(after);
+        }
+        body.appendChild(item);
+      });
+      if (!ensureDraft().changes.length) {
+        var empty = document.createElement("div");
+        empty.className = "history-empty";
+        empty.textContent = "No changes yet.";
+        body.appendChild(empty);
+      }
+    }
+
+    function openHistoryModal() {
+      renderHistoryModal();
+      document.getElementById("historyModalBackdrop").classList.add("open");
+      document.getElementById("historyModalBackdrop").setAttribute("aria-hidden", "false");
+    }
+
+    function closeHistoryModal() {
+      document.getElementById("historyModalBackdrop").classList.remove("open");
+      document.getElementById("historyModalBackdrop").setAttribute("aria-hidden", "true");
+    }
+
+    function exportDraft() {
+      var draft = ensureDraft();
+      var lines = [];
+      lines.push("Lesson Plan Draft");
+      lines.push("");
+      lines.push("Country: " + draft.meta.country);
+      lines.push("Subject(s): " + formatTextList(draft.meta.subjects));
+      lines.push("Grade range: " + draft.meta.gradeRange);
+      lines.push("Age range: " + draft.meta.ageRange);
+      lines.push("");
+      lines.push("Summary");
+      lines.push(draft.summary);
+      lines.push("");
+      lines.push("Goals");
+      draft.goals.forEach(function (item) { lines.push("- " + item); });
+      lines.push("");
+      lines.push("Skills");
+      draft.skills.forEach(function (item) { lines.push("- " + item); });
+      lines.push("");
+      lines.push("Steps");
+      draft.steps.forEach(function (step, index) {
+        lines.push((index + 1) + ". " + step.title + " (" + step.duration + ")");
+        lines.push("   " + step.description);
+      });
+      lines.push("");
+      lines.push("Materials");
+      draft.materials.forEach(function (item) { lines.push("- " + item); });
+      lines.push("");
+      lines.push("Assessment");
+      draft.assessment.forEach(function (item) { lines.push("- " + item); });
+      lines.push("");
+      lines.push("Reflection");
+      lines.push(draft.reflection);
+      var blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "lesson-plan-draft.txt";
+      a.click();
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 250);
+    }
+
+    function setReplyBusy(isBusy) {
+      var input = document.getElementById("replyInput");
+      var button = document.querySelector(".send-button");
+      var label = button ? button.querySelector(".button-text") : null;
+      if (input) {
+        input.disabled = !!isBusy;
+      }
+      if (button) {
+        button.disabled = !!isBusy;
+        button.classList.toggle("is-loading", !!isBusy);
+      }
+      if (label) {
+        label.textContent = isBusy ? "Thinking..." : "Send";
+      }
+    }
+
+      function buildRefinementPayload(userMessage) {
+        var draft = ensureDraft();
+        return {
+          sessionId: currentSessionId || "",
+          country: getCountryLabel(),
+          subjects: getSubjectLabels(),
+          meta: clone(meta || {}),
+          selections: clone(selections || []),
+          filename: preparation && preparation.filename ? preparation.filename : "",
+          sourceDocument: preparation && preparation.sourceDocument ? clone(preparation.sourceDocument) : null,
+          analysisSummary: analysis && analysis.lesson_plan_summary ? clone(analysis.lesson_plan_summary) : null,
+          analysisFocus: analysis && analysis.analysis_focus ? clone(analysis.analysis_focus) : null,
+          analysisCategories: analysis && analysis.categories ? clone(analysis.categories) : null,
+          currentNode: state.activeNode ? clone(state.activeNode) : null,
+          progress: {
+          section: state.section,
+          currentNodeIndex: state.currentNodeIndex,
+          awaitingFreeText: state.awaitingFreeText
+        },
+        draft: clone(draft),
+        conversation: clone(state.conversation || []),
+        userMessage: userMessage
+      };
+    }
+
+    function applyUpdatedDraft(updatedDraft) {
+      if (!updatedDraft || typeof updatedDraft !== "object") {
+        return;
+      }
+      var currentDraft = ensureDraft();
+      var nextDraft = clone(currentDraft);
+      Object.keys(updatedDraft).forEach(function (key) {
+        if (key === "meta" && updatedDraft.meta && typeof updatedDraft.meta === "object") {
+          nextDraft.meta = Object.assign({}, currentDraft.meta || {}, updatedDraft.meta);
+          return;
+        }
+        if (key === "steps") {
+          if (Array.isArray(updatedDraft.steps) && updatedDraft.steps.length) {
+            nextDraft.steps = updatedDraft.steps;
+          }
+          return;
+        }
+        if (key === "goals") {
+          if (Array.isArray(updatedDraft.goals) && updatedDraft.goals.length) {
+            nextDraft.goals = updatedDraft.goals;
+          }
+          return;
+        }
+        if (key === "skills") {
+          if (Array.isArray(updatedDraft.skills) && updatedDraft.skills.length) {
+            nextDraft.skills = updatedDraft.skills;
+          }
+          return;
+        }
+        if (key === "materials") {
+          if (Array.isArray(updatedDraft.materials) && updatedDraft.materials.length) {
+            nextDraft.materials = updatedDraft.materials;
+          }
+          return;
+        }
+        if (key === "assessment") {
+          if (Array.isArray(updatedDraft.assessment) && updatedDraft.assessment.length) {
+            nextDraft.assessment = updatedDraft.assessment;
+          }
+          return;
+        }
+        if (key === "changes") {
+          if (Array.isArray(updatedDraft.changes) && updatedDraft.changes.length) {
+            nextDraft.changes = updatedDraft.changes;
+          }
+          return;
+        }
+        nextDraft[key] = clone(updatedDraft[key]);
+      });
+      state.draft = nextDraft;
+      if (!Array.isArray(state.draft.changes)) {
+        state.draft.changes = [];
+      }
+      if (!state.draft.section) {
+        state.draft.section = state.section || "steps";
+      }
+      state.section = state.draft.section || state.section || "steps";
+      state.changes = state.draft.changes;
+    }
+
+    function requestRefinementFromMistral(payload) {
+      return fetch("/step3-refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      }).then(function (response) {
+        return response.text().then(function (text) {
+          var data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (error) {
+            data = null;
+          }
+          if (!response.ok) {
+            var message = (data && data.error) ? data.error : "Unable to refine the lesson plan.";
+            throw new Error(message);
+          }
+          return data || {};
+        });
+      });
+    }
+
+    function loadPersistedStep3State() {
+      if (!currentSessionId) {
+        return Promise.resolve(null);
+      }
+      return fetch("/step3-state?sessionId=" + encodeURIComponent(currentSessionId), {
+        method: "GET"
+      }).then(function (response) {
+        if (!response.ok) {
+          return null;
+        }
+        return response.text().then(function (text) {
+          try {
+            return text ? JSON.parse(text) : null;
+          } catch (error) {
+            return null;
+          }
+        });
+      }).catch(function () {
+        return null;
+      });
+    }
+
+    function applyLoadedStep3State(savedState) {
+      if (!savedState || typeof savedState !== "object") {
+        return false;
+      }
+      if (savedState.draft && typeof savedState.draft === "object") {
+        state.draft = savedState.draft;
+        if (!Array.isArray(state.draft.changes)) {
+          state.draft.changes = [];
+        }
+      }
+      if (Array.isArray(savedState.conversation)) {
+        state.conversation = savedState.conversation;
+      }
+      if (savedState.progress && typeof savedState.progress === "object") {
+        if (savedState.progress.section) {
+          state.section = savedState.progress.section;
+        }
+        if (typeof savedState.progress.currentNodeIndex === "number") {
+          state.currentNodeIndex = savedState.progress.currentNodeIndex;
+        }
+        if (typeof savedState.progress.awaitingFreeText === "boolean") {
+          state.awaitingFreeText = savedState.progress.awaitingFreeText;
+        }
+      }
+      return true;
+    }
+
+    function submitReply(replyText) {
+      var input = document.getElementById("replyInput");
+      if (input && input.disabled) {
+        return;
+      }
+      var text = String(replyText || input.value || "").trim();
+      if (!text) {
+        return;
+      }
+      var wasAwaiting = state.awaitingFreeText;
+
+      if (!state.activeNode) {
+        addConversation("tutor", "We are done with the guided part for now. You can still add comments if you want.");
+        input.value = "";
+        return;
+      }
+
+      addConversation("teacher", text);
+      input.value = "";
+      state.awaitingFreeText = false;
+      persistState();
+      setReplyBusy(true);
+
+      requestRefinementFromMistral(buildRefinementPayload(text))
+        .then(function (response) {
+          var nextDraft = response && (response.updated_draft || response.draft);
+          if (nextDraft) {
+            applyUpdatedDraft(nextDraft);
+          }
+
+          var assistantMessage = response && response.assistant_message ? String(response.assistant_message).trim() : "";
+          if (assistantMessage) {
+            addConversation("tutor", assistantMessage);
+          } else {
+            addConversation("tutor", "Done. I updated the draft based on your input.");
+          }
+
+          var advanceToNext = !response || response.advance !== false;
+          persistState();
+          renderPreview();
+
+          if (advanceToNext) {
+            state.currentNodeIndex += 1;
+            persistState();
+            startNextNode();
+          } else {
+            state.activeNode = state.nodes[state.currentNodeIndex] || null;
+            renderQuickReplies(state.activeNode);
+            input.placeholder = "Type your answer or add more details...";
+          }
+        })
+        .catch(function (error) {
+          console.error(error);
+          applyConversationReply(state.activeNode, text);
+          if (state.awaitingFreeText && !wasAwaiting) {
+            setReplyBusy(false);
+            return;
+          }
+          state.awaitingFreeText = false;
+          state.currentNodeIndex += 1;
+          persistState();
+          startNextNode();
+        })
+        .finally(function () {
+          setReplyBusy(false);
+        });
+    }
+
+    function startNextNode() {
+      if (state.currentNodeIndex >= state.nodes.length) {
+        state.activeNode = null;
+        addConversation("tutor", "That gives us a solid draft. The preview on the right now shows the refined version. You can continue to the download step whenever you are ready.");
+        renderQuickReplies(null);
+        document.getElementById("replyInput").placeholder = "Add more details if needed...";
+        return;
+      }
+
+      state.activeNode = state.nodes[state.currentNodeIndex];
+      var node = state.activeNode;
+      var intro = state.currentNodeIndex === 0
+        ? (selections.length
+          ? "You marked " + node.pointTitle + " in Step 2, so let us start there. " + node.prompt
+          : "I will start with " + node.label.toLowerCase() + ". " + node.prompt)
+        : "Next, let us look at " + node.label.toLowerCase() + ". " + node.prompt;
+      if (state.currentNodeIndex === 0 && meta && meta.specifics) {
+        intro += " You also added this note: " + meta.specifics + ".";
+      }
+      if (node.teacherComment) {
+        intro += " Your note: " + node.teacherComment + ".";
+      }
+      addConversation("tutor", intro);
+      renderQuickReplies(node);
+      document.getElementById("replyInput").placeholder = "Type your answer or add more details...";
+    }
+
+    function resetConversation() {
+      state.conversation = [];
+      state.currentNodeIndex = 0;
+      state.activeNode = null;
+      state.awaitingFreeText = false;
+      persistState();
+      renderConversation();
+      startNextNode();
+    }
+
+    function bootstrap() {
+      if (currentSessionId && storedSessionId !== currentSessionId) {
+        state.conversation = [];
+        state.currentNodeIndex = 0;
+        state.awaitingFreeText = false;
+        state.section = "steps";
+        window.localStorage.removeItem(initialSessionKey);
+      }
+      ensureDraft();
+      if (!state.draft.title || state.draft.title === "Lesson plan draft") {
+        var summary = analysis && analysis.lesson_plan_summary ? analysis.lesson_plan_summary.short_summary : "";
+        if (summary) {
+          state.draft.title = summary.split(".")[0];
+        }
+      }
+
+      var countryText = getCountryLabel();
+      var subjectsText = formatTextList(getSubjectLabels());
+      setText("refinementCalloutText", countryText + (subjectsText ? " - " + subjectsText : "") + ". We will refine the lesson step by step.");
+
+      state.nodes = buildConversationNodes();
+      renderFocusStrip();
+      renderConversation();
+      renderPreview();
+
+      if (!state.conversation.length) {
+        addConversation("tutor", "Welcome. We will refine the lesson together, one decision at a time.");
+        startNextNode();
+      } else if (state.currentNodeIndex >= state.nodes.length) {
+        state.activeNode = null;
+        renderQuickReplies(null);
+        document.getElementById("replyInput").placeholder = "Add more details if needed...";
+      } else {
+        state.activeNode = state.nodes[state.currentNodeIndex];
+        renderQuickReplies(state.activeNode);
+        document.getElementById("replyInput").placeholder = "Type your answer or add more details...";
+      }
+
+      document.getElementById("replyForm").addEventListener("submit", function (event) {
+        event.preventDefault();
+        submitReply();
+      });
+
+      document.getElementById("clearConversationButton").addEventListener("click", function () {
+        if (window.confirm("Clear the visible conversation and restart the refinement questions?")) {
+          resetConversation();
+        }
+      });
+
+      document.getElementById("moreInfoButton").addEventListener("click", function () {
+        window.location.href = "info.html";
+      });
+
+      document.getElementById("changeHistoryButton").addEventListener("click", openHistoryModal);
+      document.getElementById("closeHistoryModal").addEventListener("click", closeHistoryModal);
+      document.getElementById("historyModalBackdrop").addEventListener("click", function (event) {
+        if (event.target === event.currentTarget) {
+          closeHistoryModal();
+        }
+      });
+      document.getElementById("exportDraftButton").addEventListener("click", exportDraft);
+
+      document.getElementById("continueButton").addEventListener("click", function () {
+        persistState();
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closeHistoryModal();
+        }
+      });
+
+      window.addEventListener("beforeunload", persistState);
+    }
+
+    function init() {
+      loadPersistedStep3State().then(function (savedState) {
+        applyLoadedStep3State(savedState);
+        bootstrap();
+      }).catch(function () {
+        bootstrap();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

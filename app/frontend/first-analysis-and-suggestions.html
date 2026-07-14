@@ -6,17 +6,678 @@
   <title>First Analysis and Suggestions</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
-  <main class="startscreen">
-    <section class="start-card">
-      <h1>First analysis and suggestions</h1>
-      <p class="description">
-        This is a placeholder for Step 2. Once the lesson plan is uploaded, the tutor will analyse it and present structured suggestions.
-      </p>
-      <div class="button-row">
-        <a href="lesson-info.html" class="action-link secondary-button">Back</a>
+<body class="analysis-page">
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="header-left">
+        <div class="brand-logos header-brand-logos">
+          <img class="header-logo header-logo-main" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
+          <img class="header-logo header-logo-erasmus" src="assets/EN Co-Funded by the EU_POS.png" alt="Co-funded by the EU logo" />
+        </div>
+        <div>
+          <p class="header-subtitle">AI Tutor for Lesson Plans</p>
+          <p class="header-note">Prototype v0.2</p>
+        </div>
+      </div>
+      <button class="header-button secondary-button" id="moreInfoButton" type="button">Need more information?</button>
+    </header>
+
+    <section class="progress-bar" aria-label="Progress">
+      <div class="progress-step active">
+        <span class="step-number">1</span>
+        <span class="step-label">Tell us about your lesson idea</span>
+      </div>
+      <span class="progress-connector active"></span>
+      <div class="progress-step active">
+        <span class="step-number">2</span>
+        <span class="step-label">First analysis and suggestions</span>
+      </div>
+      <span class="progress-connector"></span>
+      <div class="progress-step inactive">
+        <span class="step-number">3</span>
+        <span class="step-label">Refining and improving</span>
+      </div>
+      <span class="progress-connector"></span>
+      <div class="progress-step inactive">
+        <span class="step-number">4</span>
+        <span class="step-label">Download result</span>
       </div>
     </section>
-  </main>
+
+    <main>
+      <section class="analysis-hero">
+        <div>
+          <h1>Here is what we found in your lesson plan</h1>
+          <p class="analysis-hero-copy">
+            Review the points below. Select what you would like us to focus on in the next step.
+            You can also add more details or clarify if needed.
+          </p>
+        </div>
+        <div class="analysis-callout">
+          <div class="analysis-callout-icon">i</div>
+          <p>
+            We analyzed your uploaded lesson plan and identified the points below.
+          </p>
+        </div>
+      </section>
+
+      <div id="analysisStatus" class="analysis-loading">Loading analysis...</div>
+      <div id="analysisErrorBox" class="analysis-error" hidden></div>
+
+      <div id="analysisContent" hidden>
+        <section class="analysis-summary-panel">
+          <h2>Lesson plan summary</h2>
+          <p id="analysisSummary" class="analysis-summary-text"></p>
+          <p id="analysisSummaryConfidence" class="analysis-summary-confidence"></p>
+          <div class="summary-grid">
+            <div class="summary-chip">
+              <span class="summary-chip-label">Detected subjects</span>
+              <div id="analysisSubjects"></div>
+            </div>
+            <div class="summary-chip">
+              <span class="summary-chip-label">Detected grade range</span>
+              <div id="analysisGrades"></div>
+            </div>
+            <div class="summary-chip">
+              <span class="summary-chip-label">Detected age range</span>
+              <div id="analysisAges"></div>
+            </div>
+          </div>
+          <div id="analysisFocusGrid" class="summary-grid"></div>
+          <p id="analysisTeacherNote" class="analysis-summary-text"></p>
+        </section>
+
+        <div id="analysisSections"></div>
+
+        <section class="analysis-bottom">
+          <div class="analysis-bottom-grid">
+            <label class="analysis-upload-box" id="analysisUploadZone" for="analysisAdditionalUpload">
+              <p class="analysis-upload-title">Upload additional documents (optional)</p>
+              <p>Drag &amp; drop your file here or click to browse</p>
+              <p class="analysis-upload-hint">PDF, DOCX, TXT - max. 20 MB each</p>
+              <input id="analysisAdditionalUpload" class="analysis-upload-input" type="file" multiple accept=".pdf,.docx,.txt" />
+              <div id="analysisUploadList" class="analysis-upload-list" aria-live="polite"></div>
+            </label>
+            <div class="analysis-summary-box">
+              <h2>Next step</h2>
+              <p id="analysisNextStep"></p>
+              <div style="margin-top: 14px;">
+                <p class="analysis-upload-title" style="margin-bottom: 8px;">Uploaded file</p>
+                <div id="analysisMeta" style="display: grid; gap: 6px; color: #4d566c;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="analysis-actions">
+            <a href="lesson-info.html" class="action-link secondary-button">Back</a>
+            <a id="continueButton" class="action-button primary-button" href="refining-and-improving.html">
+              <span class="button-text">Continue</span>
+              <span class="button-arrow">→</span>
+            </a>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="citationModalBackdrop" class="citation-modal-backdrop" aria-hidden="true">
+    <div class="citation-modal" role="dialog" aria-modal="true" aria-labelledby="citationModalTitle">
+      <h3 id="citationModalTitle">Citation preview</h3>
+      <pre id="citationModalBody"></pre>
+      <div class="citation-modal-actions">
+        <button type="button" class="action-button secondary-button" id="closeCitationModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function normalizeItems(value) {
+      if (!value) {
+        return [];
+      }
+      if (Array.isArray(value)) {
+        return value.filter(function (item) {
+          return String(item || "").trim();
+        });
+      }
+      var text = String(value).trim();
+      return text ? [text] : [];
+    }
+
+    function safeParse(raw) {
+      try {
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function setText(id, value) {
+      var element = document.getElementById(id);
+      if (element) {
+        element.textContent = value || "";
+      }
+    }
+
+    function formatRange(range) {
+      if (!range) {
+        return "? to ?";
+      }
+      var fromValue = range.from === 0 || range.from ? String(range.from) : "?";
+      var toValue = range.to === 0 || range.to ? String(range.to) : "?";
+      return fromValue + " to " + toValue;
+    }
+
+    function renderAnalysisError(message, rawText) {
+      var status = document.getElementById("analysisStatus");
+      var errorBox = document.getElementById("analysisErrorBox");
+      status.hidden = true;
+      errorBox.hidden = false;
+      errorBox.innerHTML = "";
+      var msg = document.createElement("div");
+      msg.textContent = message;
+      errorBox.appendChild(msg);
+      if (rawText) {
+        var raw = document.createElement("div");
+        raw.style.marginTop = "12px";
+        raw.style.whiteSpace = "pre-wrap";
+        raw.style.wordBreak = "break-word";
+        raw.textContent = "Raw response:\n" + rawText;
+        errorBox.appendChild(raw);
+      }
+    }
+
+    function openCitationModal(citation) {
+      var backdrop = document.getElementById("citationModalBackdrop");
+      var body = document.getElementById("citationModalBody");
+      var lines = [];
+      if (citation.label) lines.push(citation.label);
+      if (citation.cited_text) lines.push("");
+      if (citation.cited_text) lines.push("Cited text:\n" + citation.cited_text);
+      if (citation.context_before && citation.context_before.length) {
+        lines.push("");
+        lines.push("Context before:");
+        lines = lines.concat(citation.context_before);
+      }
+      if (citation.context_after && citation.context_after.length) {
+        lines.push("");
+        lines.push("Context after:");
+        lines = lines.concat(citation.context_after);
+      }
+      body.textContent = lines.join("\n");
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function closeCitationModal() {
+      var backdrop = document.getElementById("citationModalBackdrop");
+      backdrop.classList.remove("open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    function getFallbackCategories(analysis) {
+      var fallback = [];
+      var mappings = [
+        { id: "didactical_approaches", title: "Didactical approaches", accent: "orange", items: normalizeItems(analysis.strengths) },
+        { id: "challenges", title: "Challenges (potential problems)", accent: "red", items: normalizeItems(analysis.issues) },
+        { id: "skills", title: "Skills that could/would be trained", accent: "pink", items: normalizeItems(analysis.suggestions) },
+        { id: "questions_to_clarify", title: "Questions to clarify", accent: "blue", items: normalizeItems(analysis.follow_up_questions) }
+      ];
+
+      mappings.forEach(function (mapping) {
+        fallback.push({
+          id: mapping.id,
+          title: mapping.title,
+          description: "",
+          accent: mapping.accent,
+          items: mapping.items.map(function (item, index) {
+            return {
+              id: mapping.id + "_" + String(index + 1).padStart(3, "0"),
+              title: item,
+              short_explanation: item,
+              why_it_matters: "",
+              citation: {
+                label: "Uploaded lesson plan",
+                cited_text: "",
+                context_before: [],
+                context_after: []
+              },
+              suggested_next_action: "",
+              confidence: "medium",
+              teacher_comment_placeholder: "Add more details or correct this interpretation..."
+            };
+          })
+        });
+      });
+      return fallback;
+    }
+
+    function renderCategory(container, category) {
+      var card = document.createElement("section");
+      card.className = "category-card";
+
+      var header = document.createElement("div");
+      header.className = "category-card-header";
+
+      var left = document.createElement("div");
+      left.className = "category-card-titlewrap";
+
+      var icon = document.createElement("div");
+      icon.className = "analysis-icon " + (category.accent || "purple");
+      icon.textContent = (category.title || "").slice(0, 1).toUpperCase() || "•";
+
+      var titleWrap = document.createElement("div");
+      var title = document.createElement("h2");
+      title.className = "analysis-section-title";
+      title.textContent = category.title || "Category";
+      var desc = document.createElement("p");
+      desc.className = "analysis-eyebrow";
+      desc.textContent = category.description || "";
+      titleWrap.appendChild(title);
+      titleWrap.appendChild(desc);
+
+      left.appendChild(icon);
+      left.appendChild(titleWrap);
+      header.appendChild(left);
+
+      var descBox = document.createElement("div");
+      descBox.className = "category-card-description";
+      descBox.textContent = category.description || "";
+
+      var tableWrap = document.createElement("div");
+      tableWrap.className = "item-table-wrap";
+
+      var table = document.createElement("table");
+      table.className = "item-table";
+
+      var thead = document.createElement("thead");
+      thead.innerHTML = "<tr><th>Focus on this?</th><th>Identified point</th><th>Why we mentioned this</th><th>Citation from your text</th><th>Confidence</th><th>Anything to add or clarify?</th></tr>";
+      table.appendChild(thead);
+
+      var tbody = document.createElement("tbody");
+      var items = Array.isArray(category.items) ? category.items.slice(0, 8) : [];
+      if (!items.length) {
+        var empty = document.createElement("tr");
+        var td = document.createElement("td");
+        td.colSpan = 7;
+        td.textContent = "No items returned for this category.";
+        empty.appendChild(td);
+        tbody.appendChild(empty);
+      } else {
+        items.forEach(function (item) {
+          var tr = document.createElement("tr");
+          tr.dataset.categoryId = category.id || "";
+          tr.dataset.itemId = item.id || "";
+
+          var focusTd = document.createElement("td");
+          var checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.setAttribute("aria-label", "Focus on " + item.title);
+          focusTd.appendChild(checkbox);
+
+          var pointTd = document.createElement("td");
+          var pointTitle = document.createElement("div");
+          pointTitle.className = "point-title";
+          pointTitle.textContent = item.title || "Untitled point";
+          var pointCopy = document.createElement("div");
+          pointCopy.className = "point-copy";
+          pointCopy.textContent = item.short_explanation || "";
+          pointTd.appendChild(pointTitle);
+          pointTd.appendChild(pointCopy);
+
+          var whyTd = document.createElement("td");
+          whyTd.className = "point-copy";
+          whyTd.textContent = item.why_it_matters || "";
+
+          var citeTd = document.createElement("td");
+          var citeButton = document.createElement("button");
+          citeButton.type = "button";
+          citeButton.className = "citation-button";
+          citeButton.textContent = item.citation && item.citation.label ? item.citation.label : "No citation";
+          citeButton.addEventListener("click", function () {
+            openCitationModal(item.citation || {});
+          });
+          citeTd.appendChild(citeButton);
+
+          var confidenceTd = document.createElement("td");
+          var confidence = document.createElement("span");
+          confidence.className = "confidence-pill";
+          confidence.textContent = item.confidence || "medium";
+          confidenceTd.appendChild(confidence);
+
+          var noteTd = document.createElement("td");
+          var note = document.createElement("textarea");
+          note.className = "comment-box";
+          note.placeholder = item.teacher_comment_placeholder || "Add more details...";
+          noteTd.appendChild(note);
+
+          tr.appendChild(focusTd);
+          tr.appendChild(pointTd);
+          tr.appendChild(whyTd);
+          tr.appendChild(citeTd);
+          tr.appendChild(confidenceTd);
+          tr.appendChild(noteTd);
+          tbody.appendChild(tr);
+        });
+      }
+
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+
+      card.appendChild(header);
+      card.appendChild(descBox);
+      card.appendChild(tableWrap);
+      container.appendChild(card);
+    }
+
+    function collectSelections() {
+      var selections = [];
+      document.querySelectorAll(".item-table tbody tr").forEach(function (row) {
+        var checkbox = row.querySelector("input[type='checkbox']");
+        var note = row.querySelector("textarea");
+        if (checkbox && checkbox.checked) {
+          selections.push({
+            category_id: row.dataset.categoryId || "",
+            item_id: row.dataset.itemId || "",
+            title: (row.querySelector(".point-title") || {}).textContent || "",
+            teacher_comment: note ? note.value.trim() : ""
+          });
+        }
+      });
+      return selections;
+    }
+
+    function renderSummary(summary) {
+      setText("analysisSummary", summary.short_summary || "No summary returned.");
+      setText("analysisSubjects", normalizeItems(summary.detected_subjects).join(", ") || "Not detected");
+      setText("analysisGrades", formatRange(summary.detected_grade_range));
+      setText("analysisAges", formatRange(summary.detected_age_range));
+      var confidence = summary.confidence || {};
+      var confidenceText = confidence.level || "unclear";
+      if (confidence.note) {
+        confidenceText += " - " + confidence.note;
+      }
+      setText("analysisSummaryConfidence", confidenceText);
+      setText("analysisTeacherNote", summary.notes_for_teacher || "");
+    }
+
+    function renderAnalysisFocus(focus) {
+      var grid = document.getElementById("analysisFocusGrid");
+      grid.innerHTML = "";
+      if (!focus || typeof focus !== "object") {
+        grid.style.display = "none";
+        return;
+      }
+      grid.style.display = "grid";
+      var labels = [
+        { key: "time_scope", label: "Time scope" },
+        { key: "goals_competencies", label: "Goals / competencies" },
+        { key: "adaptability", label: "Adaptability" },
+        { key: "detail_level", label: "Detail level" },
+        { key: "target_group", label: "Target group" },
+        { key: "curriculum_alignment", label: "Curriculum alignment" }
+      ];
+
+      labels.forEach(function (entry) {
+        var node = focus[entry.key] || {};
+        var chip = document.createElement("div");
+        chip.className = "summary-chip";
+
+        var label = document.createElement("span");
+        label.className = "summary-chip-label";
+        var confidence = node.confidence || "unclear";
+        label.textContent = entry.label + " (Confidence: " + confidence + ")";
+
+        var status = document.createElement("div");
+        status.style.fontWeight = "700";
+        status.textContent = node.status || "unclear";
+
+        var note = document.createElement("div");
+        note.style.marginTop = "6px";
+        note.style.color = "#5f667a";
+        note.style.lineHeight = "1.5";
+        note.textContent = node.note || "";
+
+        chip.appendChild(label);
+        chip.appendChild(status);
+        if (node.note) {
+          chip.appendChild(note);
+        }
+        grid.appendChild(chip);
+      });
+    }
+
+    function renderMeta(meta) {
+      var metaBox = document.getElementById("analysisMeta");
+      var lines = [];
+      if (meta) {
+        if (meta.filename) lines.push("File: " + meta.filename);
+        if (meta.country) lines.push("Country: " + meta.country);
+        if (meta.subjects && meta.subjects.length) lines.push("Subjects: " + meta.subjects.join(", "));
+        if (meta.gradeFrom || meta.gradeTo) lines.push("Grades: " + (meta.gradeFrom || "?") + " to " + (meta.gradeTo || "?"));
+        if (meta.ageFrom || meta.ageTo) lines.push("Age: " + (meta.ageFrom || "?") + " to " + (meta.ageTo || "?"));
+        if (meta.specifics) lines.push("Specifics: " + meta.specifics);
+      }
+      metaBox.innerHTML = "";
+      lines.forEach(function (line) {
+        var div = document.createElement("div");
+        div.textContent = line;
+        metaBox.appendChild(div);
+      });
+      if (!lines.length) {
+        metaBox.textContent = "No metadata available.";
+      }
+    }
+
+      function getAdditionalUploadState() {
+        var raw = window.localStorage.getItem("step2AdditionalUploadMeta");
+        try {
+          return raw ? JSON.parse(raw) : [];
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function setAdditionalUploadState(files) {
+        window.localStorage.setItem("step2AdditionalUploadMeta", JSON.stringify(files));
+      }
+
+      var additionalUploadFiles = [];
+
+    function renderAdditionalUploadList(files) {
+      var list = document.getElementById("analysisUploadList");
+      list.innerHTML = "";
+      if (!files.length) {
+        list.textContent = "No additional documents selected yet.";
+        return;
+      }
+      files.forEach(function (file) {
+        var row = document.createElement("div");
+        row.className = "analysis-upload-file";
+        row.textContent = file.name + " (" + Math.round(file.size / 1024) + " KB)";
+        list.appendChild(row);
+      });
+    }
+
+      function updateAdditionalUploadFromInput(fileList) {
+        additionalUploadFiles = Array.from(fileList || []);
+        var files = additionalUploadFiles.map(function (file) {
+          return {
+            name: file.name,
+            size: file.size,
+            type: file.type
+          };
+      });
+      setAdditionalUploadState(files);
+      renderAdditionalUploadList(files);
+    }
+
+    var analysisRaw = window.localStorage.getItem("step2Analysis");
+    var metaRaw = window.localStorage.getItem("step2UploadMeta");
+    var analysis = safeParse(analysisRaw);
+    var meta = safeParse(metaRaw);
+    var additionalUploadInput = document.getElementById("analysisAdditionalUpload");
+
+    if (!analysis) {
+      renderAnalysisError("No analysis data found yet. Please go back and upload a lesson plan first.");
+    } else if (analysis.error) {
+      renderAnalysisError(analysis.error + (analysis.detail ? ": " + analysis.detail : ""), analysis.raw ? JSON.stringify(analysis.raw, null, 2) : "");
+    } else {
+      document.getElementById("analysisStatus").hidden = true;
+      document.getElementById("analysisContent").hidden = false;
+
+      var summary = analysis.lesson_plan_summary || {};
+      renderSummary(summary);
+      renderAnalysisFocus(analysis.analysis_focus);
+
+      var categories = Array.isArray(analysis.categories) && analysis.categories.length ? analysis.categories : getFallbackCategories(analysis);
+      var sectionsRoot = document.getElementById("analysisSections");
+      sectionsRoot.innerHTML = "";
+      categories.forEach(function (category) {
+        var mapped = Object.assign({}, category);
+        if (!mapped.accent) {
+          var accentMap = {
+            time_scope: "red",
+            goals_competencies: "orange",
+            adaptability: "pink",
+            detail_level: "blue",
+            target_group: "green",
+            curriculum_alignment: "purple",
+            didactical_approaches: "orange",
+            skills: "pink",
+            curriculum_connections: "green",
+            challenges: "red",
+            hidden_opportunities: "blue"
+            };
+          mapped.accent = accentMap[mapped.id] || "purple";
+        }
+        renderCategory(sectionsRoot, mapped);
+      });
+
+      setText("analysisNextStep", analysis.next_step || summary.notes_for_teacher || "Review the selected points and refine the lesson with the highlighted suggestions.");
+      renderMeta(meta);
+    }
+
+    renderAdditionalUploadList(getAdditionalUploadState());
+    if (additionalUploadInput) {
+      additionalUploadInput.addEventListener("change", function () {
+        updateAdditionalUploadFromInput(additionalUploadInput.files);
+      });
+    }
+
+    var uploadZone = document.getElementById("analysisUploadZone");
+    if (uploadZone) {
+      uploadZone.addEventListener("dragover", function (event) {
+        event.preventDefault();
+        uploadZone.classList.add("drag-over");
+      });
+      uploadZone.addEventListener("dragleave", function () {
+        uploadZone.classList.remove("drag-over");
+      });
+      uploadZone.addEventListener("drop", function (event) {
+        event.preventDefault();
+        uploadZone.classList.remove("drag-over");
+        if (event.dataTransfer && event.dataTransfer.files) {
+          updateAdditionalUploadFromInput(event.dataTransfer.files);
+        }
+      });
+    }
+
+    document.getElementById("moreInfoButton").addEventListener("click", function () {
+      window.location.href = "info.html";
+    });
+
+      document.getElementById("continueButton").addEventListener("click", function (event) {
+        event.preventDefault();
+        var continueLink = document.getElementById("continueButton");
+        var originalLabel = continueLink.querySelector(".button-text") ? continueLink.querySelector(".button-text").textContent : "Continue";
+        var selectedFiles = additionalUploadFiles.length ? additionalUploadFiles : Array.from(additionalUploadInput && additionalUploadInput.files ? additionalUploadInput.files : []);
+        var step2Meta = meta || {};
+        var subjects = normalizeItems(step2Meta.subjects);
+        var formData = new FormData();
+
+        formData.append("country", step2Meta.country || "");
+        formData.append("subjects", JSON.stringify(subjects));
+        subjects.forEach(function (subject) {
+          formData.append("subjects[]", subject);
+        });
+        formData.append("gradeFrom", step2Meta.gradeFrom || "");
+        formData.append("gradeTo", step2Meta.gradeTo || "");
+        formData.append("ageFrom", step2Meta.ageFrom || "");
+        formData.append("ageTo", step2Meta.ageTo || "");
+        formData.append("specifics", step2Meta.specifics || "");
+        formData.append("filename", step2Meta.filename || "");
+        formData.append("selections", JSON.stringify(collectSelections()));
+        if (step2Meta.sourceDocument) {
+          formData.append("sourceDocument", JSON.stringify(step2Meta.sourceDocument));
+        }
+        selectedFiles.forEach(function (file) {
+          formData.append("additionalFiles", file, file.name);
+        });
+
+        window.localStorage.setItem("step2Selections", JSON.stringify(collectSelections()));
+        continueLink.classList.add("is-loading");
+        continueLink.setAttribute("aria-disabled", "true");
+        continueLink.style.pointerEvents = "none";
+        if (continueLink.querySelector(".button-text")) {
+          continueLink.querySelector(".button-text").textContent = "Saving...";
+        } else {
+          continueLink.textContent = "Saving...";
+        }
+
+        fetch("/step2-prepare", {
+          method: "POST",
+          body: formData
+        })
+          .then(function (response) {
+            return response.text().then(function (text) {
+              var data = null;
+              try {
+                data = text ? JSON.parse(text) : null;
+              } catch (error) {
+                data = null;
+              }
+              if (!response.ok) {
+                var message = (data && data.error) ? data.error : "Unable to prepare step 2 folders.";
+                throw new Error(message);
+              }
+              return data || {};
+            });
+          })
+          .then(function (data) {
+            window.localStorage.setItem("step2Preparation", JSON.stringify(data));
+            window.location.href = "refining-and-improving.html";
+          })
+          .catch(function (error) {
+            var nextStep = document.getElementById("analysisNextStep");
+            if (nextStep) {
+              nextStep.textContent = error && error.message ? error.message : "Unable to prepare the next step.";
+            }
+            window.alert(error && error.message ? error.message : "Unable to prepare the next step.");
+          })
+          .finally(function () {
+            continueLink.classList.remove("is-loading");
+            continueLink.removeAttribute("aria-disabled");
+            continueLink.style.pointerEvents = "";
+            if (continueLink.querySelector(".button-text")) {
+              continueLink.querySelector(".button-text").textContent = originalLabel;
+            } else {
+              continueLink.textContent = originalLabel;
+            }
+          });
+      });
+
+    document.getElementById("closeCitationModal").addEventListener("click", closeCitationModal);
+    document.getElementById("citationModalBackdrop").addEventListener("click", function (event) {
+      if (event.target === event.currentTarget) {
+        closeCitationModal();
+      }
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeCitationModal();
+      }
+    });
+  </script>
 </body>
 </html>

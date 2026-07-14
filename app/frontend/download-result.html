@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download Result</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="analysis-page download-page">
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="header-left">
+        <div class="brand-logos header-brand-logos">
+          <img class="header-logo header-logo-main" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
+          <img class="header-logo header-logo-erasmus" src="assets/EN Co-Funded by the EU_POS.png" alt="Co-funded by the EU logo" />
+        </div>
+        <div>
+          <p class="header-subtitle">AI Tutor for Lesson Plans</p>
+          <p class="header-note">Prototype v0.2</p>
+        </div>
+      </div>
+      <button class="header-button secondary-button" id="moreInfoButton" type="button">Need more information?</button>
+    </header>
+
+    <section class="progress-bar" aria-label="Progress">
+      <div class="progress-step active">
+        <span class="step-number">1</span>
+        <span class="step-label">Tell us about your lesson idea</span>
+      </div>
+      <span class="progress-connector active"></span>
+      <div class="progress-step active">
+        <span class="step-number">2</span>
+        <span class="step-label">First analysis and suggestions</span>
+      </div>
+      <span class="progress-connector active"></span>
+      <div class="progress-step active">
+        <span class="step-number">3</span>
+        <span class="step-label">Refining and improving</span>
+      </div>
+      <span class="progress-connector active"></span>
+      <div class="progress-step active">
+        <span class="step-number">4</span>
+        <span class="step-label">Download result</span>
+      </div>
+    </section>
+
+    <main class="download-workspace">
+      <section class="download-stage-card">
+        <div class="download-stage-header">
+          <div>
+            <h2>Final lesson plan preview</h2>
+            <p>Please review the final version of your lesson plan before saving or downloading.</p>
+          </div>
+          <button id="printPreviewButton" class="action-button secondary-button preview-action" type="button">
+            <span class="button-text">Print preview</span>
+          </button>
+        </div>
+
+        <div class="download-preview-shell">
+          <div class="download-preview" id="previewRoot">
+            <div class="download-preview-top">
+              <div>
+                <h3 id="downloadTitle">Lesson Plan</h3>
+                <div id="downloadMeta" class="download-meta"></div>
+              </div>
+            </div>
+
+            <div class="download-preview-body" id="previewBody"></div>
+          </div>
+        </div>
+
+        <div class="download-note">
+          This is the final preview. You can now download the DOCX or the PDF.
+        </div>
+
+        <div id="downloadStatus" class="download-status" aria-live="polite"></div>
+
+        <div class="download-bottom-actions">
+          <a href="refining-and-improving.html" class="action-link secondary-button">Back to editing</a>
+          <button id="saveAccountButton" class="action-button secondary-button outline-button" type="button">
+            <span class="button-text">Send by email</span>
+          </button>
+          <button id="copyClipboardButton" class="action-button secondary-button outline-button" type="button">
+            <span class="button-text">Copy to clipboard</span>
+          </button>
+          <button id="downloadDocxButton" class="action-button secondary-button outline-button" type="button">
+            <span class="button-text">Download DOCX</span>
+          </button>
+          <button id="downloadPdfButton" class="action-button secondary-button outline-button" type="button">
+            <span class="button-text">Download PDF</span>
+          </button>
+          <button id="finishButton" class="action-button primary-button" type="button">
+            <span class="button-text">Finish lesson plan</span>
+            <span class="button-arrow">-></span>
+          </button>
+        </div>
+      </section>
+
+      <aside class="download-side">
+        <section class="download-aside-card">
+          <div class="download-aside-head">
+            <h3>Changes based on our discussion</h3>
+            <span id="changeCount" class="pill">0 changes</span>
+          </div>
+          <div id="changeList" class="download-change-list"></div>
+          <button id="viewAllChangesButton" class="text-button" type="button">View all changes</button>
+        </section>
+
+        <section class="download-aside-card">
+          <div class="download-aside-head">
+            <h3>Initial strengths we identified</h3>
+            <span id="strengthCount" class="pill">0 strengths</span>
+          </div>
+          <div id="strengthList" class="download-change-list"></div>
+          <button id="viewAllStrengthsButton" class="text-button" type="button">View all strengths</button>
+        </section>
+
+        <section class="download-help-card">
+          <div class="download-help-icon">✓</div>
+          <div class="download-help-text">
+            <h3>Send a copy by email</h3>
+            <p>If enabled, the final lesson plan PDF and the conversation text will be sent to the configured local email address when you finish.</p>
+          </div>
+          <div class="download-help-toggle">
+            <label class="toggle-line toggle-label" for="emailShareToggle">
+              <input id="emailShareToggle" class="toggle-input" type="checkbox" />
+              <span class="toggle-switch"></span>
+              <span>Yes, send it to email</span>
+            </label>
+            <p>The recipient is configured locally in <code>app/server/.env</code>.</p>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="historyModalBackdrop" class="citation-modal-backdrop" aria-hidden="true">
+    <div class="citation-modal refinement-history-modal" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
+      <h3 id="historyModalTitle">Change history</h3>
+      <div id="historyModalBody" class="change-history-list"></div>
+      <div class="citation-modal-actions">
+        <button type="button" class="action-button secondary-button" id="closeHistoryModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function safeParse(raw, fallback) {
+      try {
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function formatTextList(items) {
+      return (items || []).join(", ");
+    }
+
+    function makeParagraph(text) {
+      var p = document.createElement("p");
+      p.textContent = text;
+      return p;
+    }
+
+    function setText(id, text) {
+      var element = document.getElementById(id);
+      if (element) {
+        element.textContent = text || "";
+      }
+    }
+
+    function getDraft() {
+      return safeParse(window.localStorage.getItem("step3Draft"), null);
+    }
+
+    function getConversationLog() {
+      return safeParse(window.localStorage.getItem("step3Conversation"), []);
+    }
+
+    function getPreparation() {
+      return safeParse(window.localStorage.getItem("step2Preparation"), null);
+    }
+
+    var draft = getDraft();
+    var conversation = getConversationLog();
+    var preparation = getPreparation();
+    var emailToggleKey = "downloadEmailEnabled";
+
+    function getEmailShareEnabled() {
+      return window.localStorage.getItem(emailToggleKey) === "true";
+    }
+
+    function setEmailShareEnabled(value) {
+      window.localStorage.setItem(emailToggleKey, value ? "true" : "false");
+      var toggle = document.getElementById("emailShareToggle");
+      if (toggle) {
+        toggle.checked = !!value;
+      }
+    }
+
+      function setBusyState(isBusy) {
+        var finishButton = document.getElementById("finishButton");
+        var sendButton = document.getElementById("saveAccountButton");
+        var docxButton = document.getElementById("downloadDocxButton");
+        var pdfButton = document.getElementById("downloadPdfButton");
+        if (finishButton) {
+          finishButton.disabled = !!isBusy;
+        }
+        if (sendButton) {
+          sendButton.disabled = !!isBusy;
+        }
+        if (docxButton) {
+          docxButton.disabled = !!isBusy;
+        }
+        if (pdfButton) {
+          pdfButton.disabled = !!isBusy;
+        }
+      }
+
+    function buildConversationText(items) {
+      var lines = [];
+      (items || []).forEach(function (message) {
+        message = message || {};
+        var time = message.time ? "[" + message.time + "] " : "";
+        var role = message.role || "tutor";
+        lines.push(time + role + ": " + (message.text || ""));
+      });
+      return lines.join("\n");
+    }
+
+      function buildEmailPayload() {
+        return {
+          enabled: true,
+          sessionId: preparation && preparation.sessionId ? preparation.sessionId : "",
+          filename: preparation && preparation.filename ? preparation.filename : "",
+          draft: draft,
+          conversation: conversation,
+          sourceDocument: preparation && preparation.sourceDocument ? preparation.sourceDocument : null
+        };
+      }
+
+      function sendSummaryEmail() {
+        if (!getEmailShareEnabled()) {
+          setText("downloadStatus", "Enable the switch if you want to send a copy by email.");
+          return Promise.resolve(null);
+        }
+        if (!draft && !(preparation && preparation.sessionId)) {
+          setText("downloadStatus", "No draft found. Please return to Step 3 first.");
+          return Promise.reject(new Error("No draft found"));
+        }
+
+      setBusyState(true);
+      setText("downloadStatus", "Sending email...");
+
+      return fetch("/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(buildEmailPayload())
+      }).then(function (response) {
+        return response.text().then(function (text) {
+          var data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (error) {
+            data = null;
+          }
+          if (!response.ok) {
+            var message = (data && data.error) ? data.error : "Unable to send email.";
+            throw new Error(message);
+          }
+          return data || {};
+        });
+      }).then(function (result) {
+        setText("downloadStatus", "Email sent successfully.");
+        return result;
+      }).catch(function (error) {
+        setText("downloadStatus", error && error.message ? error.message : "Unable to send email.");
+        throw error;
+      }).finally(function () {
+        setBusyState(false);
+      });
+    }
+
+    function buildPreview() {
+      var previewRoot = document.getElementById("previewBody");
+      previewRoot.innerHTML = "";
+
+      if (!draft) {
+        previewRoot.appendChild(makeParagraph("No draft found. Please return to Step 3 first."));
+        return;
+      }
+
+      var sections = [
+        { title: "1. Goals", content: draft.goals || [], type: "list" },
+        { title: "2. Skills", content: draft.skills || [], type: "list" },
+        { title: "3. Steps", content: draft.steps || [], type: "steps" },
+        { title: "4. Materials", content: draft.materials || [], type: "list" },
+        { title: "5. Assessment", content: draft.assessment || [], type: "list" },
+        { title: "6. Reflection", content: draft.reflection || "", type: "text" }
+      ];
+
+      sections.forEach(function (section) {
+        var block = document.createElement("section");
+        block.className = "download-section-block";
+
+        var heading = document.createElement("h4");
+        heading.textContent = section.title;
+        block.appendChild(heading);
+
+        if (section.type === "steps") {
+          section.content.forEach(function (step, index) {
+            var stepRow = document.createElement("div");
+            stepRow.className = "download-step-row" + (step.status && step.status !== "No major changes" ? " changed" : "");
+            var top = document.createElement("div");
+            top.className = "download-step-top";
+            var left = document.createElement("div");
+            left.className = "download-step-left";
+            var title = document.createElement("strong");
+            title.textContent = (index + 1) + ". " + (step.title || "Step");
+            left.appendChild(title);
+            var duration = document.createElement("span");
+            duration.className = "duration-pill";
+            duration.textContent = step.duration || "";
+            left.appendChild(duration);
+            top.appendChild(left);
+            var status = document.createElement("span");
+            status.className = "status-pill";
+            status.textContent = step.status || "No major changes";
+            top.appendChild(status);
+            stepRow.appendChild(top);
+            if (step.description) {
+              stepRow.appendChild(makeParagraph(step.description));
+            }
+            if (step.note) {
+              var note = makeParagraph(step.note);
+              note.className = "download-note-inline";
+              stepRow.appendChild(note);
+            }
+            block.appendChild(stepRow);
+          });
+        } else if (section.type === "list") {
+          var list = document.createElement("ul");
+          list.className = "download-list";
+          section.content.forEach(function (item) {
+            var li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+          });
+          block.appendChild(list);
+        } else {
+          var text = makeParagraph(section.content);
+          text.className = "download-reflection";
+          block.appendChild(text);
+        }
+
+        previewRoot.appendChild(block);
+      });
+    }
+
+    function renderChangeList() {
+      var changes = draft && Array.isArray(draft.changes) ? draft.changes : [];
+      var list = document.getElementById("changeList");
+      list.innerHTML = "";
+      setText("changeCount", changes.length + " changes");
+      if (!changes.length) {
+        list.appendChild(makeParagraph("No changes yet."));
+        return;
+      }
+      changes.slice(0, 6).forEach(function (change) {
+        var item = document.createElement("div");
+        item.className = "download-aside-item";
+        var title = document.createElement("strong");
+        title.textContent = change.title || change.kind || "Change";
+        item.appendChild(title);
+        var reason = makeParagraph(change.reason || "");
+        item.appendChild(reason);
+        list.appendChild(item);
+      });
+    }
+
+    function renderStrengths() {
+      var strengths = [
+        {
+          title: "Strong real-world connection",
+          text: "The topic is relevant and connected to students' lives."
+        },
+        {
+          title: "Clear learning goals",
+          text: "The goals are specific and measurable."
+        },
+        {
+          title: "Good use of prior knowledge activation",
+          text: "Activating prior knowledge at the beginning."
+        },
+        {
+          title: "Logical sequence of activities",
+          text: "The flow of the lesson is well structured."
+        },
+        {
+          title: "Variety of methods",
+          text: "The plan uses a good mix of teaching and learning methods."
+        }
+      ];
+
+      var list = document.getElementById("strengthList");
+      list.innerHTML = "";
+      setText("strengthCount", strengths.length + " strengths");
+      strengths.forEach(function (strength) {
+        var item = document.createElement("div");
+        item.className = "download-aside-item strength";
+        var title = document.createElement("strong");
+        title.textContent = strength.title;
+        item.appendChild(title);
+        item.appendChild(makeParagraph(strength.text));
+        list.appendChild(item);
+      });
+    }
+
+    function renderMeta() {
+      if (!draft) {
+        setText("downloadTitle", "No draft found");
+        setText("downloadMeta", "Please return to Step 3 first.");
+        return;
+      }
+      setText("downloadTitle", draft.title || "Lesson Plan");
+      var meta = draft.meta || {};
+      setText("downloadMeta", [
+        meta.subjects && meta.subjects.length ? "Subject: " + formatTextList(meta.subjects) : "",
+        meta.gradeRange ? "Grade range: " + meta.gradeRange : "",
+        meta.ageRange ? "Age range: " + meta.ageRange : "",
+        meta.country ? "Country: " + meta.country : ""
+      ].filter(Boolean).join("  •  "));
+    }
+
+    function triggerDownload(blob, filename) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 250);
+    }
+
+      function buildExportPayload() {
+        return {
+          sessionId: preparation && preparation.sessionId ? preparation.sessionId : "",
+          filename: preparation && preparation.filename ? preparation.filename : "",
+          draft: draft,
+          conversation: conversation,
+          sourceDocument: preparation && preparation.sourceDocument ? preparation.sourceDocument : null
+        };
+      }
+
+      function exportFile(format) {
+        if (!draft && !(preparation && preparation.sessionId)) {
+          setText("downloadStatus", "No draft found. Please go back to Step 3 first.");
+          return;
+        }
+
+        var buttonId = format === "docx" ? "downloadDocxButton" : "downloadPdfButton";
+        var endpoint = format === "docx" ? "/export-docx" : "/export-pdf";
+        var filename = format === "docx" ? "lesson-plan-final.docx" : "lesson-plan-final.pdf";
+        var button = document.getElementById(buttonId);
+        button.disabled = true;
+        setText("downloadStatus", "Creating " + format.toUpperCase() + "...");
+
+        fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(buildExportPayload())
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              return response.text().then(function (text) {
+                throw new Error(text || "Unable to export " + format.toUpperCase() + ".");
+              });
+            }
+            return response.blob();
+          })
+          .then(function (blob) {
+            triggerDownload(blob, filename);
+            setText("downloadStatus", format.toUpperCase() + " downloaded successfully.");
+          })
+          .catch(function (error) {
+            setText("downloadStatus", error && error.message ? error.message : "Unable to export " + format.toUpperCase() + ".");
+          })
+          .finally(function () {
+            button.disabled = false;
+          });
+      }
+
+    function renderHistoryModal() {
+      var body = document.getElementById("historyModalBody");
+      body.innerHTML = "";
+      var changes = draft && Array.isArray(draft.changes) ? draft.changes : [];
+      changes.slice().reverse().forEach(function (change) {
+        var item = document.createElement("div");
+        item.className = "history-item";
+        var title = document.createElement("strong");
+        title.textContent = change.title || change.kind;
+        item.appendChild(title);
+        var metaLine = document.createElement("div");
+        metaLine.className = "history-meta";
+        metaLine.textContent = (change.time || "") + (change.source ? " - " + change.source : "");
+        item.appendChild(metaLine);
+        var reason = makeParagraph(change.reason || "");
+        item.appendChild(reason);
+        body.appendChild(item);
+      });
+      if (!changes.length) {
+        var empty = document.createElement("div");
+        empty.className = "history-empty";
+        empty.textContent = "No changes yet.";
+        body.appendChild(empty);
+      }
+    }
+
+    function openHistoryModal() {
+      renderHistoryModal();
+      document.getElementById("historyModalBackdrop").classList.add("open");
+      document.getElementById("historyModalBackdrop").setAttribute("aria-hidden", "false");
+    }
+
+    function closeHistoryModal() {
+      document.getElementById("historyModalBackdrop").classList.remove("open");
+      document.getElementById("historyModalBackdrop").setAttribute("aria-hidden", "true");
+    }
+
+    function copyToClipboard() {
+      if (!draft) {
+        setText("downloadStatus", "Nothing to copy yet.");
+        return;
+      }
+      var lines = [];
+      lines.push(draft.title || "Lesson Plan");
+      lines.push("");
+      if (draft.summary) lines.push(draft.summary);
+      lines.push("");
+      lines.push("Goals");
+      (draft.goals || []).forEach(function (item) { lines.push("- " + item); });
+      lines.push("");
+      lines.push("Steps");
+      (draft.steps || []).forEach(function (step, index) {
+        lines.push((index + 1) + ". " + (step.title || "Step") + " (" + (step.duration || "") + ")");
+      });
+      var text = lines.join("\n");
+      navigator.clipboard.writeText(text).then(function () {
+        setText("downloadStatus", "Draft copied to clipboard.");
+      }).catch(function () {
+        setText("downloadStatus", "Could not copy to clipboard.");
+      });
+    }
+
+      function finishLessonPlan() {
+        var finalize = function () {
+          window.localStorage.removeItem("step3Draft");
+          window.localStorage.removeItem("step3Conversation");
+          window.localStorage.removeItem("step3Progress");
+          window.localStorage.removeItem("step3Session");
+          window.location.href = "start.html";
+        };
+
+      if (!getEmailShareEnabled()) {
+        finalize();
+        return;
+      }
+
+      sendSummaryEmail()
+        .then(function () {
+          finalize();
+        })
+        .catch(function () {
+          // Keep the current page open so the user can try again.
+        });
+    }
+
+    function start() {
+      renderMeta();
+      renderChangeList();
+      renderStrengths();
+      buildPreview();
+      setEmailShareEnabled(getEmailShareEnabled());
+      if (!draft) {
+        setText("downloadStatus", "Please return to Step 3 and create a draft first.");
+      }
+
+        document.getElementById("downloadDocxButton").addEventListener("click", function () {
+          exportFile("docx");
+        });
+        document.getElementById("downloadPdfButton").addEventListener("click", function () {
+          exportFile("pdf");
+        });
+      document.getElementById("copyClipboardButton").addEventListener("click", copyToClipboard);
+      document.getElementById("finishButton").addEventListener("click", finishLessonPlan);
+      document.getElementById("moreInfoButton").addEventListener("click", function () {
+        window.location.href = "info.html";
+      });
+      document.getElementById("printPreviewButton").addEventListener("click", function () {
+        window.print();
+      });
+      document.getElementById("saveAccountButton").addEventListener("click", function () {
+        sendSummaryEmail().catch(function () {});
+      });
+      document.getElementById("emailShareToggle").addEventListener("change", function (event) {
+        setEmailShareEnabled(event.target.checked);
+        setText("downloadStatus", event.target.checked ? "Email sharing enabled." : "Email sharing disabled.");
+      });
+      document.getElementById("viewAllChangesButton").addEventListener("click", openHistoryModal);
+      document.getElementById("viewAllStrengthsButton").addEventListener("click", function () {
+        setText("downloadStatus", "Strength details are already visible in the side panel.");
+      });
+      document.getElementById("closeHistoryModal").addEventListener("click", closeHistoryModal);
+      document.getElementById("historyModalBackdrop").addEventListener("click", function (event) {
+        if (event.target === event.currentTarget) {
+          closeHistoryModal();
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closeHistoryModal();
+        }
+      });
+    }
+
+    start();
+  </script>
+</body>
+</html>
