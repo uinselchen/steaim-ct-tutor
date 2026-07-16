@@ -16,6 +16,30 @@ document.addEventListener("DOMContentLoaded", function () {
   var currentSubjects = [];
   var currentCountries = [];
 
+  function setAnalyzingState(active) {
+    if (!continueButton) {
+      return;
+    }
+    if (active) {
+      continueButton.disabled = true;
+      continueButton.classList.add("is-analyzing");
+      continueButton.setAttribute("aria-busy", "true");
+      continueButton.innerHTML = "Analyzing<span class=\"loading-dots\" aria-hidden=\"true\"><span></span><span></span><span></span></span>";
+      if (analysisHello) {
+        analysisHello.classList.add("is-loading");
+        analysisHello.innerHTML = "<span class=\"analysis-spinner\" aria-hidden=\"true\"></span><span class=\"analysis-status-text\">checking</span><span class=\"sr-only\">Checking Mistral connection</span>";
+      }
+    } else {
+      continueButton.disabled = false;
+      continueButton.classList.remove("is-analyzing");
+      continueButton.removeAttribute("aria-busy");
+      continueButton.textContent = originalContinueLabel;
+      if (analysisHello) {
+        analysisHello.classList.remove("is-loading");
+      }
+    }
+  }
+
   function setError(id, message) {
     var element = document.getElementById(id);
     if (element) {
@@ -415,11 +439,6 @@ document.addEventListener("DOMContentLoaded", function () {
       formData.append("lessonPlan", fileInput.files[0]);
 
       sendClientLog("Analysis started for " + (fileInput.files[0] ? fileInput.files[0].name : "unknown file"));
-      if (analysisHello) {
-        analysisHello.textContent = "checking...";
-      }
-      continueButton.disabled = true;
-      continueButton.textContent = "Analyzing...";
 
       runMistralHello()
         .then(function (helloResult) {
@@ -428,7 +447,8 @@ document.addEventListener("DOMContentLoaded", function () {
             helloValue = helloResult.data.hello;
           }
           if (analysisHello) {
-            analysisHello.textContent = helloValue;
+            analysisHello.classList.add("is-loading");
+            analysisHello.innerHTML = "<span class=\"analysis-spinner\" aria-hidden=\"true\"></span><span class=\"analysis-status-text\">" + helloValue + "</span><span class=\"sr-only\">Analyzing lesson plan</span>";
           }
           sendClientLog("Mistral hello returned: " + helloValue);
           return fetch("/analyze", {
@@ -448,7 +468,11 @@ document.addEventListener("DOMContentLoaded", function () {
               }
               console.error("Analysis response error:", errorData || text);
               sendClientLog("Analysis failed: " + ((errorData && errorData.error) ? errorData.error : "unknown error"));
-              setErrorDetail(text ? "Raw response:\n" + text : "Raw response: <empty>");
+              if (errorData && errorData.error) {
+                setErrorDetail(errorData.detail ? "Details:\n" + errorData.detail : "");
+              } else {
+                setErrorDetail(text ? "Raw response:\n" + text : "Raw response: <empty>");
+              }
               throw new Error((errorData && errorData.error) ? errorData.error : "Analysis failed");
             });
           }
@@ -487,7 +511,10 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch(function (error) {
           console.error("Analysis request failed:", error);
           sendClientLog("Analysis request failed: " + (error && error.message ? error.message : "unknown"));
-          if (analysisHello && !analysisHello.textContent) {
+          if (analysisHello && analysisHello.classList.contains("is-loading")) {
+            analysisHello.classList.remove("is-loading");
+            analysisHello.textContent = "error";
+          } else if (analysisHello && !analysisHello.textContent) {
             analysisHello.textContent = "error";
           }
           if (error && error.raw) {
@@ -496,8 +523,7 @@ document.addEventListener("DOMContentLoaded", function () {
           setError("fileError", error.message || "The analysis failed. Please try again.");
         })
         .finally(function () {
-          continueButton.disabled = false;
-          continueButton.textContent = originalContinueLabel;
+          setAnalyzingState(false);
         });
     };
 
@@ -624,6 +650,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!validateForm()) {
       return;
     }
+    setAnalyzingState(true);
     uploadForm();
   });
 

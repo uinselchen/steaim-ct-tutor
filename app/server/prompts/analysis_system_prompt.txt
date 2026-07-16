@@ -22,6 +22,10 @@ Core analysis questions:
 
 Context rules:
 - UI context wins for the intended analysis.
+- The selected UI subject(s) define the main feedback lens. Evaluate whether the uploaded plan works for those subject(s), even if the document contains stronger links to other subjects.
+- If the selected subject is only weakly present in the document, report that clearly. Do not treat cross-curricular mentions as sufficient subject fit.
+- For Arts, focus on artistic learning goals, creative process, visual/material exploration, expression, design decisions, reflection on artwork, presentation, and age-appropriate making. Science or engineering content may support the lesson, but it must not replace the Arts focus.
+- For each selected subject, include at least one relevant point in goals_competencies, target_group, or curriculum_alignment when there is a fit or mismatch.
 - Document labels are evidence, not automatic truth.
 - If UI context, document claims, and activity complexity differ, report the mismatch.
 - If UI grade/age exists, short_summary and analysis_focus.target_group.note must mention whether the plan fits that UI target group.

@@ -7,7 +7,6 @@ import json
 import uuid
 import webbrowser
 import mimetypes
-import zipfile
 import tempfile
 import urllib.request
 import urllib.error
@@ -15,191 +14,26 @@ import traceback
 import re
 import unicodedata
 import smtplib
-import sys
-from datetime import datetime
-from io import BytesIO
-import textwrap
-from xml.etree import ElementTree as ET
 from http import HTTPStatus
 from email.message import EmailMessage
-from xml.sax.saxutils import escape as xml_escape
 
-RUNTIME_PYTHON_PACKAGES = r"C:\Users\Uinsel\.cache\codex-runtimes\codex-primary-runtime\dependencies\python"
-if os.path.isdir(RUNTIME_PYTHON_PACKAGES) and RUNTIME_PYTHON_PACKAGES not in sys.path:
-    sys.path.insert(0, RUNTIME_PYTHON_PACKAGES)
-
-try:
-    from docx import Document
-except ImportError:
-    Document = None
-
-try:
-    from reportlab.lib import colors
-    from reportlab.lib.enums import TA_LEFT
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.lib.units import mm
-    from reportlab.platypus import ListFlowable, ListItem, Paragraph, SimpleDocTemplate, Spacer
-except ImportError:
-    colors = None
-    TA_LEFT = None
-    A4 = None
-    ParagraphStyle = None
-    getSampleStyleSheet = None
-    mm = None
-    ListFlowable = None
-    ListItem = None
-    Paragraph = None
-    SimpleDocTemplate = None
-    Spacer = None
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-APP_ROOT = os.path.abspath(os.path.join(HERE, ".."))
-FRONTEND_ROOT = os.path.join(APP_ROOT, "frontend")
-DATA_ROOT = os.path.join(APP_ROOT, "data")
-PROMPTS_ROOT = os.path.join(HERE, "prompts")
-CURRICULA_ROOT = os.path.join(DATA_ROOT, "curricula")
-AMENDMENTS_ROOT = os.path.join(DATA_ROOT, "amendments")
-LESSONPLANS_ROOT = os.path.join(DATA_ROOT, "lessonplans")
-CONFIG_FILE = os.path.join(DATA_ROOT, "config.json")
-ENV_FILE = os.path.join(HERE, ".env")
-ANALYSIS_LOG_FILE = os.path.join(DATA_ROOT, "outputs", "analysis-log.txt")
-MISTRAL_PROMPT_LOG_FILE = os.path.join(DATA_ROOT, "outputs", "mistral-prompt-log.txt")
-STEP3_STATE_ROOT = os.path.join(DATA_ROOT, "outputs", "step3-sessions")
-EXPORTS_ROOT = os.path.join(DATA_ROOT, "outputs", "exports")
-MISTRAL_API_KEY = None
-MISTRAL_MODEL = "mistral-small-latest"
-SMTP_HOST = None
-SMTP_PORT = 587
-SMTP_USERNAME = None
-SMTP_PASSWORD = None
-SMTP_USE_TLS = True
-SMTP_USE_SSL = False
-MAIL_FROM_ADDRESS = None
-MAIL_TO_ADDRESS = None
-
-PORT = 8000
-
-for path in (
-    FRONTEND_ROOT,
-    CURRICULA_ROOT,
+import config
+from config import (
     AMENDMENTS_ROOT,
+    APP_ROOT,
+    CONFIG_FILE,
+    CURRICULA_ROOT,
+    DATA_ROOT,
+    FRONTEND_ROOT,
     LESSONPLANS_ROOT,
-    os.path.join(DATA_ROOT, "templates"),
-    os.path.join(DATA_ROOT, "outputs"),
+    PORT,
     STEP3_STATE_ROOT,
-    EXPORTS_ROOT,
-):
-    os.makedirs(path, exist_ok=True)
-
-if not os.path.exists(ANALYSIS_LOG_FILE):
-    with open(ANALYSIS_LOG_FILE, "w", encoding="utf-8") as log_file:
-        log_file.write("")
-
-if not os.path.exists(MISTRAL_PROMPT_LOG_FILE):
-    with open(MISTRAL_PROMPT_LOG_FILE, "w", encoding="utf-8") as log_file:
-        log_file.write("")
-
-
-def log_message(message):
-    line = message.rstrip("\n")
-    print(line)
-    with open(ANALYSIS_LOG_FILE, "a", encoding="utf-8") as log_file:
-        log_file.write(line + "\n")
-
-
-def log_mistral_prompt(label, system_prompt, user_prompt, request_body=None):
-    timestamp = datetime.now().isoformat(timespec="seconds")
-    entry_lines = [
-        "=" * 80,
-        f"[{timestamp}] {label}",
-        "",
-        "SYSTEM PROMPT:",
-        str(system_prompt or "").rstrip(),
-        "",
-        "USER PROMPT:",
-        str(user_prompt or "").rstrip(),
-    ]
-    if request_body is not None:
-        entry_lines.extend([
-            "",
-            "REQUEST BODY:",
-            json.dumps(request_body, ensure_ascii=False, indent=2),
-        ])
-    entry_lines.append("")
-    with open(MISTRAL_PROMPT_LOG_FILE, "a", encoding="utf-8") as log_file:
-        log_file.write("\n".join(entry_lines) + "\n")
-
-
-def load_prompt_file(filename):
-    path = os.path.join(PROMPTS_ROOT, filename)
-    try:
-        with open(path, "r", encoding="utf-8") as prompt_file:
-            return prompt_file.read().strip()
-    except OSError as error:
-        log_message(f"[prompt] Unable to load {filename}: {error}")
-        raise
-
-
-def load_env_file():
-    global MISTRAL_API_KEY, MISTRAL_MODEL, SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_USE_TLS, SMTP_USE_SSL, MAIL_FROM_ADDRESS, MAIL_TO_ADDRESS
-
-    if os.path.exists(ENV_FILE):
-        with open(ENV_FILE, "r", encoding="utf-8") as env_file:
-            for raw_line in env_file:
-                line = raw_line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                value = value.strip().strip('"').strip("'")
-                if key == "MISTRAL_API_KEY" and value:
-                    MISTRAL_API_KEY = value
-                elif key == "MISTRAL_MODEL" and value:
-                    MISTRAL_MODEL = value
-                elif key == "SMTP_HOST" and value:
-                    SMTP_HOST = value
-                elif key == "SMTP_PORT" and value:
-                    try:
-                        SMTP_PORT = int(value)
-                    except ValueError:
-                        SMTP_PORT = 587
-                elif key == "SMTP_USERNAME" and value:
-                    SMTP_USERNAME = value
-                elif key == "SMTP_PASSWORD" and value:
-                    SMTP_PASSWORD = value
-                elif key == "SMTP_USE_TLS" and value:
-                    SMTP_USE_TLS = value.lower() in ("1", "true", "yes", "on")
-                elif key == "SMTP_USE_SSL" and value:
-                    SMTP_USE_SSL = value.lower() in ("1", "true", "yes", "on")
-                elif key == "MAIL_FROM_ADDRESS" and value:
-                    MAIL_FROM_ADDRESS = value
-                elif key == "MAIL_TO_ADDRESS" and value:
-                    MAIL_TO_ADDRESS = value
-
-    if not MISTRAL_API_KEY:
-        MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
-    if os.environ.get("MISTRAL_MODEL"):
-        MISTRAL_MODEL = os.environ["MISTRAL_MODEL"]
-    if os.environ.get("SMTP_HOST"):
-        SMTP_HOST = os.environ["SMTP_HOST"]
-    if os.environ.get("SMTP_PORT"):
-        try:
-            SMTP_PORT = int(os.environ["SMTP_PORT"])
-        except ValueError:
-            SMTP_PORT = 587
-    if os.environ.get("SMTP_USERNAME"):
-        SMTP_USERNAME = os.environ["SMTP_USERNAME"]
-    if os.environ.get("SMTP_PASSWORD"):
-        SMTP_PASSWORD = os.environ["SMTP_PASSWORD"]
-    if os.environ.get("SMTP_USE_TLS"):
-        SMTP_USE_TLS = os.environ["SMTP_USE_TLS"].lower() in ("1", "true", "yes", "on")
-    if os.environ.get("SMTP_USE_SSL"):
-        SMTP_USE_SSL = os.environ["SMTP_USE_SSL"].lower() in ("1", "true", "yes", "on")
-    if os.environ.get("MAIL_FROM_ADDRESS"):
-        MAIL_FROM_ADDRESS = os.environ["MAIL_FROM_ADDRESS"]
-    if os.environ.get("MAIL_TO_ADDRESS"):
-        MAIL_TO_ADDRESS = os.environ["MAIL_TO_ADDRESS"]
-
+)
+import export_service
+from export_service import normalize_filename_piece
+from file_extractors import extract_text_from_file
+from logging_utils import log_message, log_mistral_prompt
+from prompts import load_prompt_file
 
 def slugify_folder_name(value):
     text = str(value or "").strip().lower()
@@ -561,10 +395,10 @@ def save_step3_conversation_log(session_id, conversation, payload, result):
 
 
 def send_summary_email(payload):
-    if not SMTP_HOST:
+    if not config.SMTP_HOST:
         return {"error": "SMTP_HOST is not configured in app/server/.env"}
 
-    recipient = MAIL_TO_ADDRESS or str(payload.get("recipient", "")).strip()
+    recipient = config.MAIL_TO_ADDRESS or str(payload.get("recipient", "")).strip()
     if not recipient:
         return {"error": "MAIL_TO_ADDRESS is not configured in app/server/.env"}
 
@@ -572,14 +406,14 @@ def send_summary_email(payload):
     if not recipients:
         return {"error": "No valid email recipient configured"}
 
-    context = build_export_context(payload)
+    context = export_service.build_export_context(payload, load_step3_state)
     draft = context.get("draft") if isinstance(context.get("draft"), dict) else {}
     conversation = context.get("conversation") if isinstance(context.get("conversation"), list) else []
     session_id = str(context.get("sessionId", "")).strip()
 
     message = EmailMessage()
     message["Subject"] = f"STEaiM-CT lesson plan{f' ({session_id})' if session_id else ''}"
-    message["From"] = MAIL_FROM_ADDRESS or SMTP_USERNAME or recipients[0]
+    message["From"] = config.MAIL_FROM_ADDRESS or config.SMTP_USERNAME or recipients[0]
     message["To"] = ", ".join(recipients)
 
     draft_text = build_draft_text(draft)
@@ -597,7 +431,7 @@ def send_summary_email(payload):
     message.set_content("\n".join(body_lines))
 
     try:
-        bundle = build_export_bundle(context)
+        bundle = export_service.build_export_bundle(context)
     except Exception:
         log_message("[mail] Export bundle could not be generated, sending text only")
         traceback.print_exc()
@@ -613,17 +447,17 @@ def send_summary_email(payload):
         message.add_attachment(draft_text.encode("utf-8"), maintype="text", subtype="plain", filename="lesson-plan-draft.txt")
 
     try:
-        if SMTP_USE_SSL:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30) as smtp:
-                if SMTP_USERNAME:
-                    smtp.login(SMTP_USERNAME, SMTP_PASSWORD or "")
+        if config.SMTP_USE_SSL:
+            with smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT, timeout=30) as smtp:
+                if config.SMTP_USERNAME:
+                    smtp.login(config.SMTP_USERNAME, config.SMTP_PASSWORD or "")
                 smtp.send_message(message)
         else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as smtp:
-                if SMTP_USE_TLS:
+            with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=30) as smtp:
+                if config.SMTP_USE_TLS:
                     smtp.starttls()
-                if SMTP_USERNAME:
-                    smtp.login(SMTP_USERNAME, SMTP_PASSWORD or "")
+                if config.SMTP_USERNAME:
+                    smtp.login(config.SMTP_USERNAME, config.SMTP_PASSWORD or "")
                 smtp.send_message(message)
     except Exception as error:
         log_message(f"[mail] Send failed: {error}")
@@ -634,873 +468,6 @@ def send_summary_email(payload):
         "sent": True,
         "recipient": recipients,
         "subject": message["Subject"],
-    }
-
-
-def pdf_safe_text(value):
-    text = str(value or "")
-    replacements = {
-        "–": "-",
-        "—": "-",
-        "•": "-",
-        "“": "\"",
-        "”": "\"",
-        "‘": "'",
-        "’": "'",
-        "→": "->",
-    }
-    for source, target in replacements.items():
-        text = text.replace(source, target)
-    text = unicodedata.normalize("NFKD", text)
-    text = "".join(char for char in text if not unicodedata.combining(char))
-    return text.encode("latin-1", "replace").decode("latin-1")
-
-
-def pdf_escape(value):
-    return pdf_safe_text(value).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-
-
-def make_pdf_from_draft(draft):
-    draft = draft if isinstance(draft, dict) else {}
-    page_width = 595.28
-    page_height = 841.89
-    margin_left = 48
-    margin_right = 48
-    margin_top = 54
-    margin_bottom = 54
-    usable_width = page_width - margin_left - margin_right
-
-    blocks = []
-
-    def add_block(text, size=11, leading=None, kind="body"):
-        blocks.append({
-            "text": text,
-            "size": size,
-            "leading": leading or int(size * 1.35),
-            "kind": kind,
-        })
-
-    add_block("Lesson Plan Draft", 20, 24, "title")
-    summary = str(draft.get("summary") or "").strip()
-    if summary:
-        add_block(summary, 11, 15)
-
-    meta = draft.get("meta") if isinstance(draft.get("meta"), dict) else {}
-    meta_lines = []
-    meta_values = [
-        ("Country", meta.get("country", "")),
-        ("Subject(s)", ", ".join(meta.get("subjects", [])) if isinstance(meta.get("subjects"), list) else meta.get("subjects", "")),
-        ("Grade range", meta.get("gradeRange", "")),
-        ("Age range", meta.get("ageRange", "")),
-    ]
-    for label, value in meta_values:
-        value_text = str(value or "").strip()
-        if value_text:
-            meta_lines.append(f"{label}: {value_text}")
-    for line in meta_lines:
-        add_block(line, 9.5, 12)
-
-    def add_section(title, items):
-        items = items if isinstance(items, list) else []
-        if not items:
-            return
-        add_block(title, 13, 17, "heading")
-        for item in items:
-            add_block(f"- {item}", 10.5, 14)
-
-    add_section("Goals", draft.get("goals", []))
-    add_section("Skills", draft.get("skills", []))
-
-    steps = draft.get("steps", [])
-    if isinstance(steps, list) and steps:
-        add_block("Steps", 13, 17, "heading")
-        for index, step in enumerate(steps, start=1):
-            step = step if isinstance(step, dict) else {}
-            step_title = str(step.get("title", f"Step {index}")).strip()
-            duration = str(step.get("duration", "")).strip()
-            description = str(step.get("description", "")).strip()
-            status = str(step.get("status", "")).strip()
-            note = str(step.get("note", "")).strip()
-            line = f"{index}. {step_title}" + (f" - {duration}" if duration else "")
-            add_block(line, 11, 14)
-            if description:
-                add_block(description, 10, 13)
-            if status:
-                add_block(f"Status: {status}", 9.5, 12)
-            if note:
-                add_block(note, 9.5, 12)
-
-    add_section("Materials", draft.get("materials", []))
-    add_section("Assessment", draft.get("assessment", []))
-
-    reflection = str(draft.get("reflection", "")).strip()
-    if reflection:
-        add_block("Reflection", 13, 17, "heading")
-        add_block(reflection, 10.5, 14)
-
-    changes = draft.get("changes", [])
-    if isinstance(changes, list) and changes:
-        add_block("Change summary", 13, 17, "heading")
-        for change in changes:
-            change = change if isinstance(change, dict) else {}
-            change_title = str(change.get("title", "Change")).strip()
-            change_reason = str(change.get("reason", "")).strip()
-            change_source = str(change.get("source", "")).strip()
-            header = change_title + (f" - {change_source}" if change_source else "")
-            add_block(header, 10.5, 14)
-            if change_reason:
-                add_block(change_reason, 9.5, 12)
-            before_value = str(change.get("beforeValue", "")).strip()
-            after_value = str(change.get("afterValue", "")).strip()
-            if before_value or after_value:
-                add_block(f"Before: {before_value or 'n/a'}", 9.5, 12)
-                add_block(f"After: {after_value or 'n/a'}", 9.5, 12)
-
-    lines = []
-    for block in blocks:
-        text = pdf_safe_text(block["text"])
-        wrapped = textwrap.wrap(text, width=max(20, int(usable_width / (block["size"] * 0.48))), break_long_words=False, break_on_hyphens=False) or [""]
-        for wrapped_line in wrapped:
-            lines.append({
-                "text": wrapped_line,
-                "size": block["size"],
-                "leading": block["leading"],
-                "kind": block["kind"],
-            })
-
-    pages = []
-    current = []
-    y = page_height - margin_top
-    for line in lines:
-        leading = line["leading"]
-        if y - leading < margin_bottom:
-            pages.append(current)
-            current = []
-            y = page_height - margin_top
-        current.append({
-            "x": margin_left,
-            "y": y,
-            "text": pdf_escape(line["text"]),
-            "size": line["size"],
-        })
-        y -= leading
-    if current:
-        pages.append(current)
-    if not pages:
-        pages = [[]]
-
-    def make_content_stream(page_lines):
-        commands = []
-        for line in page_lines:
-            commands.append("BT")
-            commands.append(f"/F1 {line['size']} Tf")
-            commands.append(f"{line['x']} {line['y']} Td")
-            commands.append(f"({line['text']}) Tj")
-            commands.append("ET")
-        return "\n".join(commands).encode("latin-1", "replace")
-
-    objects = []
-    objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
-
-    page_count = len(pages)
-    page_object_numbers = [5 + index * 2 for index in range(page_count)]
-    kids = " ".join(f"{number} 0 R" for number in page_object_numbers)
-    objects.append(f"<< /Type /Pages /Count {page_count} /Kids [{kids}] >>".encode("ascii"))
-    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
-
-    for index, page_lines in enumerate(pages):
-        content_object_number = 4 + index * 2
-        content_stream = make_content_stream(page_lines)
-        objects.append(f"<< /Length {len(content_stream)} >>\nstream\n".encode("ascii") + content_stream + b"\nendstream")
-        objects.append(
-            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_width} {page_height}] /Resources << /Font << /F1 3 0 R >> >> /Contents {content_object_number} 0 R >>".encode("ascii")
-        )
-
-    pdf = BytesIO()
-    pdf.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-    offsets = [0]
-    for object_number, obj in enumerate(objects, start=1):
-        offsets.append(pdf.tell())
-        pdf.write(f"{object_number} 0 obj\n".encode("ascii"))
-        pdf.write(obj)
-        pdf.write(b"\nendobj\n")
-
-    xref_offset = pdf.tell()
-    pdf.write(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
-    pdf.write(b"0000000000 65535 f \n")
-    for offset in offsets[1:]:
-        pdf.write(f"{offset:010d} 00000 n \n".encode("ascii"))
-    pdf.write(
-        (
-            "trailer\n"
-            f"<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
-            f"startxref\n{xref_offset}\n%%EOF\n"
-        ).encode("ascii")
-    )
-    return pdf.getvalue()
-
-
-def extract_text_from_file(file_path):
-    lower_name = file_path.lower()
-    if lower_name.endswith(".txt") or lower_name.endswith(".md") or lower_name.endswith(".csv"):
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-
-    if lower_name.endswith(".docx"):
-        try:
-            with zipfile.ZipFile(file_path) as docx_file:
-                xml_data = docx_file.read("word/document.xml")
-            root = ET.fromstring(xml_data)
-            namespaces = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-            paragraphs = []
-            for paragraph in root.findall(".//w:p", namespaces):
-                parts = [node.text for node in paragraph.findall(".//w:t", namespaces) if node.text]
-                text = "".join(parts).strip()
-                if text:
-                    paragraphs.append(text)
-            extracted = "\n".join(paragraphs)
-            log_message(f"[extract] DOCX extracted {len(extracted)} chars from {os.path.basename(file_path)}")
-            return extracted
-        except Exception:
-            log_message(f"[extract] Failed to extract DOCX text from {os.path.basename(file_path)}")
-            traceback.print_exc()
-            return ""
-
-    log_message(f"[extract] No extractor available for {os.path.basename(file_path)}")
-    return ""
-
-
-def normalize_filename_piece(value, default="lesson-plan"):
-    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
-    text = re.sub(r"[^A-Za-z0-9]+", "-", text).strip("-").lower()
-    return text or default
-
-
-def first_non_empty_value(*values):
-    for value in values:
-        if isinstance(value, dict):
-            path_value = str(value.get("path", "")).strip()
-            if path_value:
-                return value
-            stored_value = str(value.get("storedPath", "")).strip()
-            if stored_value:
-                return value
-        elif isinstance(value, str) and value.strip():
-            return value
-    return None
-
-
-def normalize_source_document(source_document):
-    if isinstance(source_document, str):
-        source_document = {
-            "path": source_document,
-        }
-    if not isinstance(source_document, dict):
-        return None
-
-    normalized = dict(source_document)
-    path = str(normalized.get("path", "") or normalized.get("storedPath", "") or normalized.get("filePath", "")).strip()
-    if path:
-        normalized["path"] = path
-    filename = str(normalized.get("filename", "") or normalized.get("originalFilename", "") or os.path.basename(path)).strip()
-    if filename:
-        normalized["filename"] = filename
-    stored_name = str(normalized.get("storedFilename", "")).strip()
-    if stored_name:
-        normalized["storedFilename"] = stored_name
-    return normalized if path or filename else None
-
-
-def find_uploaded_file_path(filename):
-    filename = os.path.basename(str(filename or "").strip())
-    if not filename:
-        return ""
-
-    direct_path = os.path.join(LESSONPLANS_ROOT, filename)
-    if os.path.exists(direct_path):
-        return direct_path
-
-    matches = []
-    for root, _, files in os.walk(LESSONPLANS_ROOT):
-        if filename in files:
-            candidate = os.path.join(root, filename)
-            try:
-                mtime = os.path.getmtime(candidate)
-            except OSError:
-                mtime = 0
-            matches.append((mtime, candidate))
-
-    if matches:
-        matches.sort(key=lambda item: item[0], reverse=True)
-        return matches[0][1]
-
-    return ""
-
-
-def resolve_source_document(context):
-    context = context if isinstance(context, dict) else {}
-    payload = context.get("payload") if isinstance(context.get("payload"), dict) else {}
-    state = context.get("state") if isinstance(context.get("state"), dict) else {}
-
-    candidates = [
-        payload.get("sourceDocument"),
-        payload.get("source_document"),
-        payload.get("lessonPlanPath"),
-        payload.get("lesson_plan_path"),
-        state.get("sourceDocument"),
-    ]
-    if isinstance(state.get("payload"), dict):
-        candidates.extend([
-            state["payload"].get("sourceDocument"),
-            state["payload"].get("source_document"),
-            state["payload"].get("lessonPlanPath"),
-            state["payload"].get("lesson_plan_path"),
-        ])
-
-    for candidate in candidates:
-        normalized = normalize_source_document(candidate)
-        if not normalized:
-            continue
-        path = normalized.get("path", "")
-        if path and os.path.exists(path):
-            return normalized
-
-    filename_candidates = [
-        payload.get("filename"),
-        payload.get("sourceFilename"),
-        payload.get("source_filename"),
-        payload.get("lessonPlanFilename"),
-        payload.get("lesson_plan_filename"),
-    ]
-    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
-    filename_candidates.extend([
-        meta.get("filename"),
-        meta.get("sourceFilename"),
-        meta.get("source_filename"),
-    ])
-    if isinstance(state.get("payload"), dict):
-        state_payload = state["payload"]
-        filename_candidates.extend([
-            state_payload.get("filename"),
-            state_payload.get("sourceFilename"),
-            state_payload.get("source_filename"),
-        ])
-
-    for filename in filename_candidates:
-        found_path = find_uploaded_file_path(filename)
-        if found_path:
-            return {
-                "path": found_path,
-                "filename": os.path.basename(found_path),
-            }
-
-    return None
-
-
-def split_text_to_paragraphs(text):
-    blocks = []
-    for raw_block in str(text or "").splitlines():
-        line = raw_block.rstrip()
-        if not line:
-            blocks.append("")
-            continue
-        blocks.append(line)
-    return blocks
-
-
-def normalize_text_list(value):
-    if not isinstance(value, list):
-        return []
-    cleaned = []
-    for item in value:
-        text = str(item or "").strip()
-        if text:
-            cleaned.append(text)
-    return cleaned
-
-
-def get_final_plan_context(context):
-    context = context if isinstance(context, dict) else {}
-    draft = context.get("draft") if isinstance(context.get("draft"), dict) else {}
-    source_document = context.get("sourceDocument") if isinstance(context.get("sourceDocument"), dict) else {}
-    source_text = str(context.get("sourceText") or "").strip()
-    title = str(draft.get("title") or source_document.get("filename") or "Lesson plan").strip()
-    summary = str(draft.get("summary") or "").strip()
-    meta = draft.get("meta") if isinstance(draft.get("meta"), dict) else {}
-    goals = normalize_text_list(draft.get("goals"))
-    skills = normalize_text_list(draft.get("skills"))
-    materials = normalize_text_list(draft.get("materials"))
-    assessment = normalize_text_list(draft.get("assessment"))
-    steps = draft.get("steps") if isinstance(draft.get("steps"), list) else []
-    reflection = str(draft.get("reflection") or "").strip()
-    changes = collect_export_changes(context)
-    conversation = context.get("conversation") if isinstance(context.get("conversation"), list) else []
-
-    return {
-        "title": title,
-        "summary": summary,
-        "meta": meta,
-        "goals": goals,
-        "skills": skills,
-        "steps": steps,
-        "materials": materials,
-        "assessment": assessment,
-        "reflection": reflection,
-        "changes": changes,
-        "conversation": conversation,
-        "sourceDocument": source_document,
-        "sourceText": source_text,
-    }
-
-
-def build_export_context(payload):
-    payload = payload if isinstance(payload, dict) else {}
-    session_id = str(payload.get("sessionId", "")).strip()
-    state = load_step3_state(session_id) if session_id else None
-    state = state if isinstance(state, dict) else {}
-    state_payload = state.get("payload") if isinstance(state.get("payload"), dict) else {}
-
-    draft = None
-    if isinstance(state.get("draft"), dict):
-        draft = state.get("draft")
-    if not draft and isinstance(payload.get("draft"), dict):
-        draft = payload.get("draft")
-    if not draft and isinstance(state_payload.get("draft"), dict):
-        draft = state_payload.get("draft")
-    if not isinstance(draft, dict):
-        draft = {}
-
-    conversation = None
-    if isinstance(state.get("conversation"), list):
-        conversation = state.get("conversation")
-    if conversation is None and isinstance(payload.get("conversation"), list):
-        conversation = payload.get("conversation")
-    if conversation is None and isinstance(state_payload.get("conversation"), list):
-        conversation = state_payload.get("conversation")
-    if not isinstance(conversation, list):
-        conversation = []
-
-    source_document = resolve_source_document({
-        "payload": payload,
-        "state": state,
-    })
-
-    if not source_document and isinstance(state_payload, dict):
-        source_document = resolve_source_document({
-            "payload": state_payload,
-            "state": state,
-        })
-
-    source_text = ""
-    if source_document and source_document.get("path") and os.path.exists(source_document["path"]):
-        source_text = extract_text_from_file(source_document["path"])
-
-    if not source_text:
-        source_text = str(draft.get("summary") or "").strip()
-
-    if not source_document and source_text:
-        source_document = {
-            "filename": "lesson-plan",
-            "path": "",
-        }
-
-    return {
-        "sessionId": session_id,
-        "state": state,
-        "payload": payload,
-        "draft": draft,
-        "conversation": conversation,
-        "sourceDocument": source_document,
-        "sourceText": source_text,
-    }
-
-
-def collect_export_changes(context):
-    context = context if isinstance(context, dict) else {}
-    draft = context.get("draft") if isinstance(context.get("draft"), dict) else {}
-    state = context.get("state") if isinstance(context.get("state"), dict) else {}
-    payload = context.get("payload") if isinstance(context.get("payload"), dict) else {}
-    result = state.get("result") if isinstance(state.get("result"), dict) else {}
-
-    raw_changes = []
-    if isinstance(draft.get("changes"), list) and draft.get("changes"):
-        raw_changes = draft.get("changes")
-    elif isinstance(result.get("changes_made"), list) and result.get("changes_made"):
-        raw_changes = result.get("changes_made")
-    elif isinstance(payload.get("changes_made"), list) and payload.get("changes_made"):
-        raw_changes = payload.get("changes_made")
-
-    changes = []
-    for item in raw_changes:
-        item = item if isinstance(item, dict) else {}
-        title = str(item.get("title") or item.get("section") or item.get("kind") or "Change").strip()
-        reason = str(item.get("reason") or item.get("summary") or item.get("note") or "").strip()
-        before_value = str(item.get("beforeValue") or item.get("before") or "").strip()
-        after_value = str(item.get("afterValue") or item.get("after") or "").strip()
-        source = str(item.get("source") or item.get("section") or "").strip()
-        changes.append({
-            "title": title,
-            "reason": reason,
-            "beforeValue": before_value,
-            "afterValue": after_value,
-            "source": source,
-        })
-
-    return changes
-
-
-def build_export_metadata_lines(context):
-    draft = context.get("draft") if isinstance(context.get("draft"), dict) else {}
-    meta = draft.get("meta") if isinstance(draft.get("meta"), dict) else {}
-    source_document = context.get("sourceDocument") if isinstance(context.get("sourceDocument"), dict) else {}
-    lines = []
-    for label, value in [
-        ("Country", meta.get("country", "")),
-        ("Subject(s)", ", ".join(meta.get("subjects", [])) if isinstance(meta.get("subjects"), list) else meta.get("subjects", "")),
-        ("Grade range", meta.get("gradeRange", "")),
-        ("Age range", meta.get("ageRange", "")),
-        ("Focus", meta.get("focus", "")),
-        ("Original file", source_document.get("filename", "")),
-    ]:
-        value_text = str(value or "").strip()
-        if value_text:
-            lines.append(f"{label}: {value_text}")
-    return lines
-
-
-SECTION_HEADINGS = ("summary", "goals", "skills", "steps", "materials", "assessment", "reflection")
-
-
-def normalize_heading_key(value):
-    text = str(value or "").strip().lower()
-    text = re.sub(r"^\s*\d+\s*[\.\)]\s*", "", text)
-    text = text.replace("subject(s)", "subjects")
-    text = text.replace("/", " ")
-    text = re.sub(r"[^a-z0-9]+", " ", text).strip()
-    return text
-
-
-def build_section_lines(final_plan):
-    lines = []
-
-    summary = str(final_plan.get("summary") or "").strip()
-    if summary:
-        lines.append(summary)
-        lines.append("")
-
-    meta = final_plan.get("meta") if isinstance(final_plan.get("meta"), dict) else {}
-    meta_lines = []
-    for label, value in [
-        ("Country", meta.get("country", "")),
-        ("Subject(s)", ", ".join(meta.get("subjects", [])) if isinstance(meta.get("subjects"), list) else meta.get("subjects", "")),
-        ("Grade range", meta.get("gradeRange", "")),
-        ("Age range", meta.get("ageRange", "")),
-        ("Focus", meta.get("focus", "")),
-    ]:
-        value_text = str(value or "").strip()
-        if value_text:
-            meta_lines.append(f"{label}: {value_text}")
-    if meta_lines:
-        lines.extend(meta_lines)
-        lines.append("")
-
-    def add_bullet_section(title, items):
-        items = normalize_text_list(items)
-        if not items:
-            return
-        lines.append(title)
-        for item in items:
-            lines.append(f"- {item}")
-        lines.append("")
-
-    add_bullet_section("Goals", final_plan.get("goals"))
-    add_bullet_section("Skills", final_plan.get("skills"))
-
-    steps = final_plan.get("steps") if isinstance(final_plan.get("steps"), list) else []
-    if steps:
-        lines.append("Steps")
-        for index, step in enumerate(steps, start=1):
-            step = step if isinstance(step, dict) else {}
-            title = str(step.get("title") or f"Step {index}").strip()
-            duration = str(step.get("duration") or "").strip()
-            description = str(step.get("description") or "").strip()
-            status = str(step.get("status") or "").strip()
-            note = str(step.get("note") or "").strip()
-            header = f"{index}. {title}" + (f" ({duration})" if duration else "")
-            lines.append(header)
-            if description:
-                lines.append(description)
-            if status:
-                lines.append(f"Status: {status}")
-            if note:
-                lines.append(f"Note: {note}")
-        lines.append("")
-
-    add_bullet_section("Materials", final_plan.get("materials"))
-    add_bullet_section("Assessment", final_plan.get("assessment"))
-
-    reflection = str(final_plan.get("reflection") or "").strip()
-    if reflection:
-        lines.append("Reflection")
-        lines.append(reflection)
-        lines.append("")
-
-    return lines
-
-
-def replace_first_non_empty_line(lines, new_value):
-    if not lines:
-        return [new_value] if new_value else []
-    updated = list(lines)
-    for index, line in enumerate(updated):
-        if str(line or "").strip():
-            if new_value:
-                updated[index] = new_value
-            return updated
-    if new_value:
-        updated.insert(0, new_value)
-    return updated
-
-
-def replace_metadata_lines(lines, metadata_lines):
-    updated = list(lines)
-    for meta_line in metadata_lines:
-        label = meta_line.split(":", 1)[0].strip().lower() if ":" in meta_line else ""
-        if not label:
-            continue
-        replaced = False
-        for index, line in enumerate(updated):
-            normalized = str(line or "").strip().lower()
-            if normalized.startswith(label + ":") or normalized == label:
-                updated[index] = meta_line
-                replaced = True
-                break
-        if not replaced:
-            insert_at = 1 if updated else 0
-            while insert_at < len(updated) and not str(updated[insert_at]).strip():
-                insert_at += 1
-            updated.insert(insert_at, meta_line)
-            updated.insert(insert_at + 1, "")
-    return updated
-
-
-def apply_inline_replacements(lines, changes):
-    updated = list(lines)
-    changes = changes if isinstance(changes, list) else []
-    for change in changes:
-        before_value = str((change or {}).get("beforeValue") or "").strip()
-        after_value = str((change or {}).get("afterValue") or "").strip()
-        if not before_value or not after_value:
-            continue
-        updated = [line.replace(before_value, after_value) for line in updated]
-    return updated
-
-
-def replace_section_block(lines, heading, content_lines):
-    content_lines = list(content_lines or [])
-    normalized_heading = normalize_heading_key(heading)
-    updated = list(lines)
-    heading_index = None
-
-    for index, line in enumerate(updated):
-        if normalize_heading_key(line) == normalized_heading:
-            heading_index = index
-            break
-
-    if heading_index is None:
-        if content_lines:
-            if updated and str(updated[-1]).strip():
-                updated.append("")
-            updated.append(heading)
-            updated.extend(content_lines)
-        return updated
-
-    end_index = len(updated)
-    for index in range(heading_index + 1, len(updated)):
-        candidate = updated[index]
-        candidate_key = normalize_heading_key(candidate)
-        if candidate_key in SECTION_HEADINGS and candidate_key != normalized_heading:
-            end_index = index
-            break
-
-    updated = updated[: heading_index + 1] + content_lines + updated[end_index:]
-    return updated
-
-
-def build_final_export_lines(context):
-    final_plan = get_final_plan_context(context)
-    source_text = str(final_plan.get("sourceText") or "").strip()
-    lines = split_text_to_paragraphs(source_text) if source_text else []
-    lines = apply_inline_replacements(lines, final_plan.get("changes"))
-    lines = replace_first_non_empty_line(lines, final_plan["title"])
-    lines = replace_metadata_lines(lines, build_export_metadata_lines(context))
-    lines = replace_section_block(lines, "Summary", [final_plan["summary"]] if final_plan["summary"] else [])
-    lines = replace_section_block(lines, "Goals", [f"- {item}" for item in normalize_text_list(final_plan.get("goals"))])
-    lines = replace_section_block(lines, "Skills", [f"- {item}" for item in normalize_text_list(final_plan.get("skills"))])
-
-    step_lines = []
-    steps = final_plan.get("steps") if isinstance(final_plan.get("steps"), list) else []
-    for index, step in enumerate(steps, start=1):
-        step = step if isinstance(step, dict) else {}
-        title = str(step.get("title") or f"Step {index}").strip()
-        duration = str(step.get("duration") or "").strip()
-        description = str(step.get("description") or "").strip()
-        status = str(step.get("status") or "").strip()
-        note = str(step.get("note") or "").strip()
-        step_lines.append(f"{index}. {title}" + (f" ({duration})" if duration else ""))
-        if description:
-            step_lines.append(description)
-        if status:
-            step_lines.append(f"Status: {status}")
-        if note:
-            step_lines.append(f"Note: {note}")
-        step_lines.append("")
-    if step_lines and step_lines[-1] == "":
-        step_lines.pop()
-    lines = replace_section_block(lines, "Steps", step_lines)
-    lines = replace_section_block(lines, "Materials", [f"- {item}" for item in normalize_text_list(final_plan.get("materials"))])
-    lines = replace_section_block(lines, "Assessment", [f"- {item}" for item in normalize_text_list(final_plan.get("assessment"))])
-    lines = replace_section_block(lines, "Reflection", [final_plan["reflection"]] if final_plan["reflection"] else [])
-
-    lines = [line for line in lines if line is not None]
-    while lines and not str(lines[0]).strip():
-        lines.pop(0)
-    return lines, final_plan
-
-
-def render_lines_to_docx(lines, output_path):
-    document = Document()
-    lines = lines or []
-    seen_title = False
-    for line in lines:
-        text = str(line or "")
-        stripped = text.strip()
-        if not stripped:
-            document.add_paragraph("")
-            continue
-        if not seen_title:
-            document.add_heading(stripped, level=0)
-            seen_title = True
-            continue
-        normalized = normalize_heading_key(stripped)
-        if normalized in SECTION_HEADINGS:
-            document.add_heading(stripped, level=1)
-            continue
-        if stripped.startswith("- "):
-            document.add_paragraph(stripped[2:].strip(), style="List Bullet")
-            continue
-        paragraph = document.add_paragraph()
-        if re.match(r"^\d+\.\s", stripped):
-            run = paragraph.add_run(stripped)
-            run.bold = True
-        else:
-            paragraph.add_run(stripped)
-
-    document.save(output_path)
-    return output_path
-
-
-def render_lines_to_pdf(lines, output_path):
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "ExportTitle",
-        parent=styles["Title"],
-        fontName="Helvetica-Bold",
-        fontSize=20,
-        leading=24,
-        textColor=colors.HexColor("#1d2340"),
-        spaceAfter=10,
-        alignment=TA_LEFT,
-    )
-    heading_style = ParagraphStyle(
-        "ExportHeading",
-        parent=styles["Heading2"],
-        fontName="Helvetica-Bold",
-        fontSize=13,
-        leading=16,
-        textColor=colors.HexColor("#4f46e5"),
-        spaceBefore=12,
-        spaceAfter=6,
-    )
-    body_style = ParagraphStyle(
-        "ExportBody",
-        parent=styles["BodyText"],
-        fontName="Helvetica",
-        fontSize=10.5,
-        leading=14,
-        textColor=colors.HexColor("#243044"),
-        spaceAfter=4,
-    )
-
-    story = []
-    seen_title = False
-    for line in lines or []:
-        text = str(line or "").strip()
-        if not text:
-            story.append(Spacer(1, 4))
-            continue
-        if not seen_title:
-            story.append(Paragraph(xml_escape(text), title_style))
-            seen_title = True
-            continue
-        normalized = normalize_heading_key(text)
-        if normalized in SECTION_HEADINGS:
-            story.append(Spacer(1, 6))
-            story.append(Paragraph(xml_escape(text), heading_style))
-            continue
-        if text.startswith("- "):
-            story.append(Paragraph(xml_escape("• " + text[2:].strip()), body_style))
-            continue
-        story.append(Paragraph(xml_escape(text), body_style))
-
-    doc = SimpleDocTemplate(
-        output_path,
-        pagesize=A4,
-        rightMargin=16 * mm,
-        leftMargin=16 * mm,
-        topMargin=18 * mm,
-        bottomMargin=18 * mm,
-    )
-    doc.build(story)
-    return output_path
-
-
-def ensure_export_folder(session_id):
-    session_name = normalize_filename_piece(session_id or "session")
-    export_folder = os.path.join(EXPORTS_ROOT, session_name)
-    os.makedirs(export_folder, exist_ok=True)
-    return export_folder
-
-
-def build_docx_export(context, output_path):
-    lines, _ = build_final_export_lines(context)
-    return render_lines_to_docx(lines, output_path)
-
-
-def build_pdf_export(context, output_path):
-    lines, _ = build_final_export_lines(context)
-    return render_lines_to_pdf(lines, output_path)
-
-
-def build_export_bundle(context):
-    context = context if isinstance(context, dict) else {}
-    session_id = str(context.get("sessionId", "")).strip() or "session"
-    export_folder = ensure_export_folder(session_id)
-    draft = context.get("draft") if isinstance(context.get("draft"), dict) else {}
-    source_document = context.get("sourceDocument") if isinstance(context.get("sourceDocument"), dict) else {}
-    export_slug = normalize_filename_piece(draft.get("title") or source_document.get("filename") or "lesson-plan")
-    docx_path = os.path.join(export_folder, f"{export_slug}.docx")
-    pdf_path = os.path.join(export_folder, f"{export_slug}.pdf")
-
-    build_docx_export(context, docx_path)
-    build_pdf_export(context, pdf_path)
-
-    return {
-        "sessionId": session_id,
-        "folder": export_folder,
-        "docxPath": docx_path,
-        "pdfPath": pdf_path,
-        "filenameBase": export_slug,
     }
 
 
@@ -1595,21 +562,125 @@ def repair_json_quotes(text):
     return "".join(repaired)
 
 
+def repair_json_common_mistakes(text):
+    if not text:
+        return text
+
+    repaired = text
+    repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
+    repaired = re.sub(r"\bNone\b", "null", repaired)
+    repaired = re.sub(r"\bTrue\b", "true", repaired)
+    repaired = re.sub(r"\bFalse\b", "false", repaired)
+    repaired = re.sub(r"([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*:)", r'\1"\2"\3', repaired)
+    return repaired
+
+
 def parse_json_response_block(text):
     raw_block = extract_json_block(text)
     if not raw_block:
         return None, None
 
-    try:
-        return json.loads(raw_block), raw_block
-    except json.JSONDecodeError as first_error:
-        repaired = repair_json_quotes(raw_block)
-        if repaired != raw_block:
-            try:
-                return json.loads(repaired), repaired
-            except json.JSONDecodeError as second_error:
-                raise second_error from first_error
+    candidates = [raw_block]
+    quote_repaired = repair_json_quotes(raw_block)
+    common_repaired = repair_json_common_mistakes(raw_block)
+    combined_repaired = repair_json_common_mistakes(quote_repaired)
+
+    for candidate in (quote_repaired, common_repaired, combined_repaired):
+        if candidate != raw_block and candidate not in candidates:
+            candidates.append(candidate)
+
+    first_error = None
+    for candidate in candidates:
+        try:
+            return json.loads(candidate), candidate
+        except json.JSONDecodeError as error:
+            if first_error is None:
+                first_error = error
+            continue
+
+    if first_error:
+        position = first_error.pos
+        start = max(0, position - 220)
+        end = min(len(raw_block), position + 220)
+        log_message(f"[mistral] JSON parse error context: {raw_block[start:end]}")
         raise first_error
+    raise ValueError("Unable to parse JSON response")
+
+
+def build_mistral_request_body(system_prompt, user_prompt):
+    return {
+        "model": config.MISTRAL_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+    }
+
+
+def post_mistral_chat_completion(request_body, timeout):
+    request = urllib.request.Request(
+        "https://api.mistral.ai/v1/chat/completions",
+        data=json.dumps(request_body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {config.MISTRAL_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def repair_mistral_json_with_model(content, label, timeout):
+    repair_system_prompt = (
+        "You repair invalid JSON. Return only one valid raw JSON object. "
+        "Do not add markdown, explanations, comments, or code fences. "
+        "Preserve all keys and values when possible."
+    )
+    repair_user_prompt = "Repair this invalid JSON into valid JSON:\n" + str(content or "")
+    request_body = build_mistral_request_body(repair_system_prompt, repair_user_prompt)
+    log_mistral_prompt(f"{label}-json-repair", repair_system_prompt, repair_user_prompt, request_body)
+
+    try:
+        response_data = post_mistral_chat_completion(request_body, timeout)
+        repair_content = response_data["choices"][0]["message"]["content"]
+        log_message(f"[{label}] JSON repair response received")
+        parsed, json_block = parse_json_response_block(repair_content)
+        if json_block and isinstance(parsed, dict):
+            return parsed
+    except Exception as error:
+        log_message(f"[{label}] JSON repair failed: {error}")
+        log_message(traceback.format_exc())
+    return None
+
+
+def parse_mistral_json_content(content, label, timeout):
+    try:
+        parsed, json_block = parse_json_response_block(content)
+        if not json_block:
+            return {"error": "Mistral did not return a JSON block", "raw": content}
+        if isinstance(parsed, dict):
+            return parsed
+        return {"error": "Mistral did not return a JSON object", "raw": json_block}
+    except Exception as error:
+        log_message(f"[{label}] Could not parse response locally: {error}")
+        repaired = repair_mistral_json_with_model(content, label, timeout)
+        if repaired:
+            return repaired
+        return {"error": f"Could not parse Mistral response as JSON: {error}", "raw": content}
+
+
+def maybe_retry_without_response_format(request_body, timeout, label):
+    response_format = request_body.pop("response_format", None)
+    if response_format is None:
+        return post_mistral_chat_completion(request_body, timeout)
+    try:
+        log_message(f"[{label}] Retrying without response_format")
+        return post_mistral_chat_completion(request_body, timeout)
+    finally:
+        request_body["response_format"] = response_format
 
 
 def format_context_range(from_value, to_value, unknown_label="not provided"):
@@ -1661,12 +732,14 @@ def build_analysis_context_summary(payload):
         "",
         "Analysis instruction:",
         "Use the UI target context as the teacher's intended use case. Extract what the document says, then check whether the lesson plan fits this UI context based on the actual tasks and activity load. If the document claims a different grade or age than the UI context, report the mismatch clearly.",
+        "Subject focus instruction:",
+        "Treat the selected subject(s) as the primary lens for feedback. If the document is stronger in other subjects than in the selected subject(s), say that clearly and suggest what would be needed to make it fit the selected subject(s).",
     ]
     return "\n".join(lines)
 
 
 def call_mistral_analysis(payload):
-    if not MISTRAL_API_KEY:
+    if not config.MISTRAL_API_KEY:
         log_message("[mistral] Missing MISTRAL_API_KEY")
         return {
             "error": "MISTRAL_API_KEY is not configured in app/server/.env"
@@ -1676,56 +749,42 @@ def call_mistral_analysis(payload):
 
     context_summary = build_analysis_context_summary(payload)
     user_prompt = context_summary + "\n\nFull uploaded lesson payload:\n" + json.dumps(payload, ensure_ascii=False, indent=2)
-    request_body = {
-        "model": MISTRAL_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.2,
-    }
+    request_body = build_mistral_request_body(system_prompt, user_prompt)
     log_mistral_prompt("analysis", system_prompt, user_prompt, request_body)
 
-    request = urllib.request.Request(
-        "https://api.mistral.ai/v1/chat/completions",
-        data=json.dumps(request_body).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {MISTRAL_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            response_data = json.loads(response.read().decode("utf-8"))
-            log_message(f"[mistral] Response received, model={MISTRAL_MODEL}")
+        response_data = post_mistral_chat_completion(request_body, config.MISTRAL_ANALYSIS_TIMEOUT)
+        log_message(f"[mistral] Response received, model={config.MISTRAL_MODEL}")
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="ignore")
         log_message(f"[mistral] HTTPError {error.code}: {detail}")
-        return {"error": f"Mistral request failed with HTTP {error.code}", "detail": detail}
+        if error.code == 400 and "response_format" in detail:
+            try:
+                response_data = maybe_retry_without_response_format(request_body, config.MISTRAL_ANALYSIS_TIMEOUT, "mistral")
+                log_message(f"[mistral] Response received after fallback, model={config.MISTRAL_MODEL}")
+            except Exception as retry_error:
+                log_message(f"[mistral] Fallback request failed: {retry_error}")
+                log_message(traceback.format_exc())
+                return {"error": f"Mistral request failed with HTTP {error.code}", "detail": detail}
+        else:
+            return {"error": f"Mistral request failed with HTTP {error.code}", "detail": detail}
     except Exception as error:
         log_message(f"[mistral] Request failed: {error}")
-        traceback.print_exc()
+        log_message(traceback.format_exc())
         return {"error": f"Mistral request failed: {error}"}
 
     try:
         content = response_data["choices"][0]["message"]["content"]
         log_message(f"[mistral] Raw content preview: {content[:500]}")
-        parsed, json_block = parse_json_response_block(content)
-        if not json_block:
-            return {"error": "Mistral did not return a JSON block", "raw": content}
-        if isinstance(parsed, dict):
-            return parsed
-        return {"error": "Mistral did not return a JSON object", "raw": json_block}
+        return parse_mistral_json_content(content, "mistral", config.MISTRAL_TEST_TIMEOUT)
     except Exception as error:
         log_message(f"[mistral] Could not parse response: {error}")
-        traceback.print_exc()
+        log_message(traceback.format_exc())
         return {"error": f"Could not parse Mistral response as JSON: {error}", "raw": response_data}
 
 
 def call_mistral_refinement(payload):
-    if not MISTRAL_API_KEY:
+    if not config.MISTRAL_API_KEY:
         log_message("[mistral-step3] Missing MISTRAL_API_KEY")
         return {
             "error": "MISTRAL_API_KEY is not configured in app/server/.env"
@@ -1744,62 +803,48 @@ def call_mistral_refinement(payload):
         + "\n"
         + raw_payload
     )
-    request_body = {
-        "model": MISTRAL_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.2,
-    }
+    request_body = build_mistral_request_body(system_prompt, user_prompt)
     log_mistral_prompt("refinement", system_prompt, user_prompt, request_body)
 
-    request = urllib.request.Request(
-        "https://api.mistral.ai/v1/chat/completions",
-        data=json.dumps(request_body).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {MISTRAL_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            response_data = json.loads(response.read().decode("utf-8"))
-            log_message(f"[mistral-step3] Response received, model={MISTRAL_MODEL}")
+        response_data = post_mistral_chat_completion(request_body, config.MISTRAL_REFINEMENT_TIMEOUT)
+        log_message(f"[mistral-step3] Response received, model={config.MISTRAL_MODEL}")
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="ignore")
         log_message(f"[mistral-step3] HTTPError {error.code}: {detail}")
-        return {"error": f"Mistral refinement failed with HTTP {error.code}", "detail": detail}
+        if error.code == 400 and "response_format" in detail:
+            try:
+                response_data = maybe_retry_without_response_format(request_body, config.MISTRAL_REFINEMENT_TIMEOUT, "mistral-step3")
+                log_message(f"[mistral-step3] Response received after fallback, model={config.MISTRAL_MODEL}")
+            except Exception as retry_error:
+                log_message(f"[mistral-step3] Fallback request failed: {retry_error}")
+                log_message(traceback.format_exc())
+                return {"error": f"Mistral refinement failed with HTTP {error.code}", "detail": detail}
+        else:
+            return {"error": f"Mistral refinement failed with HTTP {error.code}", "detail": detail}
     except Exception as error:
         log_message(f"[mistral-step3] Request failed: {error}")
-        traceback.print_exc()
+        log_message(traceback.format_exc())
         return {"error": f"Mistral refinement failed: {error}"}
 
     try:
         content = response_data["choices"][0]["message"]["content"]
         log_message(f"[mistral-step3] Raw content preview: {content[:500]}")
-        parsed, json_block = parse_json_response_block(content)
-        if not json_block:
-            return {"error": "Mistral did not return a JSON block", "raw": content}
-        if isinstance(parsed, dict):
-            return parsed
-        return {"error": "Mistral did not return a JSON object", "raw": json_block}
+        return parse_mistral_json_content(content, "mistral-step3", config.MISTRAL_TEST_TIMEOUT)
     except Exception as error:
         log_message(f"[mistral-step3] Could not parse response: {error}")
-        traceback.print_exc()
+        log_message(traceback.format_exc())
         return {"error": f"Could not parse Mistral step 3 response as JSON: {error}", "raw": response_data}
 
 
 def call_mistral_hello():
-    if not MISTRAL_API_KEY:
+    if not config.MISTRAL_API_KEY:
         log_message("[mistral-test] Missing MISTRAL_API_KEY")
         return {"error": "MISTRAL_API_KEY is not configured in app/server/.env"}
 
     system_prompt = load_prompt_file("mistral_test_system_prompt.txt")
     request_body = {
-        "model": MISTRAL_MODEL,
+        "model": config.MISTRAL_MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Say hello."},
@@ -1812,14 +857,14 @@ def call_mistral_hello():
         "https://api.mistral.ai/v1/chat/completions",
         data=json.dumps(request_body).encode("utf-8"),
         headers={
-            "Authorization": f"Bearer {MISTRAL_API_KEY}",
+            "Authorization": f"Bearer {config.MISTRAL_API_KEY}",
             "Content-Type": "application/json",
         },
         method="POST",
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=config.MISTRAL_TEST_TIMEOUT) as response:
             response_data = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="ignore")
@@ -1827,7 +872,7 @@ def call_mistral_hello():
         return {"error": f"Mistral test failed with HTTP {error.code}", "detail": detail}
     except Exception as error:
         log_message(f"[mistral-test] Request failed: {error}")
-        traceback.print_exc()
+        log_message(traceback.format_exc())
         return {"error": f"Mistral test failed: {error}"}
 
     try:
@@ -1842,7 +887,7 @@ def call_mistral_hello():
         return {"error": f"Could not parse Mistral test response: {error}", "raw": response_data}
 
 
-load_env_file()
+config.load_env_file()
 
 if not os.path.exists(CONFIG_FILE):
     default_config = {
@@ -2066,6 +1111,16 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         )
         if not extracted_text.strip():
             log_message("[analyze] Warning: extracted text is empty")
+            if temp_suffix.lower() == ".pdf":
+                analysis = {
+                    "error": "Could not extract readable text from this PDF. If it is scanned or image-based, please upload a DOCX/TXT version or a PDF with selectable text.",
+                    "sourceDocument": metadata["sourceDocument"],
+                }
+                self.send_response(HTTPStatus.UNPROCESSABLE_ENTITY)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(analysis).encode("utf-8"))
+                return
 
         analysis_request_metadata = dict(metadata)
         analysis_request_metadata.pop("sourceDocument", None)
@@ -2129,9 +1184,9 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         raw_source_document = form.getvalue("sourceDocument", "")
         if raw_source_document:
             try:
-                source_document = normalize_source_document(json.loads(raw_source_document))
+                source_document = export_service.normalize_source_document(json.loads(raw_source_document))
             except Exception:
-                source_document = normalize_source_document(raw_source_document)
+                source_document = export_service.normalize_source_document(raw_source_document)
 
         saved_files = []
         if "additionalFiles" in form:
@@ -2198,14 +1253,14 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             return
 
         try:
-            context = build_export_context(data)
-            bundle = build_export_bundle(context)
+            context = export_service.build_export_context(data, load_step3_state)
+            bundle = export_service.build_export_bundle(context)
             export_path = bundle["docxPath"]
             with open(export_path, "rb") as export_file:
                 docx_bytes = export_file.read()
         except Exception:
             log_message("[export] DOCX generation failed")
-            traceback.print_exc()
+            log_message(traceback.format_exc())
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to generate DOCX")
             return
 
@@ -2227,14 +1282,14 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             return
 
         try:
-            context = build_export_context(data)
-            bundle = build_export_bundle(context)
+            context = export_service.build_export_context(data, load_step3_state)
+            bundle = export_service.build_export_bundle(context)
             export_path = bundle["pdfPath"]
             with open(export_path, "rb") as export_file:
                 pdf_bytes = export_file.read()
         except Exception:
             log_message("[export] PDF generation failed")
-            traceback.print_exc()
+            log_message(traceback.format_exc())
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to generate PDF")
             return
 
@@ -2508,3 +1563,4 @@ def run_server():
 
 if __name__ == "__main__":
     run_server()
+

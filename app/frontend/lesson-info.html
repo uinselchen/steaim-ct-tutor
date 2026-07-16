@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Tutor for Lesson Plans</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=20260716-loading" />
 </head>
 <body class="lesson-info-page">
     <header class="page-header">
@@ -63,7 +63,8 @@
           <p class="field-error" id="countryError"></p>
         </div>
 
-        <div class="form-field">
+        <div class="subject-context-row">
+        <div class="form-field subject-field">
           <div class="field-label-row">
             <label>* Subject(s)</label>
             <span class="field-helper">You can select more than one.</span>
@@ -74,7 +75,7 @@
           <p class="field-error" id="subjectsError"></p>
         </div>
 
-        <div class="field-row">
+        <div class="field-row context-fields">
           <div class="form-field half">
             <label>* Grade(s)</label>
             <div class="range-inputs">
@@ -95,14 +96,16 @@
             <p class="field-error" id="ageError"></p>
           </div>
         </div>
+        </div>
 
-        <div class="form-field">
+        <div class="specifics-upload-row">
+        <div class="form-field specifics-field">
           <label>Specifics (optional)</label>
           <textarea id="specifics" name="specifics" placeholder="Any specific information we should know?"></textarea>
           <p class="field-helper">Special needs, project type, focus areas, etc.</p>
         </div>
 
-        <div class="form-field">
+        <div class="form-field upload-field">
           <label for="lessonPlanUpload">* Upload your lesson plan</label>
           <div id="fileDropzone" class="file-dropzone">
             <p class="dropzone-text">Drag & drop your file here</p>
@@ -113,6 +116,7 @@
           <p class="file-name" id="fileName"></p>
           <p class="field-error" id="fileError"></p>
           <p class="field-note file-error-detail" id="fileErrorDetail"></p>
+        </div>
         </div>
 
         <div class="form-actions">
@@ -136,6 +140,6 @@
     </aside>
   </main>
 
-  <script src="js/lesson-info.js"></script>
+  <script src="js/lesson-info.js?v=20260716-loading"></script>
 </body>
 </html>

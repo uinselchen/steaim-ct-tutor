@@ -446,6 +446,21 @@
       }, 250);
     }
 
+      function cleanServerError(text, fallback) {
+        var message = String(text || "").trim();
+        if (!message) {
+          return fallback;
+        }
+        var titleMatch = message.match(/<p>Message:\s*([^<]+)<\/p>/i);
+        if (titleMatch && titleMatch[1]) {
+          return titleMatch[1];
+        }
+        if (/<html[\s>]/i.test(message) || /<!doctype html>/i.test(message)) {
+          return fallback;
+        }
+        return message;
+      }
+
       function buildExportPayload() {
         return {
           sessionId: preparation && preparation.sessionId ? preparation.sessionId : "",
@@ -479,7 +494,7 @@
           .then(function (response) {
             if (!response.ok) {
               return response.text().then(function (text) {
-                throw new Error(text || "Unable to export " + format.toUpperCase() + ".");
+                throw new Error(cleanServerError(text, "Unable to export " + format.toUpperCase() + "."));
               });
             }
             return response.blob();

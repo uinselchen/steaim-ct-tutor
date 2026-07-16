@@ -113,6 +113,7 @@ call :require_file "%SERVER%\prompts\mistral_test_system_prompt.txt" "Mistral te
 if not exist "%REQUIREMENTS%" (
     echo Creating Python requirements file...
     > "%REQUIREMENTS%" echo python-docx^>=1.1.2
+    >> "%REQUIREMENTS%" echo pypdf^>=4.2.0
     >> "%REQUIREMENTS%" echo reportlab^>=4.2.0
 )
 
@@ -242,7 +243,7 @@ exit /b %PROBE_RESULT%
 
 :probe_python_packages
 set "PKG_CHECK=%TEMP%\steaimct_pkgcheck_%RANDOM%.txt"
-"%PY%" -c "import docx, reportlab; print('PACKAGES_OK')" > "%PKG_CHECK%" 2>nul
+"%PY%" -c "import docx, pypdf, reportlab; print('PACKAGES_OK')" > "%PKG_CHECK%" 2>nul
 findstr /C:"PACKAGES_OK" "%PKG_CHECK%" >nul 2>nul
 if errorlevel 1 (
     set "PROBE_RESULT=1"

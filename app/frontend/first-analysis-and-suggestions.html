@@ -55,9 +55,13 @@
         </div>
         <div class="analysis-callout">
           <div class="analysis-callout-icon">i</div>
-          <p>
-            We analyzed your uploaded lesson plan and identified the points below.
-          </p>
+          <div>
+            <p>
+              We analyzed your uploaded lesson plan and identified the points below.
+            </p>
+            <p class="analysis-callout-title">Uploaded file</p>
+            <div id="analysisMeta" class="analysis-meta-list"></div>
+          </div>
         </div>
       </section>
 
@@ -101,10 +105,6 @@
             <div class="analysis-summary-box">
               <h2>Next step</h2>
               <p id="analysisNextStep"></p>
-              <div style="margin-top: 14px;">
-                <p class="analysis-upload-title" style="margin-bottom: 8px;">Uploaded file</p>
-                <div id="analysisMeta" style="display: grid; gap: 6px; color: #4d566c;"></div>
-              </div>
             </div>
           </div>
 
@@ -331,6 +331,10 @@
       var table = document.createElement("table");
       table.className = "item-table";
 
+      var colgroup = document.createElement("colgroup");
+      colgroup.innerHTML = "<col class=\"focus-col\"><col class=\"point-col\"><col class=\"why-col\"><col class=\"citation-col\"><col class=\"confidence-col\"><col class=\"comment-col\">";
+      table.appendChild(colgroup);
+
       var thead = document.createElement("thead");
       thead.innerHTML = "<tr><th>Focus on this?</th><th>Identified point</th><th>Why we mentioned this</th><th>Citation from your text</th><th>Confidence</th><th>Anything to add or clarify?</th></tr>";
       table.appendChild(thead);
@@ -427,7 +431,7 @@
       return selections;
     }
 
-    function renderSummary(summary) {
+    function renderSummary(summary, analysis) {
       setText("analysisSummary", summary.short_summary || "No summary returned.");
       setText("analysisSubjects", normalizeItems(summary.detected_subjects).join(", ") || "Not detected");
       setText("analysisGrades", formatRange(summary.detected_grade_range));
@@ -438,7 +442,8 @@
         confidenceText += " - " + confidence.note;
       }
       setText("analysisSummaryConfidence", confidenceText);
-      setText("analysisTeacherNote", summary.notes_for_teacher || "");
+      var teacherNote = summary.notes_for_teacher || (analysis && analysis.next_step ? analysis.next_step : "");
+      setText("analysisTeacherNote", teacherNote);
     }
 
     function renderAnalysisFocus(focus) {
@@ -567,7 +572,7 @@
       document.getElementById("analysisContent").hidden = false;
 
       var summary = analysis.lesson_plan_summary || {};
-      renderSummary(summary);
+      renderSummary(summary, analysis);
       renderAnalysisFocus(analysis.analysis_focus);
 
       var categories = Array.isArray(analysis.categories) && analysis.categories.length ? analysis.categories : getFallbackCategories(analysis);
@@ -578,7 +583,7 @@
         renderCategory(sectionsRoot, mapped);
       });
 
-      setText("analysisNextStep", analysis.next_step || summary.notes_for_teacher || "Review the selected points and refine the lesson with the highlighted suggestions.");
+      setText("analysisNextStep", "Select the points you want to refine, add clarifications if needed, and continue to the dialogue.");
       renderMeta(meta);
     }
 
