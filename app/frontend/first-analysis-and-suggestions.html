@@ -130,6 +130,20 @@
     </div>
   </div>
 
+  <div id="privacyModalBackdrop" class="citation-modal-backdrop privacy-modal-backdrop" aria-hidden="true">
+    <div class="citation-modal privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
+      <h3 id="privacyModalTitle">Personal data detected</h3>
+      <p id="privacyModalBody"></p>
+      <p class="privacy-modal-note">
+        Please remove or anonymize these details before using the document productively.
+        This will be the first refinement suggestion in the next step.
+      </p>
+      <div class="citation-modal-actions">
+        <button type="button" class="action-button primary-button" id="closePrivacyModal">I understand</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     function normalizeItems(value) {
       if (!value) {
@@ -243,6 +257,7 @@
                 context_after: []
               },
               suggested_next_action: "",
+              match_score: null,
               confidence: "medium",
               teacher_comment_placeholder: "Add more details or correct this interpretation..."
             };
@@ -353,6 +368,13 @@
           var tr = document.createElement("tr");
           tr.dataset.categoryId = category.id || "";
           tr.dataset.itemId = item.id || "";
+          var score = normalizeMatchScore(item.match_score);
+          var itemWordClass = getWordScoreClass([item.title, item.short_explanation, item.why_it_matters].join(" "));
+          if (score) {
+            tr.className = getScoreClass(score);
+          } else if (itemWordClass) {
+            tr.className = itemWordClass;
+          }
 
           var focusTd = document.createElement("td");
           var checkbox = document.createElement("input");
@@ -373,6 +395,15 @@
           var whyTd = document.createElement("td");
           whyTd.className = "point-copy";
           whyTd.textContent = item.why_it_matters || "";
+          if (score) {
+            pointTitle.classList.add(getScoreClass(score) + "-text");
+            pointCopy.classList.add(getScoreClass(score) + "-text");
+            whyTd.classList.add(getScoreClass(score) + "-text");
+          } else if (itemWordClass) {
+            pointTitle.classList.add(itemWordClass + "-text");
+            pointCopy.classList.add(itemWordClass + "-text");
+            whyTd.classList.add(itemWordClass + "-text");
+          }
 
           var citeTd = document.createElement("td");
           var citeButton = document.createElement("button");
@@ -386,8 +417,8 @@
 
           var confidenceTd = document.createElement("td");
           var confidence = document.createElement("span");
-          confidence.className = "confidence-pill";
-          confidence.textContent = item.confidence || "medium";
+          confidence.className = "confidence-pill" + (score ? " " + getScoreClass(score) : "");
+          confidence.textContent = (score ? "Match " + score + "/10 · " : "") + (item.confidence || "medium");
           confidenceTd.appendChild(confidence);
 
           var noteTd = document.createElement("td");
@@ -431,6 +462,255 @@
       return selections;
     }
 
+    var MATCH_WORDS = {
+      red: [
+        "warning",
+        "critical",
+        "irrelevant",
+        "mismatch",
+        "not_applicable",
+        "not_suitable",
+        "not_designed",
+        "not_aligned",
+        "not_primary",
+        "no_direct_lesson",
+        "too_abstract",
+        "unclear",
+        "missing",
+        "lacks",
+        "lack",
+        "low",
+        "low_for",
+        "weak",
+        "weak_for",
+        "upper_secondary",
+        "older_learners",
+        "major_redesign",
+        "major_adaptation",
+        "cannot_be_assessed",
+        "cannot_be_evaluated",
+        "impossible",
+        "inappropriate",
+        "unsuitable"
+      ],
+      yellow: [
+        "tight",
+        "too_tight",
+        "partial",
+        "partially",
+        "partially_fitting",
+        "partially_aligned",
+        "mostly_fitting",
+        "plausible",
+        "limited",
+        "mixed",
+        "medium",
+        "moderate",
+        "needs_adaptation",
+        "needs_adjustment",
+        "adaptation_needed",
+        "somewhat",
+        "sufficient",
+        "manageable",
+        "acceptable",
+        "adequate",
+        "so_lala"
+      ],
+      green: [
+        "good",
+        "strong",
+        "excellent",
+        "clear",
+        "balanced",
+        "realistic",
+        "suitable",
+        "fitting",
+        "aligned",
+        "well_aligned",
+        "appropriate",
+        "effective",
+        "robust",
+        "high",
+        "very_good"
+      ]
+    };
+
+    function normalizeMatchWords(value) {
+      return String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9äöüß]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    }
+
+    function containsMatchWord(text, marker) {
+      return ("_" + text + "_").indexOf("_" + marker + "_") !== -1 || text.indexOf(marker) !== -1;
+    }
+
+    function getWordScoreClass(value) {
+      var text = normalizeMatchWords(value);
+      if (!text) {
+        return "";
+      }
+      if (MATCH_WORDS.red.some(function (marker) { return containsMatchWord(text, marker); })) {
+        return "score-red";
+      }
+      if (MATCH_WORDS.yellow.some(function (marker) { return containsMatchWord(text, marker); })) {
+        return "score-yellow";
+      }
+      if (MATCH_WORDS.green.some(function (marker) { return containsMatchWord(text, marker); })) {
+        return "score-green";
+      }
+      return "";
+    }
+
+    function isCriticalText(value) {
+      return getWordScoreClass(value) === "score-red";
+    }
+
+    function normalizeMatchScore(value) {
+      if (value === null || typeof value === "undefined" || value === "") {
+        return null;
+      }
+      var score = Number(value);
+      if (!Number.isFinite(score)) {
+        return null;
+      }
+      score = Math.round(score);
+      if (score < 1) {
+        return 1;
+      }
+      if (score > 10) {
+        return 10;
+      }
+      return score;
+    }
+
+    function getScoreClass(score) {
+      if (!score) {
+        return "";
+      }
+      if (score <= 3) {
+        return "score-red";
+      }
+      if (score <= 6) {
+        return "score-yellow";
+      }
+      return "score-green";
+    }
+
+    function formatStatusLabel(value) {
+      return String(value || "unclear").replace(/_/g, " ");
+    }
+
+    function getPrivacyWarningText(summary, analysis) {
+      var candidates = [
+        summary && summary.notes_for_teacher,
+        analysis && analysis.next_step,
+        summary && summary.short_summary,
+        summary && summary.confidence && summary.confidence.note
+      ];
+      var text = candidates.filter(Boolean).join(" ");
+      var lower = text.toLowerCase();
+      var genericOnlyWarning = [
+        "e.g., student names",
+        "for example, student names",
+        "student names in worksheet",
+        "student names in worksheets",
+        "personal data (e.g.",
+        "personal information (e.g."
+      ].some(function (marker) {
+        return lower.indexOf(marker) !== -1;
+      });
+      var concretePrivacyMarker = [
+        "@",
+        "email address",
+        "e-mail address",
+        "phone number",
+        "telephone number",
+        "street",
+        "straße",
+        "address",
+        "birth date",
+        "date of birth",
+        "student id",
+        "student number",
+        "school identifier",
+        "school id",
+        "teacher data",
+        "school data",
+        "specific class",
+        "specific student",
+        "specific teacher",
+        "konkrete",
+        "adresse",
+        "telefonnummer",
+        "schülernummer",
+        "schuelernummer"
+      ].some(function (marker) {
+        return lower.indexOf(marker) !== -1;
+      });
+      if (genericOnlyWarning && !concretePrivacyMarker) {
+        return "";
+      }
+      var hasPrivacyWarning = [
+        "personal data",
+        "personal information",
+        "student name",
+        "student names",
+        "teacher data",
+        "school data",
+        "school identifier",
+        "school and teacher data",
+        "personenbezogene",
+        "persönliche daten"
+      ].some(function (marker) {
+        return lower.indexOf(marker) !== -1;
+      });
+      if (!hasPrivacyWarning) {
+        return "";
+      }
+      return summary && summary.notes_for_teacher
+        ? summary.notes_for_teacher
+        : "The uploaded document appears to contain personal data. These details should be removed or anonymized before productive use.";
+    }
+
+    function openPrivacyModal(message) {
+      var backdrop = document.getElementById("privacyModalBackdrop");
+      var body = document.getElementById("privacyModalBody");
+      if (!backdrop || !body || !message) {
+        return;
+      }
+      body.textContent = message;
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function closePrivacyModal() {
+      var backdrop = document.getElementById("privacyModalBackdrop");
+      if (!backdrop) {
+        return;
+      }
+      backdrop.classList.remove("open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    function collectSelectionsForNextStep() {
+      var selected = collectSelections();
+      var privacyWarning = window.localStorage.getItem("step2PrivacyWarning") || "";
+      if (privacyWarning) {
+        selected = selected.filter(function (item) {
+          return item.item_id !== "privacy-data-removal";
+        });
+        selected.unshift({
+          category_id: "target_group",
+          item_id: "privacy-data-removal",
+          title: "Personal data must be removed or anonymized",
+          teacher_comment: privacyWarning
+        });
+      }
+      return selected;
+    }
+
     function renderSummary(summary, analysis) {
       setText("analysisSummary", summary.short_summary || "No summary returned.");
       setText("analysisSubjects", normalizeItems(summary.detected_subjects).join(", ") || "Not detected");
@@ -441,9 +721,29 @@
       if (confidence.note) {
         confidenceText += " - " + confidence.note;
       }
-      setText("analysisSummaryConfidence", confidenceText);
+      var summaryScore = normalizeMatchScore(summary.match_score);
+      var confidenceElement = document.getElementById("analysisSummaryConfidence");
+      if (confidenceElement) {
+        confidenceElement.textContent = (summaryScore ? "Match: " + summaryScore + "/10 · " : "") + "Confidence: " + confidenceText;
+        confidenceElement.className = "analysis-summary-confidence";
+        if (summaryScore) {
+          confidenceElement.classList.add(getScoreClass(summaryScore));
+        } else {
+          var confidenceWordClass = getWordScoreClass(confidenceText);
+          if (confidenceWordClass) {
+            confidenceElement.classList.add(confidenceWordClass);
+          }
+        }
+      }
       var teacherNote = summary.notes_for_teacher || (analysis && analysis.next_step ? analysis.next_step : "");
-      setText("analysisTeacherNote", teacherNote);
+      var teacherNoteElement = document.getElementById("analysisTeacherNote");
+      if (teacherNoteElement) {
+        teacherNoteElement.textContent = teacherNote;
+        var noteWordClass = getWordScoreClass(teacherNote);
+        teacherNoteElement.classList.toggle("critical-note", noteWordClass === "score-red");
+        teacherNoteElement.classList.toggle("warning-note", noteWordClass === "score-yellow");
+        teacherNoteElement.classList.toggle("positive-note", noteWordClass === "score-green");
+      }
     }
 
     function renderAnalysisFocus(focus) {
@@ -467,21 +767,42 @@
         var node = focus[entry.key] || {};
         var chip = document.createElement("div");
         chip.className = "summary-chip";
+        var score = normalizeMatchScore(node.match_score);
+        var statusWordClass = getWordScoreClass(node.status);
+        var noteWordClass = getWordScoreClass(node.note);
+        if (score) {
+          chip.className += " " + getScoreClass(score);
+        } else if (statusWordClass) {
+          chip.className += " " + statusWordClass;
+        } else if (noteWordClass) {
+          chip.className += " " + noteWordClass;
+        }
 
         var label = document.createElement("span");
         label.className = "summary-chip-label";
         var confidence = node.confidence || "unclear";
-        label.textContent = entry.label + " (Confidence: " + confidence + ")";
+        label.textContent = entry.label + (score ? " (Match: " + score + "/10, Confidence: " + confidence + ")" : " (Confidence: " + confidence + ")");
 
         var status = document.createElement("div");
         status.style.fontWeight = "700";
-        status.textContent = node.status || "unclear";
+        status.textContent = formatStatusLabel(node.status);
+        if (score) {
+          status.className = getScoreClass(score) + "-text";
+        } else if (statusWordClass) {
+          status.className = statusWordClass + "-text";
+        }
 
         var note = document.createElement("div");
         note.style.marginTop = "6px";
-        note.style.color = "#5f667a";
         note.style.lineHeight = "1.5";
         note.textContent = node.note || "";
+        if (score) {
+          note.className = getScoreClass(score) + "-text";
+        } else if (noteWordClass) {
+          note.className = noteWordClass + "-text";
+        } else {
+          note.style.color = "#5f667a";
+        }
 
         chip.appendChild(label);
         chip.appendChild(status);
@@ -574,6 +895,15 @@
       var summary = analysis.lesson_plan_summary || {};
       renderSummary(summary, analysis);
       renderAnalysisFocus(analysis.analysis_focus);
+      var privacyWarning = getPrivacyWarningText(summary, analysis);
+      if (privacyWarning) {
+        window.localStorage.setItem("step2PrivacyWarning", privacyWarning);
+        setTimeout(function () {
+          openPrivacyModal(privacyWarning);
+        }, 250);
+      } else {
+        window.localStorage.removeItem("step2PrivacyWarning");
+      }
 
       var categories = Array.isArray(analysis.categories) && analysis.categories.length ? analysis.categories : getFallbackCategories(analysis);
       var sectionsRoot = document.getElementById("analysisSections");
@@ -636,7 +966,7 @@
         formData.append("ageTo", step2Meta.ageTo || "");
         formData.append("specifics", step2Meta.specifics || "");
         formData.append("filename", step2Meta.filename || "");
-        formData.append("selections", JSON.stringify(collectSelections()));
+        formData.append("selections", JSON.stringify(collectSelectionsForNextStep()));
         if (step2Meta.sourceDocument) {
           formData.append("sourceDocument", JSON.stringify(step2Meta.sourceDocument));
         }
@@ -644,7 +974,7 @@
           formData.append("additionalFiles", file, file.name);
         });
 
-        window.localStorage.setItem("step2Selections", JSON.stringify(collectSelections()));
+        window.localStorage.setItem("step2Selections", JSON.stringify(collectSelectionsForNextStep()));
         continueLink.classList.add("is-loading");
         continueLink.setAttribute("aria-disabled", "true");
         continueLink.style.pointerEvents = "none";
@@ -697,14 +1027,21 @@
       });
 
     document.getElementById("closeCitationModal").addEventListener("click", closeCitationModal);
+    document.getElementById("closePrivacyModal").addEventListener("click", closePrivacyModal);
     document.getElementById("citationModalBackdrop").addEventListener("click", function (event) {
       if (event.target === event.currentTarget) {
         closeCitationModal();
       }
     });
+    document.getElementById("privacyModalBackdrop").addEventListener("click", function (event) {
+      if (event.target === event.currentTarget) {
+        closePrivacyModal();
+      }
+    });
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
         closeCitationModal();
+        closePrivacyModal();
       }
     });
   </script>

@@ -57,6 +57,7 @@ if not exist "%CONFIG_FILE%" (
 if not exist "%ENV_EXAMPLE%" (
     echo Creating .env.example...
     > "%ENV_EXAMPLE%" echo MISTRAL_API_KEY=your_mistral_api_key_here
+    >> "%ENV_EXAMPLE%" echo MISTRAL_API_URL=https://api.mistral.ai/v1/chat/completions
     >> "%ENV_EXAMPLE%" echo MISTRAL_MODEL=mistral-small-latest
     >> "%ENV_EXAMPLE%" echo(
     >> "%ENV_EXAMPLE%" echo # Optional email settings
@@ -144,6 +145,13 @@ if "%WARNINGS%"=="0" (
 if /I "%~1"=="--check" (
     echo Check mode finished. Server was not started.
     exit /b 0
+)
+
+if /I "%~1"=="--test" (
+    echo Test mode. Server was not started.
+    echo(
+    call "%ROOT%run_tests.bat"
+    exit /b %ERRORLEVEL%
 )
 
 echo(

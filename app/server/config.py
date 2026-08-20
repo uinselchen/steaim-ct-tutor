@@ -23,6 +23,7 @@ STEP3_STATE_ROOT = os.path.join(OUTPUT_ROOT, "step3-sessions")
 EXPORTS_ROOT = os.path.join(OUTPUT_ROOT, "exports")
 
 MISTRAL_API_KEY = None
+MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 MISTRAL_MODEL = "mistral-small-latest"
 MISTRAL_ANALYSIS_TIMEOUT = 180
 MISTRAL_REFINEMENT_TIMEOUT = 120
@@ -54,7 +55,7 @@ def ensure_directories():
 
 
 def load_env_file():
-    global MISTRAL_API_KEY, MISTRAL_MODEL, SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD
+    global MISTRAL_API_KEY, MISTRAL_API_URL, MISTRAL_MODEL, SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD
     global SMTP_USE_TLS, SMTP_USE_SSL, MAIL_FROM_ADDRESS, MAIL_TO_ADDRESS
 
     if os.path.exists(ENV_FILE):
@@ -67,6 +68,8 @@ def load_env_file():
                 value = value.strip().strip('"').strip("'")
                 if key == "MISTRAL_API_KEY" and value:
                     MISTRAL_API_KEY = value
+                elif key == "MISTRAL_API_URL" and value:
+                    MISTRAL_API_URL = value
                 elif key == "MISTRAL_MODEL" and value:
                     MISTRAL_MODEL = value
                 elif key == "SMTP_HOST" and value:
@@ -91,6 +94,8 @@ def load_env_file():
 
     if not MISTRAL_API_KEY:
         MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
+    if os.environ.get("MISTRAL_API_URL"):
+        MISTRAL_API_URL = os.environ["MISTRAL_API_URL"]
     if os.environ.get("MISTRAL_MODEL"):
         MISTRAL_MODEL = os.environ["MISTRAL_MODEL"]
     if os.environ.get("SMTP_HOST"):

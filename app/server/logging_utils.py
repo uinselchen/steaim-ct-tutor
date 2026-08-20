@@ -9,15 +9,18 @@ def ensure_log_files():
         try:
             with open(path, "a", encoding="utf-8"):
                 pass
-        except OSError:
-            raise
+        except OSError as error:
+            print(f"[logging] Unable to open log file {path}: {error}")
 
 
 def log_message(message):
     line = message.rstrip("\n")
     print(line)
-    with open(config.ANALYSIS_LOG_FILE, "a", encoding="utf-8") as log_file:
-        log_file.write(line + "\n")
+    try:
+        with open(config.ANALYSIS_LOG_FILE, "a", encoding="utf-8") as log_file:
+            log_file.write(line + "\n")
+    except OSError as error:
+        print(f"[logging] Unable to write analysis log: {error}")
 
 
 def log_mistral_prompt(label, system_prompt, user_prompt, request_body=None):
@@ -39,8 +42,11 @@ def log_mistral_prompt(label, system_prompt, user_prompt, request_body=None):
             json.dumps(request_body, ensure_ascii=False, indent=2),
         ])
     entry_lines.append("")
-    with open(config.MISTRAL_PROMPT_LOG_FILE, "a", encoding="utf-8") as log_file:
-        log_file.write("\n".join(entry_lines) + "\n")
+    try:
+        with open(config.MISTRAL_PROMPT_LOG_FILE, "a", encoding="utf-8") as log_file:
+            log_file.write("\n".join(entry_lines) + "\n")
+    except OSError as error:
+        print(f"[logging] Unable to write prompt log: {error}")
 
 
 ensure_log_files()

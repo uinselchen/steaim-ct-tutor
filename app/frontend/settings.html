@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Settings — STEaiM-CT AI Tutor</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main class="startscreen settings-screen">
+    <section class="start-card settings-card">
+      <div class="brand-logos start-brand-logos settings-brand">
+        <img class="start-logo-erasmus" src="assets/EN Co-Funded by the EU_POS.png" alt="Co-funded by the EU logo" />
+        <img class="start-logo-main" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
+      </div>
+
+      <p class="settings-eyebrow">Local administration</p>
+      <h1>Admin settings</h1>
+      <p class="description">
+        This area shows local configuration status for the tutor. Secrets stay in <code>app/server/.env</code> and are never displayed here.
+      </p>
+
+      <div class="settings-grid" id="settingsStatus">
+        <article class="settings-panel">
+          <span class="settings-panel-icon">🤖</span>
+          <div>
+            <h2>Mistral API</h2>
+            <p id="mistralStatus">Checking configuration...</p>
+          </div>
+        </article>
+        <article class="settings-panel">
+          <span class="settings-panel-icon">✉️</span>
+          <div>
+            <h2>Email sending</h2>
+            <p id="emailStatus">Checking configuration...</p>
+          </div>
+        </article>
+        <article class="settings-panel">
+          <span class="settings-panel-icon">📚</span>
+          <div>
+            <h2>Curricula</h2>
+            <p id="curriculaStatus">Checking configuration...</p>
+          </div>
+        </article>
+        <article class="settings-panel">
+          <span class="settings-panel-icon">🧾</span>
+          <div>
+            <h2>Local logs</h2>
+            <p id="logsStatus">Checking configuration...</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="settings-note">
+        <h2>Prompt files</h2>
+        <p>
+          These files define how the AI is instructed. Edit them locally if you want to change the tutor's behaviour.
+        </p>
+        <ul class="settings-path-list" id="promptPathList">
+          <li>Loading prompt paths...</li>
+        </ul>
+      </div>
+
+      <form class="settings-form" id="mistralSettingsForm">
+        <h2>Mistral / AI connection</h2>
+        <p>
+          Change these values if you want to point the tutor to a different Mistral-compatible endpoint or model.
+          Leave the API key empty to keep the current key.
+        </p>
+        <label class="settings-label" for="mistralApiUrl">
+          API URL
+          <input id="mistralApiUrl" name="mistralApiUrl" type="url" placeholder="https://api.mistral.ai/v1/chat/completions" />
+        </label>
+        <label class="settings-label" for="mistralModel">
+          Model
+          <input id="mistralModel" name="mistralModel" type="text" placeholder="mistral-small-latest" />
+        </label>
+        <label class="settings-label" for="mistralApiKey">
+          API key
+          <input id="mistralApiKey" name="mistralApiKey" type="password" placeholder="Leave empty to keep current key" autocomplete="off" />
+        </label>
+        <p class="settings-save-status" id="settingsSaveStatus"></p>
+        <button class="action-button primary-button settings-save-button" type="submit">
+          <span class="button-text">Save settings</span>
+          <span class="button-arrow">→</span>
+        </button>
+      </form>
+
+      <div class="button-row settings-actions">
+        <a class="action-button primary-button" href="start.html">
+          <span class="button-text">Back to start</span>
+          <span class="button-arrow">→</span>
+        </a>
+      </div>
+    </section>
+  </main>
+  <script src="js/settings.js"></script>
+</body>
+</html>

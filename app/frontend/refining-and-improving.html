@@ -234,7 +234,8 @@
       draft: storedDraft || null,
       conversation: Array.isArray(storedConversation) ? storedConversation : [],
       changes: storedDraft && Array.isArray(storedDraft.changes) ? storedDraft.changes : [],
-      activeNode: null
+      activeNode: null,
+      isReplyBusy: false
     };
 
     if (sessionChanged) {
@@ -394,6 +395,7 @@
       ensureDraft();
       var change = {
         kind: kind,
+        section: source || "",
         title: title,
         reason: reason,
         beforeValue: beforeValue,
@@ -404,6 +406,189 @@
       state.draft.changes.push(change);
       persistState();
       renderPreview();
+    }
+
+    function stringifyComparable(value) {
+      return JSON.stringify(value === undefined ? null : value);
+    }
+
+    function valuesDiffer(beforeValue, afterValue) {
+      return stringifyComparable(beforeValue) !== stringifyComparable(afterValue);
+    }
+
+    function normalizeChangeSection(change) {
+      var text = [
+        change && change.section,
+        change && change.source,
+        change && change.kind,
+        change && change.title,
+        change && change.reason
+      ].join(" ").toLowerCase();
+
+      if (text.indexOf("goal") !== -1 || text.indexOf("competenc") !== -1) {
+        return "goals";
+      }
+      if (text.indexOf("skill") !== -1) {
+        return "skills";
+      }
+      if (text.indexOf("material") !== -1) {
+        return "materials";
+      }
+      if (text.indexOf("assessment") !== -1) {
+        return "assessment";
+      }
+      if (text.indexOf("reflection") !== -1) {
+        return "reflection";
+      }
+      if (text.indexOf("time") !== -1 || text.indexOf("duration") !== -1 || text.indexOf("timing") !== -1 || text.indexOf("step") !== -1) {
+        return "steps";
+      }
+      if (text.indexOf("overview") !== -1 || text.indexOf("summary") !== -1 || text.indexOf("title") !== -1 || text.indexOf("target") !== -1 || text.indexOf("grade") !== -1 || text.indexOf("age") !== -1 || text.indexOf("subject") !== -1 || text.indexOf("country") !== -1 || text.indexOf("meta") !== -1) {
+        return "overview";
+      }
+      return "";
+    }
+
+    function getChangedSections() {
+      var sections = {};
+      (ensureDraft().changes || []).forEach(function (change) {
+        var section = normalizeChangeSection(change);
+        if (section) {
+          sections[section] = true;
+        }
+      });
+      return sections;
+    }
+
+    function changeAlreadyExists(changes, section, title, afterValue) {
+      var afterText = stringifyComparable(afterValue);
+      return changes.some(function (change) {
+        return normalizeChangeSection(change) === section &&
+          String(change.title || "") === title &&
+          stringifyComparable(change.afterValue) === afterText;
+      });
+    }
+
+    function pushGeneratedChange(changes, section, title, reason, beforeValue, afterValue) {
+      if (changeAlreadyExists(changes, section, title, afterValue)) {
+        return;
+      }
+      changes.push({
+        kind: section === "steps" ? "time adjustment" : "content update",
+        section: section,
+        title: title,
+        reason: reason,
+        beforeValue: beforeValue,
+        afterValue: afterValue,
+        source: "frontend diff",
+        time: getTimeStamp()
+      });
+    }
+
+    function ensureVisibleDraftChanges(currentDraft, nextDraft) {
+      var changes = Array.isArray(nextDraft.changes) ? nextDraft.changes.slice() : [];
+      [
+        { key: "title", section: "overview", title: "Lesson title updated" },
+        { key: "summary", section: "overview", title: "Lesson summary updated" },
+        { key: "goals", section: "goals", title: "Goals updated" },
+        { key: "skills", section: "skills", title: "Skills updated" },
+        { key: "materials", section: "materials", title: "Materials updated" },
+        { key: "assessment", section: "assessment", title: "Assessment updated" },
+        { key: "reflection", section: "reflection", title: "Reflection updated" },
+        { key: "meta", section: "overview", title: "Lesson metadata updated" }
+      ].forEach(function (entry) {
+        if (valuesDiffer(currentDraft[entry.key], nextDraft[entry.key])) {
+          pushGeneratedChange(
+            changes,
+            entry.section,
+            entry.title,
+            "Visible marker added because this part of the draft changed.",
+            currentDraft[entry.key],
+            nextDraft[entry.key]
+          );
+        }
+      });
+
+      var currentSteps = Array.isArray(currentDraft.steps) ? currentDraft.steps : [];
+      var nextSteps = Array.isArray(nextDraft.steps) ? nextDraft.steps : [];
+      nextSteps.forEach(function (step, index) {
+        var previousStep = currentSteps[index] || {};
+        if (!valuesDiffer(previousStep, step)) {
+          return;
+        }
+        var durationChanged = valuesDiffer(previousStep.duration, step.duration);
+        var contentChanged = valuesDiffer(previousStep.title, step.title) || valuesDiffer(previousStep.description, step.description);
+        var noteChanged = valuesDiffer(previousStep.note, step.note);
+        var title = (step.title || previousStep.title || ("Step " + (index + 1))) + " updated";
+
+        if (!step.status || step.status === "No major changes") {
+          step.status = durationChanged && !contentChanged ? "Duration adjusted" : "Changed";
+        }
+        if (!step.note && (durationChanged || contentChanged || noteChanged)) {
+          step.note = durationChanged && !contentChanged
+            ? "Timing updated based on our discussion."
+            : "Updated based on our discussion.";
+        }
+        pushGeneratedChange(
+          changes,
+          "steps",
+          title,
+          "Visible marker added because this step changed.",
+          previousStep,
+          step
+        );
+      });
+
+      nextDraft.changes = changes;
+    }
+
+    function isGenericPrivacyFalsePositive(selection) {
+      var text = [
+        selection && selection.title,
+        selection && selection.teacher_comment
+      ].join(" ").toLowerCase();
+      if (text.indexOf("personal data") === -1 && text.indexOf("personal information") === -1) {
+        return false;
+      }
+      var genericOnlyWarning = [
+        "e.g., student names",
+        "for example, student names",
+        "student names in worksheet",
+        "student names in worksheets",
+        "personal data (e.g.",
+        "personal information (e.g."
+      ].some(function (marker) {
+        return text.indexOf(marker) !== -1;
+      });
+      var concretePrivacyMarker = [
+        "@",
+        "email address",
+        "e-mail address",
+        "phone number",
+        "telephone number",
+        "street",
+        "straße",
+        "address",
+        "birth date",
+        "date of birth",
+        "student id",
+        "student number",
+        "school identifier",
+        "school id",
+        "teacher data",
+        "school data",
+        "specific class",
+        "specific student",
+        "specific teacher",
+        "konkrete",
+        "adresse",
+        "telefonnummer",
+        "schülernummer",
+        "schuelernummer"
+      ].some(function (marker) {
+        return text.indexOf(marker) !== -1;
+      });
+      return genericOnlyWarning && !concretePrivacyMarker;
     }
 
     function buildConversationNodes() {
@@ -422,6 +607,9 @@
 
       var prioritized = [];
       (selections || []).forEach(function (selection) {
+        if (isGenericPrivacyFalsePositive(selection)) {
+          return;
+        }
         if (!selection || !selection.category_id || prioritized.some(function (item) { return item.id === selection.category_id; })) {
           return;
         }
@@ -457,6 +645,9 @@
 
       if (!prioritized.length && selections && selections.length) {
         selections.forEach(function (selection) {
+          if (isGenericPrivacyFalsePositive(selection)) {
+            return;
+          }
           if (selection && selection.title && !prioritized.some(function (item) { return item.pointTitle === selection.title; })) {
             prioritized.push({
               id: selection.category_id || "time_scope",
@@ -654,10 +845,11 @@
         button.type = "button";
         button.className = "quick-reply";
         button.textContent = label;
+        button.disabled = !!state.isReplyBusy;
         button.addEventListener("click", function () {
           var input = document.getElementById("replyInput");
           input.value = label;
-          submitReply();
+          submitReply(label, buildQuickReplyPrompt(label));
         });
         container.appendChild(button);
       });
@@ -676,12 +868,23 @@
 
     function renderPreviewTabs() {
       var tabs = document.getElementById("previewTabs");
+      var changedSections = getChangedSections();
       tabs.innerHTML = "";
       buildPreviewTabs().forEach(function (tab) {
         var button = document.createElement("button");
         button.type = "button";
-        button.className = "preview-tab" + (state.section === tab.id ? " active" : "");
-        button.textContent = tab.label;
+        button.className = "preview-tab" +
+          (state.section === tab.id ? " active" : "") +
+          (changedSections[tab.id] ? " has-changes" : "");
+        var label = document.createElement("span");
+        label.textContent = tab.label;
+        button.appendChild(label);
+        if (changedSections[tab.id]) {
+          var marker = document.createElement("span");
+          marker.className = "preview-tab-change";
+          marker.textContent = "Changed";
+          button.appendChild(marker);
+        }
         button.addEventListener("click", function () {
           state.section = tab.id;
           ensureDraft().section = tab.id;
@@ -695,6 +898,7 @@
     function renderSectionContent() {
       var draft = ensureDraft();
       var container = document.getElementById("previewSection");
+      var changedSections = getChangedSections();
       container.innerHTML = "";
 
       var header = document.createElement("div");
@@ -718,11 +922,17 @@
         metaRow.appendChild(span);
       });
       header.appendChild(metaRow);
+      if (changedSections.overview) {
+        var overviewNote = document.createElement("p");
+        overviewNote.className = "document-change-note";
+        overviewNote.textContent = "Overview changed based on our discussion.";
+        header.appendChild(overviewNote);
+      }
       container.appendChild(header);
 
       function sectionCard(sectionTitle, status, note, bodyNodes) {
         var card = document.createElement("section");
-        card.className = "section-card";
+        card.className = "section-card" + (changedSections[state.section] ? " changed" : "");
         var head = document.createElement("div");
         head.className = "section-heading";
         var headTitle = document.createElement("h4");
@@ -739,6 +949,12 @@
           noteNode.textContent = note;
           card.appendChild(noteNode);
         }
+        if (changedSections[state.section]) {
+          var changedNote = document.createElement("p");
+          changedNote.className = "section-change-note";
+          changedNote.textContent = "Changed based on our discussion. See change history for details.";
+          card.appendChild(changedNote);
+        }
         bodyNodes.forEach(function (node) {
           card.appendChild(node);
         });
@@ -747,22 +963,22 @@
 
       if (state.section === "goals") {
         var goalList = document.createElement("ul");
-        goalList.className = "preview-list";
+        goalList.className = "preview-list" + (changedSections.goals ? " changed-list" : "");
         draft.goals.forEach(function (goal) {
           var li = document.createElement("li");
           li.textContent = goal;
           goalList.appendChild(li);
         });
-        sectionCard("Goals", draft.changes.some(function (change) { return change.kind === "content update"; }) ? "Updated" : "Ready", "The teacher can read the current learning intention here.", [goalList]);
+        sectionCard("Goals", changedSections.goals ? "Updated" : "Ready", "The teacher can read the current learning intention here.", [goalList]);
       } else if (state.section === "skills") {
         var skillList = document.createElement("ul");
-        skillList.className = "preview-list";
+        skillList.className = "preview-list" + (changedSections.skills ? " changed-list" : "");
         draft.skills.forEach(function (skill) {
           var li = document.createElement("li");
           li.textContent = skill;
           skillList.appendChild(li);
         });
-        sectionCard("Skills", "Ready", "Skills that support the lesson flow.", [skillList]);
+        sectionCard("Skills", changedSections.skills ? "Updated" : "Ready", "Skills that support the lesson flow.", [skillList]);
       } else if (state.section === "steps") {
         draft.steps.forEach(function (step, index) {
           var stepCard = document.createElement("div");
@@ -797,27 +1013,27 @@
         });
       } else if (state.section === "materials") {
         var materialList = document.createElement("ul");
-        materialList.className = "preview-list";
+        materialList.className = "preview-list" + (changedSections.materials ? " changed-list" : "");
         draft.materials.forEach(function (item) {
           var li = document.createElement("li");
           li.textContent = item;
           materialList.appendChild(li);
         });
-        sectionCard("Materials", "Ready", "Materials and resources for the lesson.", [materialList]);
+        sectionCard("Materials", changedSections.materials ? "Updated" : "Ready", "Materials and resources for the lesson.", [materialList]);
       } else if (state.section === "assessment") {
         var assessmentList = document.createElement("ul");
-        assessmentList.className = "preview-list";
+        assessmentList.className = "preview-list" + (changedSections.assessment ? " changed-list" : "");
         draft.assessment.forEach(function (item) {
           var li = document.createElement("li");
           li.textContent = item;
           assessmentList.appendChild(li);
         });
-        sectionCard("Assessment", "Ready", "How the lesson can be checked or reflected on.", [assessmentList]);
+        sectionCard("Assessment", changedSections.assessment ? "Updated" : "Ready", "How the lesson can be checked or reflected on.", [assessmentList]);
       } else if (state.section === "reflection") {
         var reflection = document.createElement("p");
         reflection.className = "preview-paragraph";
         reflection.textContent = draft.reflection;
-        sectionCard("Reflection", "Ready", "A closing prompt for the lesson.", [reflection]);
+        sectionCard("Reflection", changedSections.reflection ? "Updated" : "Ready", "A closing prompt for the lesson.", [reflection]);
       }
     }
 
@@ -945,22 +1161,89 @@
     }
 
     function setReplyBusy(isBusy) {
+      state.isReplyBusy = !!isBusy;
       var input = document.getElementById("replyInput");
       var button = document.querySelector(".send-button");
       var label = button ? button.querySelector(".button-text") : null;
+      var quickButtons = document.querySelectorAll(".quick-reply");
       if (input) {
         input.disabled = !!isBusy;
       }
       if (button) {
         button.disabled = !!isBusy;
         button.classList.toggle("is-loading", !!isBusy);
+        button.setAttribute("aria-busy", isBusy ? "true" : "false");
       }
       if (label) {
         label.textContent = isBusy ? "Thinking..." : "Send";
       }
+      quickButtons.forEach(function (quickButton) {
+        quickButton.disabled = !!isBusy;
+      });
     }
 
-      function buildRefinementPayload(userMessage) {
+    function buildQuickReplyPrompt(label) {
+      var text = String(label || "").trim();
+      var lower = text.toLowerCase();
+      if (state.activeNode && state.activeNode.id === "time_scope") {
+        return text + " Constraint: This is a timing-only refinement. Keep all step titles, descriptions, goals, skills, materials, assessment, and reflection unchanged unless I explicitly ask for content changes.";
+      }
+      if (lower === "suggest wording" || lower.indexOf("suggest wording") !== -1) {
+        return "Suggest concrete, copy-ready wording for the current focus point. The assistant_message must include the actual wording, not only a heading. If the focus is goals or competencies, update updated_draft.goals with the proposed wording.";
+      }
+      if (lower.indexOf("suggest alternative") !== -1 || lower.indexOf("suggest another option") !== -1) {
+        return "Suggest a concrete alternative for the current focus point and explain briefly how it should change the draft.";
+      }
+      return text;
+    }
+
+    function isSuggestWordingRequest(text) {
+      return String(text || "").toLowerCase().indexOf("suggest wording") !== -1;
+    }
+
+    function isEmptyWordingMessage(message) {
+      var text = String(message || "").trim();
+      if (!text) {
+        return true;
+      }
+      var withoutHeading = text
+        .replace(/^copy-ready wording[^:]*:\s*/i, "")
+        .replace(/^suggested wording[^:]*:\s*/i, "")
+        .trim();
+      return !withoutHeading || withoutHeading.split(/\s+/).length < 5;
+    }
+
+    function hasRelevantWordingDraftChange(beforeDraft, afterDraft) {
+      var node = state.activeNode || {};
+      if (!afterDraft || typeof afterDraft !== "object") {
+        return false;
+      }
+      if (node.id === "goals_competencies") {
+        return valuesDiffer(beforeDraft.goals, afterDraft.goals);
+      }
+      if (node.id === "curriculum_alignment") {
+        return valuesDiffer(beforeDraft.goals, afterDraft.goals) || valuesDiffer(beforeDraft.reflection, afterDraft.reflection);
+      }
+      if (node.id === "target_group") {
+        return valuesDiffer(beforeDraft.meta, afterDraft.meta) || valuesDiffer(beforeDraft.summary, afterDraft.summary);
+      }
+      return valuesDiffer(beforeDraft, afterDraft);
+    }
+
+    function isIncompleteWordingResponse(response, nextDraft, draftBeforeRequest) {
+      var assistantMessage = response && response.assistant_message ? String(response.assistant_message).trim() : "";
+      return isEmptyWordingMessage(assistantMessage) && !hasRelevantWordingDraftChange(draftBeforeRequest, nextDraft);
+    }
+
+    function buildScopedUserMessage(message) {
+      var text = String(message || "").trim();
+      if (state.activeNode && state.activeNode.id === "time_scope" && text.indexOf("Constraint: This is a timing-only refinement.") === -1) {
+        return text + " Constraint: This is a timing-only refinement. Keep all step titles, descriptions, goals, skills, materials, assessment, and reflection unchanged unless I explicitly ask for content changes.";
+      }
+      return text;
+    }
+
+    function buildRefinementPayload(userMessage) {
         var draft = ensureDraft();
         return {
           sessionId: currentSessionId || "",
@@ -985,11 +1268,59 @@
       };
     }
 
+    function constrainUpdatedDraft(updatedDraft, currentDraft) {
+      var node = state.activeNode || {};
+      var constrained = clone(updatedDraft);
+      if (node.id === "time_scope") {
+        constrained.title = currentDraft.title;
+        constrained.summary = currentDraft.summary;
+        constrained.meta = clone(currentDraft.meta || {});
+        constrained.goals = clone(currentDraft.goals || []);
+        constrained.skills = clone(currentDraft.skills || []);
+        constrained.materials = clone(currentDraft.materials || []);
+        constrained.assessment = clone(currentDraft.assessment || []);
+        constrained.reflection = currentDraft.reflection;
+
+        if (Array.isArray(updatedDraft.steps) && Array.isArray(currentDraft.steps)) {
+          constrained.steps = currentDraft.steps.map(function (currentStep, index) {
+            var proposedStep = updatedDraft.steps[index] || {};
+            var nextStep = clone(currentStep);
+            if (proposedStep.duration) {
+              nextStep.duration = proposedStep.duration;
+            }
+            if (proposedStep.status) {
+              nextStep.status = proposedStep.status;
+            }
+            if (typeof proposedStep.note === "string") {
+              nextStep.note = proposedStep.note;
+            }
+            return nextStep;
+          });
+        }
+        if (Array.isArray(updatedDraft.changes)) {
+          constrained.changes = updatedDraft.changes.filter(function (change) {
+            var text = [
+              change && change.kind,
+              change && change.title,
+              change && change.reason,
+              change && change.source
+            ].join(" ").toLowerCase();
+            return text.indexOf("time") !== -1 || text.indexOf("duration") !== -1 || text.indexOf("timing") !== -1;
+          });
+          if (!constrained.changes.length) {
+            constrained.changes = clone(currentDraft.changes || []);
+          }
+        }
+      }
+      return constrained;
+    }
+
     function applyUpdatedDraft(updatedDraft) {
       if (!updatedDraft || typeof updatedDraft !== "object") {
         return;
       }
       var currentDraft = ensureDraft();
+      updatedDraft = constrainUpdatedDraft(updatedDraft, currentDraft);
       var nextDraft = clone(currentDraft);
       Object.keys(updatedDraft).forEach(function (key) {
         if (key === "meta" && updatedDraft.meta && typeof updatedDraft.meta === "object") {
@@ -1034,6 +1365,7 @@
         }
         nextDraft[key] = clone(updatedDraft[key]);
       });
+      ensureVisibleDraftChanges(currentDraft, nextDraft);
       state.draft = nextDraft;
       if (!Array.isArray(state.draft.changes)) {
         state.draft.changes = [];
@@ -1118,22 +1450,19 @@
       return true;
     }
 
-    function submitReply(replyText) {
+    function submitReply(replyText, payloadText) {
       var input = document.getElementById("replyInput");
-      if (input && input.disabled) {
+      if (state.isReplyBusy || (input && input.disabled)) {
         return;
       }
       var text = String(replyText || input.value || "").trim();
       if (!text) {
         return;
       }
+      var messageForApi = buildScopedUserMessage(payloadText || text);
       var wasAwaiting = state.awaitingFreeText;
-
-      if (!state.activeNode) {
-        addConversation("tutor", "We are done with the guided part for now. You can still add comments if you want.");
-        input.value = "";
-        return;
-      }
+      var wasSuggestWording = isSuggestWordingRequest(messageForApi) || isSuggestWordingRequest(text);
+      var draftBeforeRequest = clone(ensureDraft());
 
       addConversation("teacher", text);
       input.value = "";
@@ -1141,9 +1470,17 @@
       persistState();
       setReplyBusy(true);
 
-      requestRefinementFromMistral(buildRefinementPayload(text))
+      requestRefinementFromMistral(buildRefinementPayload(messageForApi))
         .then(function (response) {
           var nextDraft = response && (response.updated_draft || response.draft);
+          if (wasSuggestWording && isIncompleteWordingResponse(response, nextDraft, draftBeforeRequest)) {
+            addConversation("tutor", "I did not receive a concrete wording suggestion. Please try again, and I will ask for an insert-ready sentence instead of a heading.");
+            state.awaitingFreeText = true;
+            persistState();
+            renderQuickReplies(state.activeNode, ["Suggest wording again", "Write one goal", "Add example goal"]);
+            input.placeholder = "Type your answer or add more details...";
+            return;
+          }
           if (nextDraft) {
             applyUpdatedDraft(nextDraft);
           }
@@ -1156,8 +1493,18 @@
           }
 
           var advanceToNext = !response || response.advance !== false;
+          var nextReplies = response && Array.isArray(response.quick_replies) ? response.quick_replies : [];
+          if (nextReplies.length) {
+            advanceToNext = false;
+          }
           persistState();
           renderPreview();
+
+          if (!state.activeNode) {
+            renderQuickReplies(null);
+            input.placeholder = "Add more details if needed...";
+            return;
+          }
 
           if (advanceToNext) {
             state.currentNodeIndex += 1;
@@ -1165,22 +1512,16 @@
             startNextNode();
           } else {
             state.activeNode = state.nodes[state.currentNodeIndex] || null;
-            var nextReplies = response && Array.isArray(response.quick_replies) ? response.quick_replies : [];
             renderQuickReplies(state.activeNode, nextReplies);
             input.placeholder = "Type your answer or add more details...";
           }
         })
         .catch(function (error) {
           console.error(error);
-          applyConversationReply(state.activeNode, text);
-          if (state.awaitingFreeText && !wasAwaiting) {
-            setReplyBusy(false);
-            return;
-          }
-          state.awaitingFreeText = false;
-          state.currentNodeIndex += 1;
+          state.awaitingFreeText = wasAwaiting;
+          addConversation("tutor", "I could not get an AI response just now. Please try again in a moment or rephrase your message.");
           persistState();
-          startNextNode();
+          renderQuickReplies(state.activeNode);
         })
         .finally(function () {
           setReplyBusy(false);
