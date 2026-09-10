@@ -2,6 +2,7 @@ import os
 import re
 import traceback
 import unicodedata
+import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
 import config
@@ -749,8 +750,14 @@ def build_export_bundle(context):
     docx_path = os.path.join(export_folder, f"{export_slug}.docx")
     pdf_path = os.path.join(export_folder, f"{export_slug}.pdf")
 
+    for output_path in (docx_path, pdf_path):
+        if os.path.exists(output_path):
+            os.remove(output_path)
+
     build_docx_export(context, docx_path)
+    validate_export_file(docx_path, "DOCX")
     build_pdf_export(context, pdf_path)
+    validate_export_file(pdf_path, "PDF")
 
     return {
         "sessionId": session_id,
@@ -759,3 +766,22 @@ def build_export_bundle(context):
         "pdfPath": pdf_path,
         "filenameBase": export_slug,
     }
+
+
+def validate_export_file(path, file_type):
+    if not os.path.isfile(path) or os.path.getsize(path) == 0:
+        raise RuntimeError(f"{file_type} export was not created or is empty: {path}")
+
+    if file_type == "PDF":
+        with open(path, "rb") as export_file:
+            if export_file.read(5) != b"%PDF-":
+                raise RuntimeError(f"Generated PDF is invalid: {path}")
+        return
+
+    if file_type == "DOCX":
+        try:
+            with zipfile.ZipFile(path) as archive:
+                if archive.testzip() is not None or "[Content_Types].xml" not in archive.namelist():
+                    raise RuntimeError(f"Generated DOCX is invalid: {path}")
+        except zipfile.BadZipFile as error:
+            raise RuntimeError(f"Generated DOCX is invalid: {path}") from error

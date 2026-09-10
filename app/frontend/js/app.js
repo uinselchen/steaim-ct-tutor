@@ -5,7 +5,10 @@ document.addEventListener("DOMContentLoaded", function () {
   var settingsButton = document.getElementById("settingsButton");
   var apiKeyModalBackdrop = document.getElementById("apiKeyModalBackdrop");
   var configureApiKeyButton = document.getElementById("configureApiKeyButton");
+  var apiKeyModalTitle = document.getElementById("apiKeyModalTitle");
+  var apiKeyModalMessage = document.getElementById("apiKeyModalMessage");
   var apiKeyConfigured = null;
+  var setupReady = null;
 
   function setApiKeyModalOpen(open) {
     if (!apiKeyModalBackdrop) {
@@ -25,18 +28,53 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .then(function (status) {
         apiKeyConfigured = Boolean(status && status.mistral && status.mistral.configured);
-        if (!apiKeyConfigured) {
-          setApiKeyModalOpen(true);
+        setupReady = !status.runtime || status.runtime.ready === true;
+        if (!apiKeyConfigured || !setupReady) {
+          showSetupRequired(status);
         }
       })
       .catch(function () {
-        // The tutor can still be opened if the status endpoint is unavailable.
+        setupReady = false;
+        showSetupRequired(null);
       });
+  }
+
+  function showSetupRequired(status) {
+    if (!status) {
+      if (apiKeyModalTitle) {
+        apiKeyModalTitle.textContent = "Setup status unavailable";
+      }
+      if (apiKeyModalMessage) {
+        apiKeyModalMessage.textContent = "The tutor could not verify its setup. Open Admin settings for the detailed system check.";
+      }
+      setApiKeyModalOpen(true);
+      return;
+    }
+    var runtime = status && status.runtime ? status.runtime : {};
+    var missing = [];
+    if (!apiKeyConfigured) {
+      missing.push("the Mistral API key");
+    }
+    if (runtime.exportDependencies === false) {
+      missing.push("DOCX/PDF export packages");
+    }
+    if (runtime.requiredFolders === false) {
+      missing.push("required local folders");
+    }
+    if (apiKeyModalTitle) {
+      apiKeyModalTitle.textContent = missing.length ? "Setup required" : "Setup status unavailable";
+    }
+    if (apiKeyModalMessage) {
+      apiKeyModalMessage.textContent = missing.length
+        ? "This computer is missing " + missing.join(" and ") + ". Open Admin settings to see the detailed system check and next steps."
+        : "The tutor could not verify its setup. Open Admin settings for the detailed system check.";
+    }
+    setApiKeyModalOpen(true);
   }
 
   if (startButton) {
     startButton.addEventListener("click", function () {
-      if (apiKeyConfigured !== true) {
+      if (apiKeyConfigured !== true || setupReady !== true) {
         setApiKeyModalOpen(true);
         return;
       }

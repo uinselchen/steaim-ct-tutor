@@ -1,4 +1,6 @@
+import importlib.util
 import os
+import sys
 
 import config
 
@@ -81,6 +83,10 @@ def build_settings_status():
         })
 
     email_configured = bool(config.SMTP_HOST and config.SMTP_USERNAME and config.SMTP_PASSWORD and config.MAIL_TO_ADDRESS)
+    required_modules = ("docx", "pypdf", "reportlab")
+    missing_modules = [name for name in required_modules if importlib.util.find_spec(name) is None]
+    required_paths = (config.FRONTEND_ROOT, config.OUTPUT_ROOT, config.EXPORTS_ROOT)
+    missing_paths = [relative_path(path) for path in required_paths if not os.path.isdir(path)]
     return {
         "mistral": {
             "configured": bool(config.MISTRAL_API_KEY),
@@ -99,6 +105,14 @@ def build_settings_status():
             "outputRoot": relative_path(config.OUTPUT_ROOT) if os.path.isdir(config.OUTPUT_ROOT) else "",
         },
         "prompts": prompt_paths,
+        "runtime": {
+            "python": sys.version.split()[0],
+            "exportDependencies": not missing_modules,
+            "missingDependencies": missing_modules,
+            "requiredFolders": not missing_paths,
+            "missingFolders": missing_paths,
+            "ready": bool(config.MISTRAL_API_KEY and not missing_modules and not missing_paths),
+        },
     }
 
 

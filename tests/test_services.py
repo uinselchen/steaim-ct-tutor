@@ -19,6 +19,7 @@ config.ANALYSIS_LOG_FILE = os.path.join(TEST_LOG_ROOT, "analysis-log.txt")
 config.MISTRAL_PROMPT_LOG_FILE = os.path.join(TEST_LOG_ROOT, "mistral-prompt-log.txt")
 
 import email_service
+import logging_utils
 import mistral_service
 import settings_service
 import step2_service
@@ -26,6 +27,19 @@ import text_utils
 
 
 class TextUtilsTests(unittest.TestCase):
+    def test_logging_redacts_api_keys_and_bearer_tokens(self):
+        original_key = config.MISTRAL_API_KEY
+        config.MISTRAL_API_KEY = "test-secret-api-key-123"
+        try:
+            redacted = logging_utils.redact_secrets(
+                "MISTRAL_API_KEY=test-secret-api-key-123 Authorization: Bearer test-secret-api-key-123"
+            )
+            self.assertNotIn("test-secret-api-key-123", redacted)
+            self.assertIn("MISTRAL_API_KEY=[REDACTED]", redacted)
+            self.assertIn("[REDACTED]", redacted)
+        finally:
+            config.MISTRAL_API_KEY = original_key
+
     def test_parse_subjects_value_accepts_json_and_delimited_text(self):
         self.assertEqual(text_utils.parse_subjects_value('["Arts", "Physics"]'), ["Arts", "Physics"])
         self.assertEqual(text_utils.parse_subjects_value("Arts; Physics, Arts"), ["Arts", "Physics"])

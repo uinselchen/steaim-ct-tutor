@@ -40,11 +40,41 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  function renderRuntimeStatus(status) {
+    var list = document.getElementById("startupStatusList");
+    var summary = document.getElementById("startupStatusSummary");
+    if (!list) {
+      return;
+    }
+    var mistral = status.mistral || {};
+    var runtime = status.runtime || {};
+    var checks = [
+      { ok: !!mistral.configured, label: mistral.configured ? "Mistral API key configured" : "Mistral API key missing" },
+      { ok: runtime.exportDependencies !== false, label: runtime.exportDependencies !== false ? "DOCX/PDF export packages available" : "Missing export packages: " + (runtime.missingDependencies || []).join(", ") },
+      { ok: runtime.requiredFolders !== false, label: runtime.requiredFolders !== false ? "Local tutor folders ready" : "Missing folders: " + (runtime.missingFolders || []).join(", ") },
+      { ok: !!runtime.python, label: runtime.python ? "Python " + runtime.python + " detected" : "Python runtime unavailable" }
+    ];
+    list.innerHTML = "";
+    checks.forEach(function (check) {
+      var item = document.createElement("li");
+      item.className = check.ok ? "status-ok" : "status-warning";
+      item.textContent = (check.ok ? "✓ " : "! ") + check.label;
+      list.appendChild(item);
+    });
+    var ready = checks.every(function (check) { return check.ok; });
+    if (summary) {
+      summary.textContent = ready ? "Ready" : "Action required";
+      summary.className = ready ? "status-ok" : "status-warning";
+    }
+  }
+
   function applyStatus(status) {
     status = status || {};
     var mistral = status.mistral || {};
     var email = status.email || {};
     var paths = status.paths || {};
+
+    renderRuntimeStatus(status);
 
     setText(
       "mistralStatus",

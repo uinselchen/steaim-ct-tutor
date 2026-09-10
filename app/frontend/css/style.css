@@ -262,6 +262,47 @@ h1 {
   background: linear-gradient(135deg, var(--purple), var(--pink-dark));
 }
 
+.startup-status {
+  margin: 24px 0 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #f8f9ff;
+  text-align: left;
+}
+
+.startup-status-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.startup-status-heading h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+}
+
+.startup-status-list {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.startup-status-list .status-ok {
+  color: var(--green-dark);
+}
+
+.startup-status-list .status-warning {
+  color: var(--red-dark);
+  font-weight: 700;
+}
+
 .info-section {
   margin-top: 30px;
   text-align: left;
