@@ -16,6 +16,7 @@ AMENDMENTS_ROOT = os.path.join(DATA_ROOT, "amendments")
 LESSONPLANS_ROOT = os.path.join(DATA_ROOT, "lessonplans")
 CONFIG_FILE = os.path.join(DATA_ROOT, "config.json")
 ENV_FILE = os.path.join(HERE, ".env")
+MISTRAL_API_KEY_FILE = os.path.join(HERE, "mistral_api_key.txt")
 OUTPUT_ROOT = os.path.join(DATA_ROOT, "outputs")
 ANALYSIS_LOG_FILE = os.path.join(OUTPUT_ROOT, "analysis-log.txt")
 MISTRAL_PROMPT_LOG_FILE = os.path.join(OUTPUT_ROOT, "mistral-prompt-log.txt")
@@ -52,11 +53,21 @@ def ensure_directories():
         EXPORTS_ROOT,
     ):
         os.makedirs(path, exist_ok=True)
+    if not os.path.exists(MISTRAL_API_KEY_FILE):
+        with open(MISTRAL_API_KEY_FILE, "w", encoding="utf-8"):
+            pass
 
 
 def load_env_file():
     global MISTRAL_API_KEY, MISTRAL_API_URL, MISTRAL_MODEL, SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD
     global SMTP_USE_TLS, SMTP_USE_SSL, MAIL_FROM_ADDRESS, MAIL_TO_ADDRESS
+
+    MISTRAL_API_KEY = None
+    try:
+        with open(MISTRAL_API_KEY_FILE, "r", encoding="utf-8") as key_file:
+            MISTRAL_API_KEY = key_file.read().strip() or None
+    except OSError:
+        pass
 
     if os.path.exists(ENV_FILE):
         with open(ENV_FILE, "r", encoding="utf-8") as env_file:
@@ -66,7 +77,7 @@ def load_env_file():
                     continue
                 key, value = line.split("=", 1)
                 value = value.strip().strip('"').strip("'")
-                if key == "MISTRAL_API_KEY" and value:
+                if key == "MISTRAL_API_KEY" and value and value != "your_mistral_api_key_here" and not MISTRAL_API_KEY:
                     MISTRAL_API_KEY = value
                 elif key == "MISTRAL_API_URL" and value:
                     MISTRAL_API_URL = value
@@ -92,8 +103,9 @@ def load_env_file():
                 elif key == "MAIL_TO_ADDRESS" and value:
                     MAIL_TO_ADDRESS = value
 
-    if not MISTRAL_API_KEY:
-        MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
+    environment_key = os.environ.get("MISTRAL_API_KEY")
+    if not MISTRAL_API_KEY and environment_key and environment_key != "your_mistral_api_key_here":
+        MISTRAL_API_KEY = environment_key
     if os.environ.get("MISTRAL_API_URL"):
         MISTRAL_API_URL = os.environ["MISTRAL_API_URL"]
     if os.environ.get("MISTRAL_MODEL"):

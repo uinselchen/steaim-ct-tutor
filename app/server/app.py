@@ -40,6 +40,12 @@ def parse_bool_value(value, default=False):
 
 config.load_env_file()
 
+if not config.MISTRAL_API_KEY:
+    log_message(
+        "[warning] No Mistral API key configured. Enter it in Admin settings; "
+        f"the local key file is {config.MISTRAL_API_KEY_FILE}."
+    )
+
 if not os.path.exists(CONFIG_FILE):
     default_config = {
         "countries": [

@@ -17,7 +17,7 @@
       <p class="settings-eyebrow">Local administration</p>
       <h1>Admin settings</h1>
       <p class="description">
-        This area shows local configuration status for the tutor. Secrets stay in <code>app/server/.env</code> and are never displayed here.
+        This area shows local configuration status for the tutor. Secrets stay in a local key file and are never displayed or committed here.
       </p>
 
       <div class="settings-grid" id="settingsStatus">
@@ -65,7 +65,7 @@
         <h2>Mistral / AI connection</h2>
         <p>
           Change these values if you want to point the tutor to a different Mistral-compatible endpoint or model.
-          Leave the API key empty to keep the current key.
+          Leave the API key empty to keep the current key. It is stored locally and is never committed to Git.
         </p>
         <label class="settings-label" for="mistralApiUrl">
           API URL
@@ -77,7 +77,7 @@
         </label>
         <label class="settings-label" for="mistralApiKey">
           API key
-          <input id="mistralApiKey" name="mistralApiKey" type="password" placeholder="Leave empty to keep current key" autocomplete="off" />
+          <input id="mistralApiKey" name="mistralApiKey" type="password" placeholder="Enter the local API key" autocomplete="off" />
         </label>
         <p class="settings-save-status" id="settingsSaveStatus"></p>
         <button class="action-button primary-button settings-save-button" type="submit">

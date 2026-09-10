@@ -14,6 +14,7 @@ set "LOGFILE=%LOGDIR%\server.log"
 set "ANALYSIS_LOG=%LOGDIR%\analysis-log.txt"
 set "PROMPT_LOG=%LOGDIR%\mistral-prompt-log.txt"
 set "REQUIREMENTS=%SERVER%\requirements.txt"
+set "KEY_FILE=%SERVER%\mistral_api_key.txt"
 set "ENV_FILE=%SERVER%\.env"
 set "ENV_EXAMPLE=%SERVER%\.env.example"
 set "CONFIG_FILE=%DATA%\config.json"
@@ -56,8 +57,7 @@ if not exist "%CONFIG_FILE%" (
 
 if not exist "%ENV_EXAMPLE%" (
     echo Creating .env.example...
-    > "%ENV_EXAMPLE%" echo MISTRAL_API_KEY=your_mistral_api_key_here
-    >> "%ENV_EXAMPLE%" echo MISTRAL_API_URL=https://api.mistral.ai/v1/chat/completions
+    > "%ENV_EXAMPLE%" echo MISTRAL_API_URL=https://api.mistral.ai/v1/chat/completions
     >> "%ENV_EXAMPLE%" echo MISTRAL_MODEL=mistral-small-latest
     >> "%ENV_EXAMPLE%" echo(
     >> "%ENV_EXAMPLE%" echo # Optional email settings
@@ -74,26 +74,13 @@ if not exist "%ENV_EXAMPLE%" (
 if not exist "%ENV_FILE%" (
     echo Creating .env from .env.example...
     copy "%ENV_EXAMPLE%" "%ENV_FILE%" >nul
-    set /a WARNINGS+=1
-    echo WARNING: Add your Mistral API key to "%ENV_FILE%".
 )
 
-findstr /B /C:"MISTRAL_API_KEY=your_mistral_api_key_here" "%ENV_FILE%" >nul 2>nul
-if not errorlevel 1 (
+call :ensure_file "%KEY_FILE%" || goto fail
+for %%A in ("%KEY_FILE%") do if %%~zA==0 (
     set /a WARNINGS+=1
-    echo WARNING: MISTRAL_API_KEY still contains the placeholder.
-)
-
-findstr /B /C:"MISTRAL_API_KEY=" "%ENV_FILE%" >nul 2>nul
-if errorlevel 1 (
-    set /a WARNINGS+=1
-    echo WARNING: MISTRAL_API_KEY is missing in "%ENV_FILE%".
-)
-
-findstr /X /C:"MISTRAL_API_KEY=" "%ENV_FILE%" >nul 2>nul
-if not errorlevel 1 (
-    set /a WARNINGS+=1
-    echo WARNING: MISTRAL_API_KEY is empty in "%ENV_FILE%".
+    echo WARNING: No Mistral API key configured yet.
+    echo Enter it in Admin settings after the tutor opens.
 )
 
 call :require_file "%SERVER%\app.py" "server"

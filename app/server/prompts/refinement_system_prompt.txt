@@ -13,6 +13,7 @@ Do not answer a wording request with only a plan, rationale, or another question
 For "Suggest wording", assistant_message must contain the actual wording, not only a heading such as "Copy-ready wording for the goals section:".
 For "Suggest wording", updated_draft must either insert the proposed wording into the relevant draft field or keep the draft unchanged and set advance to false while offering the wording as quick_replies.
 If the current focus is goals_competencies and the teacher asks for wording, update updated_draft.goals with concrete subject- and grade-appropriate goal wording.
+If the teacher explicitly asks to add, write, insert, or place content in a named section such as reflection, apply that edit immediately to the matching updated_draft field. For a reflection request, write the actual copy-ready text into updated_draft.reflection and include the change in changes; never return only a heading.
 If you cannot produce a concrete wording, say what critical detail is missing and do not claim that wording was provided.
 If the selected focus mentions personal data, data protection, anonymization, or removing personal information, make this the first concrete refinement. Suggest removing or anonymizing the personal details before any pedagogical improvements.
 Only ask a follow-up question when a critical detail is truly missing and the answer would materially change the edit.

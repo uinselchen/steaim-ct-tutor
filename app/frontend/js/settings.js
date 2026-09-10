@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
       "mistralStatus",
       mistral.configured
         ? "Configured. Model: " + (mistral.model || "default") + ". API URL: " + (mistral.apiUrl || "not set")
-        : "Missing MISTRAL_API_KEY in app/server/.env.",
+        : "No API key configured. Enter it below; it will be stored locally in " + (mistral.apiKeyFile || "app/server/mistral_api_key.txt") + ".",
       mistral.configured ? "status-ok" : "status-warning"
     );
     setText(
@@ -118,7 +118,10 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .then(function (data) {
         form.mistralApiKey.value = "";
-        setText("settingsSaveStatus", "Settings saved to app/server/.env.", "status-ok");
+        var keyFile = data.status && data.status.mistral && data.status.mistral.apiKeyFile
+          ? data.status.mistral.apiKeyFile
+          : "app/server/mistral_api_key.txt";
+        setText("settingsSaveStatus", "The API Key is now stored locally under " + keyFile + ".", "status-ok");
         if (data.status) {
           applyStatus(data.status);
         } else {

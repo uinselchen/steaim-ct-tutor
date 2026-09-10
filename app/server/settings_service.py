@@ -64,6 +64,12 @@ def write_env_values(updates, path=None):
         env_file.write("\n".join(next_lines).rstrip() + "\n")
 
 
+def write_mistral_api_key(api_key):
+    os.makedirs(os.path.dirname(config.MISTRAL_API_KEY_FILE), exist_ok=True)
+    with open(config.MISTRAL_API_KEY_FILE, "w", encoding="utf-8") as key_file:
+        key_file.write(str(api_key or "").strip() + "\n")
+
+
 def build_settings_status():
     prompt_paths = []
     for filename in PROMPT_FILENAMES:
@@ -81,6 +87,7 @@ def build_settings_status():
             "apiUrl": config.MISTRAL_API_URL,
             "model": config.MISTRAL_MODEL,
             "apiKeyConfigured": bool(config.MISTRAL_API_KEY),
+            "apiKeyFile": relative_path(config.MISTRAL_API_KEY_FILE),
         },
         "email": {
             "configured": email_configured,
@@ -106,16 +113,17 @@ def update_mistral_settings(data):
         updates["MISTRAL_API_URL"] = api_url
     if model:
         updates["MISTRAL_MODEL"] = model
-    if api_key:
-        updates["MISTRAL_API_KEY"] = api_key
 
-    if not updates:
+    if not updates and not api_key:
         return {"error": "No settings provided"}
 
-    write_env_values(updates)
+    if updates:
+        write_env_values(updates)
+    if api_key:
+        write_mistral_api_key(api_key)
     config.load_env_file()
     return {
         "saved": True,
-        "updated": sorted(updates.keys()),
+        "updated": sorted(list(updates.keys()) + (["MISTRAL_API_KEY_FILE"] if api_key else [])),
         "status": build_settings_status(),
     }

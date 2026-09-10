@@ -7,6 +7,7 @@ VENV="$APP/venv"
 LOGFILE="$APP/data/outputs/server.log"
 REQUIREMENTS="$APP/server/requirements.txt"
 REQUIREMENTS_STAMP="$VENV/.requirements-installed"
+KEY_FILE="$APP/server/mistral_api_key.txt"
 
 # List of directories to create
 DIRS=(
@@ -53,6 +54,15 @@ if [ ! -f "$REQUIREMENTS_STAMP" ] || [ "$REQUIREMENTS" -nt "$REQUIREMENTS_STAMP"
         exit 1
     fi
     touch "$REQUIREMENTS_STAMP"
+fi
+
+# Keep the API key local. It is entered through Admin settings and is ignored by Git.
+if [ ! -f "$KEY_FILE" ]; then
+    touch "$KEY_FILE"
+fi
+if [ ! -s "$KEY_FILE" ]; then
+    echo "WARNING: No Mistral API key configured."
+    echo "Open Admin settings and enter the key; it will be saved locally to $KEY_FILE."
 fi
 
 echo "Starting local tutor..."

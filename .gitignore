@@ -31,3 +31,4 @@ app/data/lessonplans/uploads/
 app/data/outputs/*
 !app/data/outputs/.gitkeep
 app/server/.env
+app/server/mistral_api_key.txt

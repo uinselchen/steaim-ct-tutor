@@ -47,6 +47,22 @@
       </div>
     </section>
   </main>
+  <div class="api-key-modal-backdrop" id="apiKeyModalBackdrop" aria-hidden="true">
+    <section class="api-key-modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyModalTitle">
+      <p class="settings-eyebrow">Setup required</p>
+      <h2 id="apiKeyModalTitle">Add the AI API key</h2>
+      <p>
+        No Mistral API key is configured on this computer yet. Please enter it once in Admin settings;
+        it will be stored locally and will not be committed to Git.
+      </p>
+      <div class="button-row api-key-modal-actions">
+        <button class="action-button primary-button" id="configureApiKeyButton" type="button">
+          <span class="button-text">Open Admin settings</span>
+          <span class="button-arrow">→</span>
+        </button>
+      </div>
+    </section>
+  </div>
   <script src="js/app.js"></script>
 </body>
 </html>

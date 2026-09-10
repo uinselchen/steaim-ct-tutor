@@ -19,6 +19,84 @@
       <p class="description">
         Uploaded lesson plans are processed locally by the server, and the tutor only uses the contents of the document for analysis. Data storage is limited to the local project folder and can be deleted at any time.
       </p>
+
+      <div class="info-section">
+        <h2>🚀 First-time setup</h2>
+        <div class="info-step-grid">
+          <article class="info-step-card">
+            <span class="info-step-number">1</span>
+            <div>
+              <h3>📁 Get the tutor</h3>
+              <p>Download and extract the complete project folder. Do not remove files from the folder.</p>
+            </div>
+          </article>
+          <article class="info-step-card">
+            <span class="info-step-number">2</span>
+            <div>
+              <h3>▶️ Start it</h3>
+              <p>On Windows, double-click <code>start_tutor.bat</code>. On Linux, run <code>start_tutor.sh</code>.</p>
+            </div>
+          </article>
+          <article class="info-step-card">
+            <span class="info-step-number">3</span>
+            <div>
+              <h3>🔑 Add your API key</h3>
+              <p>On the first start, open <strong>Admin settings</strong>, enter the Mistral API key, and select <strong>Save settings</strong>.</p>
+            </div>
+          </article>
+          <article class="info-step-card">
+            <span class="info-step-number">4</span>
+            <div>
+              <h3>✅ Start working</h3>
+              <p>Return to the start screen and select <strong>I understand and want to proceed</strong>.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <h2>🧭 Your tutor workflow</h2>
+        <div class="info-feature-grid">
+          <article class="info-feature-card">
+            <span class="info-feature-icon">📝</span>
+            <div>
+              <h3>1. Describe your lesson</h3>
+              <p>Choose the country, subject, age or grade range, and upload a PDF, DOCX, or TXT lesson plan.</p>
+            </div>
+          </article>
+          <article class="info-feature-card">
+            <span class="info-feature-icon">🔎</span>
+            <div>
+              <h3>2. Review the analysis</h3>
+              <p>Read the strengths, challenges, curriculum connections, and suggested focus points.</p>
+            </div>
+          </article>
+          <article class="info-feature-card">
+            <span class="info-feature-icon">💬</span>
+            <div>
+              <h3>3. Refine the plan</h3>
+              <p>Answer the tutor's questions or use the quick replies. Your decisions update the lesson-plan preview.</p>
+            </div>
+          </article>
+          <article class="info-feature-card">
+            <span class="info-feature-icon">⬇️</span>
+            <div>
+              <h3>4. Download the result</h3>
+              <p>Review the final draft and download it as a DOCX or PDF. Exports are saved locally.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div class="info-note">
+        <strong>💡 What you need</strong>
+        <span>Internet access is required for the first setup, package installation, and Mistral AI requests. Python is installed automatically when possible. If Windows cannot find Python or <code>winget</code>, install Python 3.11 or newer and run the launcher again.</span>
+      </div>
+
+      <div class="info-note privacy-note">
+        <strong>🔒 Your data and API key</strong>
+        <span>The API key is stored locally under <code>app/server/mistral_api_key.txt</code> and is not committed to Git. Uploaded lesson plans, logs, and exports remain in the local project folder.</span>
+      </div>
       <div class="button-row">
         <a class="action-button tertiary-button" href="start.html" style="text-decoration:none;">
           <span class="button-text">Back to start</span>

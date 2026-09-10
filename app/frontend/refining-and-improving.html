@@ -1259,6 +1259,13 @@
       return String(text || "").toLowerCase().indexOf("suggest wording") !== -1;
     }
 
+    function isExplicitSectionUpdateRequest(text) {
+      var lower = String(text || "").toLowerCase();
+      var sectionMentioned = /reflection|goals?|competenc|curriculum|assessment|material|skill/.test(lower);
+      var editRequested = /add|put|insert|write|include|update|change|improve|place|set/.test(lower);
+      return sectionMentioned && editRequested;
+    }
+
     function isEmptyWordingMessage(message) {
       var text = String(message || "").trim();
       if (!text) {
@@ -1282,6 +1289,9 @@
       if (node.id === "curriculum_alignment") {
         return valuesDiffer(beforeDraft.goals, afterDraft.goals) || valuesDiffer(beforeDraft.reflection, afterDraft.reflection);
       }
+      if (node.id === "reflection") {
+        return valuesDiffer(beforeDraft.reflection, afterDraft.reflection);
+      }
       if (node.id === "target_group") {
         return valuesDiffer(beforeDraft.meta, afterDraft.meta) || valuesDiffer(beforeDraft.summary, afterDraft.summary);
       }
@@ -1297,6 +1307,9 @@
       var text = String(message || "").trim();
       if (state.activeNode && state.activeNode.id === "time_scope" && text.indexOf("Constraint: This is a timing-only refinement.") === -1) {
         return text + " Constraint: This is a timing-only refinement. Keep all step titles, descriptions, goals, skills, materials, assessment, and reflection unchanged unless I explicitly ask for content changes. Never reduce the total lesson time or shorten an individual activity when timing is tight; keep the current total, add time, add another lesson, or move an activity. If splitting into sessions, check each session against the selected country, subject, grade, and available curriculum evidence; do not claim alignment without evidence and flag mismatches for curriculum alignment.";
+      }
+      if (isExplicitSectionUpdateRequest(text)) {
+        return text + " IMPORTANT: This is an explicit edit request. Apply it now to the named section in updated_draft, not only in assistant_message. If the request names the reflection section, write the actual copy-ready reflection text into updated_draft.reflection and record the change. Do not return only a heading such as 'Copy-ready wording for the reflection section:'.";
       }
       return text;
     }
@@ -1587,7 +1600,7 @@
       }
       var messageForApi = buildScopedUserMessage(payloadText || text);
       var wasAwaiting = state.awaitingFreeText;
-      var wasSuggestWording = isSuggestWordingRequest(messageForApi) || isSuggestWordingRequest(text);
+      var wasWordingRequest = isSuggestWordingRequest(messageForApi) || isSuggestWordingRequest(text) || isExplicitSectionUpdateRequest(messageForApi) || isExplicitSectionUpdateRequest(text);
       var draftBeforeRequest = clone(ensureDraft());
 
       addConversation("teacher", text);
@@ -1599,11 +1612,11 @@
       requestRefinementFromMistral(buildRefinementPayload(messageForApi))
         .then(function (response) {
           var nextDraft = response && (response.updated_draft || response.draft);
-          if (wasSuggestWording && isIncompleteWordingResponse(response, nextDraft, draftBeforeRequest)) {
+          if (wasWordingRequest && isIncompleteWordingResponse(response, nextDraft, draftBeforeRequest)) {
             addConversation("tutor", "I did not receive a concrete wording suggestion. Please try again, and I will ask for an insert-ready sentence instead of a heading.");
             state.awaitingFreeText = true;
             persistState();
-            renderQuickReplies(state.activeNode, ["Suggest wording again", "Write one goal", "Add example goal"]);
+            renderQuickReplies(state.activeNode, ["Suggest wording again", "Write the reflection text", "Add a concrete sentence"]);
             input.placeholder = "Type your answer or add more details...";
             return;
           }
