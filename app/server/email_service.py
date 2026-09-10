@@ -68,14 +68,14 @@ def build_change_steps_text(context):
         lines.append("(no changes recorded)")
     for index, change in enumerate(changes, start=1):
         title = str(change.get("title") or "Change").strip()
-        source = str(change.get("source") or "").strip()
+        location = str(change.get("location") or "").strip()
         reason = str(change.get("reason") or "").strip()
         before_value = str(change.get("beforeValue") or "").strip()
         after_value = str(change.get("afterValue") or "").strip()
 
         heading = f"{index}. {title}"
-        if source:
-            heading += f" [{source}]"
+        if location:
+            heading += f" @ {location}"
         lines.append(heading)
         if reason:
             lines.append(f"   Reason: {reason}")
@@ -84,6 +84,36 @@ def build_change_steps_text(context):
             lines.append(f"   After: {after_value or '(not recorded)'}")
         lines.append("")
 
+    return "\n".join(lines).strip()
+
+
+def build_analysis_points_text(context, field, heading):
+    context = context if isinstance(context, dict) else {}
+    payload = context.get("payload") if isinstance(context.get("payload"), dict) else {}
+    analysis = payload.get("analysis") if isinstance(payload.get("analysis"), dict) else {}
+    points = analysis.get(field) if isinstance(analysis.get(field), list) else []
+    lines = [f"STEaiM-CT Tutor {heading.lower()}", ""]
+    if not points:
+        lines.append(f"(no {heading.lower()} recorded)")
+        return "\n".join(lines)
+
+    for index, point in enumerate(points, start=1):
+        if isinstance(point, dict):
+            title = str(point.get("title") or point.get("point") or "Point").strip()
+            explanation = str(
+                point.get("short_explanation")
+                or point.get("description")
+                or point.get("why_it_matters")
+                or point.get("text")
+                or ""
+            ).strip()
+        else:
+            title = str(point).strip()
+            explanation = ""
+        lines.append(f"{index}. {title}")
+        if explanation and explanation != title:
+            lines.append(f"   {explanation}")
+        lines.append("")
     return "\n".join(lines).strip()
 
 
@@ -100,7 +130,6 @@ def send_summary_email(payload, state_loader=None):
         return {"error": "No valid email recipient configured"}
 
     context = export_service.build_export_context(payload, state_loader)
-    conversation = context.get("conversation") if isinstance(context.get("conversation"), list) else []
     session_id = str(context.get("sessionId", "")).strip()
 
     message = EmailMessage()
@@ -109,21 +138,24 @@ def send_summary_email(payload, state_loader=None):
     message["To"] = ", ".join(recipients)
 
     change_steps_text = build_change_steps_text(context)
-    conversation_text = build_conversation_text(conversation)
+    pros_text = build_analysis_points_text(context, "strengths", "Pros")
+    cons_text = build_analysis_points_text(context, "issues", "Cons")
 
     body_lines = [
-        "Here are the tutor change steps and the Step 3 conversation log.",
+        "Here are the tutor change steps, pros, and cons.",
         "",
         "Attached files:",
         "- change-steps.txt",
-        "- conversation.txt",
+        "- pros.txt",
+        "- cons.txt",
         "",
-        "This email intentionally does not include the generated lesson plan export.",
+        "This email intentionally does not include the lesson plan export or conversation log.",
     ]
     message.set_content("\n".join(body_lines))
 
     message.add_attachment(change_steps_text.encode("utf-8"), maintype="text", subtype="plain", filename="change-steps.txt")
-    message.add_attachment((conversation_text or "(no conversation available)").encode("utf-8"), maintype="text", subtype="plain", filename="conversation.txt")
+    message.add_attachment(pros_text.encode("utf-8"), maintype="text", subtype="plain", filename="pros.txt")
+    message.add_attachment(cons_text.encode("utf-8"), maintype="text", subtype="plain", filename="cons.txt")
 
     try:
         if config.SMTP_USE_SSL:

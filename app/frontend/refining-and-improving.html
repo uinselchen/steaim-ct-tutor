@@ -312,19 +312,19 @@
           },
           {
             title: "Input & Example",
-            duration: "20 min",
+            duration: "15 min",
             description: "Provide essential information and present an example.",
             status: "No major changes"
           },
           {
             title: "Inquiry Phase",
-            duration: "25 min",
+            duration: "20 min",
             description: "Students explore guiding questions in small groups and gather information.",
             status: "No major changes"
           },
           {
             title: "Group Sharing",
-            duration: "20 min",
+            duration: "15 min",
             description: "Groups present their findings and discuss key insights.",
             status: "No major changes"
           },
@@ -416,6 +416,58 @@
       return stringifyComparable(beforeValue) !== stringifyComparable(afterValue);
     }
 
+    function formatHistoryValue(value) {
+      if (value === undefined || value === null || value === "") {
+        return "n/a";
+      }
+      if (typeof value === "object") {
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch (error) {
+          return String(value);
+        }
+      }
+      return String(value);
+    }
+
+    function formatChangeDetails(change) {
+      var before = change.beforeValue;
+      var after = change.afterValue;
+      if (before && after && typeof before === "object" && typeof after === "object") {
+        var details = [];
+        ["duration", "title", "description", "note"].forEach(function (key) {
+          if (stringifyComparable(before[key]) !== stringifyComparable(after[key])) {
+            details.push(key + ": " + formatHistoryValue(before[key]) + " -> " + formatHistoryValue(after[key]));
+          }
+        });
+        return details.join("\n") || "Updated fields in the selected step.";
+      }
+      if (before !== undefined || after !== undefined) {
+        if (before === undefined || before === null || before === "" || before === "n/a") {
+          return formatHistoryValue(after);
+        }
+        if (after === undefined || after === null || after === "" || after === "n/a") {
+          return formatHistoryValue(before);
+        }
+        return formatHistoryValue(before) + " -> " + formatHistoryValue(after);
+      }
+      return change.reason || "Updated based on our discussion.";
+    }
+
+    function formatHistoryTitle(change) {
+      return String(change.title || change.kind || "Change")
+        .replace(/\s+(?:duration|content|note) updated$/i, " updated");
+    }
+
+    function formatHistoryLocation(change) {
+      if (change.location) {
+        return String(change.location);
+      }
+      var section = String(change.section || "lesson plan").replace(/_/g, " ");
+      var title = String(change.title || "").replace(/\s+(?:duration|content|note) updated$/i, "");
+      return title ? "Lesson plan > " + section + " > " + title.replace(/ updated$/i, "") : "Lesson plan > " + section;
+    }
+
     function normalizeChangeSection(change) {
       var text = [
         change && change.section,
@@ -473,14 +525,15 @@
       if (changeAlreadyExists(changes, section, title, afterValue)) {
         return;
       }
-      changes.push({
+        changes.push({
         kind: section === "steps" ? "time adjustment" : "content update",
         section: section,
         title: title,
         reason: reason,
-        beforeValue: beforeValue,
-        afterValue: afterValue,
-        source: "frontend diff",
+          beforeValue: beforeValue,
+          afterValue: afterValue,
+          location: section === "steps" ? "Lesson plan > Steps > " + title.replace(/\s+(?:duration|content|note) updated$/i, "").replace(/ updated$/i, "") : "Lesson plan > " + section,
+          source: "frontend diff",
         time: getTimeStamp()
       });
     }
@@ -529,13 +582,35 @@
             ? "Timing updated based on our discussion."
             : "Updated based on our discussion.";
         }
+        var stepName = step.title || previousStep.title || ("Step " + (index + 1));
+        var changeTitle = stepName + " updated";
+        var changeReason = "Updated in step: " + stepName + ".";
+        var changeBefore = previousStep;
+        var changeAfter = step;
+        if (durationChanged && !contentChanged) {
+          changeTitle = stepName + " duration updated";
+          changeReason = "Duration changed in step: " + stepName + ".";
+          changeBefore = previousStep.duration;
+          changeAfter = step.duration;
+        } else if (contentChanged) {
+          changeTitle = stepName + " content updated";
+          changeReason = "Content changed in step: " + stepName + ".";
+          changeBefore = previousStep.description || previousStep.title || "(not recorded)";
+          changeAfter = step.description || step.title || "(not recorded)";
+        } else if (noteChanged) {
+          changeTitle = stepName + " note updated";
+          changeReason = "Note changed in step: " + stepName + ".";
+          changeBefore = previousStep.note || "(not recorded)";
+          changeAfter = step.note || "(not recorded)";
+        }
         pushGeneratedChange(
           changes,
           "steps",
-          title,
-          "Visible marker added because this step changed.",
-          previousStep,
-          step
+          changeTitle,
+          changeReason,
+          changeBefore,
+          changeAfter,
+          "Lesson plan > Steps > " + stepName
         );
       });
 
@@ -1075,27 +1150,10 @@
       var body = document.getElementById("historyModalBody");
       body.innerHTML = "";
       (ensureDraft().changes || []).slice().reverse().forEach(function (change) {
-        var item = document.createElement("div");
-        item.className = "history-item";
-        var title = document.createElement("strong");
-        title.textContent = change.title || change.kind;
-        item.appendChild(title);
-        var metaLine = document.createElement("div");
-        metaLine.className = "history-meta";
-        metaLine.textContent = change.time + " - " + (change.source || "tutor");
-        item.appendChild(metaLine);
-        var reason = document.createElement("p");
-        reason.textContent = change.reason || "";
-        item.appendChild(reason);
-        if (change.beforeValue || change.afterValue) {
-          var before = document.createElement("p");
-          before.textContent = "Before: " + (change.beforeValue || "n/a");
-          item.appendChild(before);
-          var after = document.createElement("p");
-          after.textContent = "After: " + (change.afterValue || "n/a");
-          item.appendChild(after);
-        }
-        body.appendChild(item);
+        var line = document.createElement("div");
+        line.className = "history-line";
+        line.textContent = formatHistoryTitle(change) + ", " + (change.time || "") + ": " + formatHistoryLocation(change) + " - " + formatChangeDetails(change);
+        body.appendChild(line);
       });
       if (!ensureDraft().changes.length) {
         var empty = document.createElement("div");
@@ -1186,7 +1244,7 @@
       var text = String(label || "").trim();
       var lower = text.toLowerCase();
       if (state.activeNode && state.activeNode.id === "time_scope") {
-        return text + " Constraint: This is a timing-only refinement. Keep all step titles, descriptions, goals, skills, materials, assessment, and reflection unchanged unless I explicitly ask for content changes.";
+        return text + " Constraint: This is a timing-only refinement. Keep all step titles, descriptions, goals, skills, materials, assessment, and reflection unchanged unless I explicitly ask for content changes. Never reduce the total lesson time or shorten an individual activity when timing is tight; keep the current total, add time, add another lesson, or move an activity. If splitting into sessions, check each session against the selected country, subject, grade, and available curriculum evidence; do not claim alignment without evidence and flag mismatches for curriculum alignment.";
       }
       if (lower === "suggest wording" || lower.indexOf("suggest wording") !== -1) {
         return "Suggest concrete, copy-ready wording for the current focus point. The assistant_message must include the actual wording, not only a heading. If the focus is goals or competencies, update updated_draft.goals with the proposed wording.";
@@ -1238,9 +1296,70 @@
     function buildScopedUserMessage(message) {
       var text = String(message || "").trim();
       if (state.activeNode && state.activeNode.id === "time_scope" && text.indexOf("Constraint: This is a timing-only refinement.") === -1) {
-        return text + " Constraint: This is a timing-only refinement. Keep all step titles, descriptions, goals, skills, materials, assessment, and reflection unchanged unless I explicitly ask for content changes.";
+        return text + " Constraint: This is a timing-only refinement. Keep all step titles, descriptions, goals, skills, materials, assessment, and reflection unchanged unless I explicitly ask for content changes. Never reduce the total lesson time or shorten an individual activity when timing is tight; keep the current total, add time, add another lesson, or move an activity. If splitting into sessions, check each session against the selected country, subject, grade, and available curriculum evidence; do not claim alignment without evidence and flag mismatches for curriculum alignment.";
       }
       return text;
+    }
+
+    function durationMinutes(value) {
+      var text = String(value || "").toLowerCase().replace(/,/g, ".");
+      var matches = text.match(/(\d+(?:\.\d+)?)\s*(?:x|\u00d7)\s*(\d+(?:\.\d+)?)\s*min/);
+      if (matches) {
+        return Number(matches[1]) * Number(matches[2]);
+      }
+      var single = text.match(/(\d+(?:\.\d+)?)\s*min/);
+      return single ? Number(single[1]) : 0;
+    }
+
+    function draftDurationTotal(draft) {
+      return (draft && Array.isArray(draft.steps) ? draft.steps : []).reduce(function (total, step) {
+        return total + durationMinutes(step && step.duration);
+      }, 0);
+    }
+
+    function timingAssessmentIsTight() {
+      var node = state.activeNode || {};
+      var text = [node.label, node.pointTitle, node.prompt, node.teacherComment].join(" ").toLowerCase();
+      return /\btight\b|too short|too little time|unrealistic|not enough time/.test(text);
+    }
+
+    function hasReducedStepDuration(beforeDraft, afterDraft) {
+      var beforeSteps = beforeDraft && Array.isArray(beforeDraft.steps) ? beforeDraft.steps : [];
+      var afterSteps = afterDraft && Array.isArray(afterDraft.steps) ? afterDraft.steps : [];
+      return afterSteps.some(function (step, index) {
+        var beforeMinutes = durationMinutes(beforeSteps[index] && beforeSteps[index].duration);
+        var afterMinutes = durationMinutes(step && step.duration);
+        return beforeMinutes > 0 && afterMinutes > 0 && afterMinutes < beforeMinutes;
+      });
+    }
+
+    function applyExplicitSplitChoice(text, currentDraft) {
+      var match = String(text || "").match(/(?:keep|lesson[^0-9]*)?\s*(\d+)\s*\+\s*(\d+)/i);
+      if (!match || !currentDraft || !Array.isArray(currentDraft.steps) || currentDraft.steps.length < 2) {
+        return null;
+      }
+      var firstTotal = Number(match[1]);
+      var secondTotal = Number(match[2]);
+      if (!firstTotal || !secondTotal || firstTotal + secondTotal < draftDurationTotal(currentDraft)) {
+        return null;
+      }
+      var steps = clone(currentDraft.steps);
+      var firstGroup = steps.slice(0, 2);
+      var secondGroup = steps.slice(2);
+      var firstDurations = [Math.round(firstTotal * 0.43), firstTotal - Math.round(firstTotal * 0.43)];
+      firstGroup.forEach(function (step, index) {
+        step.duration = firstDurations[index] + " min";
+        step.note = "Lesson 1 total: " + firstTotal + " min";
+      });
+      var remaining = secondTotal;
+      secondGroup.forEach(function (step, index) {
+        var duration = index === secondGroup.length - 1 ? remaining : Math.max(5, Math.round(secondTotal / secondGroup.length));
+        duration = Math.min(duration, remaining);
+        step.duration = duration + " min";
+        step.note = "Lesson 2 total: " + secondTotal + " min";
+        remaining -= duration;
+      });
+      return steps;
     }
 
     function buildRefinementPayload(userMessage) {
@@ -1296,6 +1415,13 @@
             }
             return nextStep;
           });
+
+          if (draftDurationTotal(constrained) < draftDurationTotal(currentDraft)) {
+            constrained.steps = clone(currentDraft.steps);
+          }
+          if (timingAssessmentIsTight() && hasReducedStepDuration(currentDraft, constrained)) {
+            constrained.steps = clone(currentDraft.steps);
+          }
         }
         if (Array.isArray(updatedDraft.changes)) {
           constrained.changes = updatedDraft.changes.filter(function (change) {
@@ -1482,6 +1608,40 @@
             return;
           }
           if (nextDraft) {
+            var explicitSplit = state.activeNode && state.activeNode.id === "time_scope"
+              ? applyExplicitSplitChoice(text, draftBeforeRequest)
+              : null;
+            if (explicitSplit) {
+              nextDraft = clone(nextDraft);
+              nextDraft.steps = explicitSplit;
+              nextDraft.changes = Array.isArray(nextDraft.changes) ? nextDraft.changes : [];
+              nextDraft.changes.push({
+                kind: "time adjustment",
+                section: "steps",
+                title: "Lesson time split applied",
+                reason: "The teacher selected an explicit split without reducing the total lesson time.",
+                beforeValue: draftDurationTotal(draftBeforeRequest) + " min",
+                afterValue: (Number(text.match(/(\d+)\s*\+\s*(\d+)/)[1]) + Number(text.match(/(\d+)\s*\+\s*(\d+)/)[2])) + " min",
+                source: "teacher selection",
+                time: getTimeStamp()
+              });
+              response.advance = true;
+              response.quick_replies = [];
+            }
+            if (!explicitSplit && state.activeNode && state.activeNode.id === "time_scope" && timingAssessmentIsTight() && hasReducedStepDuration(draftBeforeRequest, nextDraft)) {
+              addConversation("tutor", "The timing is tight, so I did not shorten any activity. I kept the original step durations. I can add time, add another lesson, or move an activity into another lesson.");
+              state.awaitingFreeText = true;
+              persistState();
+              renderQuickReplies(state.activeNode, ["Add another lesson", "Add more time", "Keep the original timing"]);
+              return;
+            }
+            if (state.activeNode && state.activeNode.id === "time_scope" && draftDurationTotal(nextDraft) < draftDurationTotal(draftBeforeRequest)) {
+              addConversation("tutor", "The proposed split would reduce the planned time from " + draftDurationTotal(draftBeforeRequest) + " minutes to " + draftDurationTotal(nextDraft) + " minutes. I kept the original total. Please choose a distribution that keeps at least " + draftDurationTotal(draftBeforeRequest) + " minutes.");
+              state.awaitingFreeText = true;
+              persistState();
+              renderQuickReplies(state.activeNode, ["Keep the original total", "Add more time", "Suggest a split of at least the original total"]);
+              return;
+            }
             applyUpdatedDraft(nextDraft);
           }
 

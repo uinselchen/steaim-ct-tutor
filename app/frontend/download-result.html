@@ -119,7 +119,7 @@
           <div class="download-help-icon">✓</div>
           <div class="download-help-text">
             <h3>Send a copy by email</h3>
-            <p>If enabled, the final lesson plan PDF and the conversation text will be sent to the configured local email address when you finish.</p>
+            <p>If enabled, the changes, pros, and cons will be sent as text files to the configured local email address when you finish.</p>
           </div>
           <div class="download-help-toggle">
             <label class="toggle-line toggle-label" for="emailShareToggle">
@@ -161,6 +161,53 @@
       var p = document.createElement("p");
       p.textContent = text;
       return p;
+    }
+
+    function formatHistoryValue(value) {
+      if (value === undefined || value === null || value === "") {
+        return "n/a";
+      }
+      if (typeof value === "object") {
+        try {
+          return JSON.stringify(value);
+        } catch (error) {
+          return String(value);
+        }
+      }
+      return String(value);
+    }
+
+    function formatChangeDetails(change) {
+      var before = change.beforeValue;
+      var after = change.afterValue;
+      if (before && after && typeof before === "object" && typeof after === "object") {
+        var details = [];
+        ["duration", "title", "description", "note"].forEach(function (key) {
+          if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+            details.push(key + ": " + formatHistoryValue(before[key]) + " -> " + formatHistoryValue(after[key]));
+          }
+        });
+        return details.join("\n") || "Updated fields in the selected step.";
+      }
+      if (before !== undefined || after !== undefined) {
+        if (before === undefined || before === null || before === "" || before === "n/a") {
+          return formatHistoryValue(after);
+        }
+        if (after === undefined || after === null || after === "" || after === "n/a") {
+          return formatHistoryValue(before);
+        }
+        return formatHistoryValue(before) + " -> " + formatHistoryValue(after);
+      }
+      return change.reason || "Updated based on our discussion.";
+    }
+
+    function formatHistoryLocation(change) {
+      if (change.location) {
+        return String(change.location);
+      }
+      var section = String(change.section || "lesson plan").replace(/_/g, " ");
+      var title = String(change.title || "").replace(/\s+(?:duration|content|note) updated$/i, "");
+      return title ? "Lesson plan > " + section + " > " + title.replace(/ updated$/i, "") : "Lesson plan > " + section;
     }
 
     function setText(id, text) {
@@ -229,15 +276,15 @@
       return lines.join("\n");
     }
 
-      function buildEmailPayload() {
-        return {
-          enabled: true,
-          sessionId: preparation && preparation.sessionId ? preparation.sessionId : "",
-          filename: preparation && preparation.filename ? preparation.filename : "",
-          draft: draft,
-          conversation: conversation,
-          sourceDocument: preparation && preparation.sourceDocument ? preparation.sourceDocument : null
-        };
+    function buildEmailPayload() {
+      return {
+        enabled: true,
+        sessionId: preparation && preparation.sessionId ? preparation.sessionId : "",
+        filename: preparation && preparation.filename ? preparation.filename : "",
+        draft: draft,
+        analysis: safeParse(window.localStorage.getItem("step2Analysis"), {}),
+        sourceDocument: preparation && preparation.sourceDocument ? preparation.sourceDocument : null
+      };
       }
 
       function sendSummaryEmail() {
@@ -375,40 +422,24 @@
         var title = document.createElement("strong");
         title.textContent = change.title || change.kind || "Change";
         item.appendChild(title);
-        var reason = makeParagraph(change.reason || "");
+        var reasonText = String(change.reason || "").trim();
+        if (!reasonText || reasonText === "Visible marker added because this step changed." ||
+            (change.beforeValue && typeof change.beforeValue === "object") ||
+            (change.afterValue && typeof change.afterValue === "object")) {
+          reasonText = formatChangeDetails(change);
+        }
+        var reason = makeParagraph(reasonText);
         item.appendChild(reason);
         list.appendChild(item);
       });
     }
 
     function renderStrengths() {
-      var strengths = [
-        {
-          title: "Strong real-world connection",
-          text: "The topic is relevant and connected to students' lives."
-        },
-        {
-          title: "Clear learning goals",
-          text: "The goals are specific and measurable."
-        },
-        {
-          title: "Good use of prior knowledge activation",
-          text: "Activating prior knowledge at the beginning."
-        },
-        {
-          title: "Logical sequence of activities",
-          text: "The flow of the lesson is well structured."
-        },
-        {
-          title: "Variety of methods",
-          text: "The plan uses a good mix of teaching and learning methods."
-        }
-      ];
-
+      var strengths = getInitialStrengths();
       var list = document.getElementById("strengthList");
       list.innerHTML = "";
       setText("strengthCount", strengths.length + " strengths");
-      strengths.forEach(function (strength) {
+      strengths.slice(0, 5).forEach(function (strength) {
         var item = document.createElement("div");
         item.className = "download-aside-item strength";
         var title = document.createElement("strong");
@@ -417,6 +448,31 @@
         item.appendChild(makeParagraph(strength.text));
         list.appendChild(item);
       });
+    }
+
+    function getInitialStrengths() {
+      return [
+        {
+          title: "Strong real-world connection",
+          text: "The topic is relevant and connected to students' lives. This makes the lesson meaningful and gives learners a clear reason to engage."
+        },
+        {
+          title: "Clear learning goals",
+          text: "The goals are specific and measurable. This helps learners understand what they should achieve and makes progress easier to assess."
+        },
+        {
+          title: "Good use of prior knowledge activation",
+          text: "Activating prior knowledge at the beginning. This creates a useful bridge to new content and helps learners connect the lesson to what they already know."
+        },
+        {
+          title: "Logical sequence of activities",
+          text: "The flow of the lesson is well structured. This supports a smooth progression from introduction to practice and keeps the learning process easy to follow."
+        },
+        {
+          title: "Variety of methods",
+          text: "The plan uses a good mix of teaching and learning methods. This supports different ways of learning and helps maintain attention throughout the lesson."
+        }
+      ];
     }
 
     function renderMeta() {
@@ -512,22 +568,17 @@
       }
 
     function renderHistoryModal() {
+      setText("historyModalTitle", "Change history");
       var body = document.getElementById("historyModalBody");
       body.innerHTML = "";
       var changes = draft && Array.isArray(draft.changes) ? draft.changes : [];
       changes.slice().reverse().forEach(function (change) {
-        var item = document.createElement("div");
-        item.className = "history-item";
-        var title = document.createElement("strong");
-        title.textContent = change.title || change.kind;
-        item.appendChild(title);
-        var metaLine = document.createElement("div");
-        metaLine.className = "history-meta";
-        metaLine.textContent = (change.time || "") + (change.source ? " - " + change.source : "");
-        item.appendChild(metaLine);
-        var reason = makeParagraph(change.reason || "");
-        item.appendChild(reason);
-        body.appendChild(item);
+        var line = document.createElement("div");
+        line.className = "history-line";
+        var title = String(change.title || change.kind || "Change")
+          .replace(/\s+(?:duration|content|note) updated$/i, " updated");
+        line.textContent = title + ", " + (change.time || "") + ": " + formatHistoryLocation(change) + " - " + formatChangeDetails(change);
+        body.appendChild(line);
       });
       if (!changes.length) {
         var empty = document.createElement("div");
@@ -539,6 +590,24 @@
 
     function openHistoryModal() {
       renderHistoryModal();
+      document.getElementById("historyModalBackdrop").classList.add("open");
+      document.getElementById("historyModalBackdrop").setAttribute("aria-hidden", "false");
+    }
+
+    function renderStrengthsModal() {
+      setText("historyModalTitle", "Initial strengths");
+      var body = document.getElementById("historyModalBody");
+      body.innerHTML = "";
+      getInitialStrengths().forEach(function (strength) {
+        var line = document.createElement("div");
+        line.className = "history-line strength-history-line";
+        line.textContent = strength.title + ": " + strength.text;
+        body.appendChild(line);
+      });
+    }
+
+    function openStrengthsModal() {
+      renderStrengthsModal();
       document.getElementById("historyModalBackdrop").classList.add("open");
       document.getElementById("historyModalBackdrop").setAttribute("aria-hidden", "false");
     }
@@ -628,9 +697,7 @@
         setText("downloadStatus", event.target.checked ? "Email sharing enabled." : "Email sharing disabled.");
       });
       document.getElementById("viewAllChangesButton").addEventListener("click", openHistoryModal);
-      document.getElementById("viewAllStrengthsButton").addEventListener("click", function () {
-        setText("downloadStatus", "Strength details are already visible in the side panel.");
-      });
+      document.getElementById("viewAllStrengthsButton").addEventListener("click", openStrengthsModal);
       document.getElementById("closeHistoryModal").addEventListener("click", closeHistoryModal);
       document.getElementById("historyModalBackdrop").addEventListener("click", function (event) {
         if (event.target === event.currentTarget) {

@@ -5,6 +5,8 @@ ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APP="$ROOT/app"
 VENV="$APP/venv"
 LOGFILE="$APP/data/outputs/server.log"
+REQUIREMENTS="$APP/server/requirements.txt"
+REQUIREMENTS_STAMP="$VENV/.requirements-installed"
 
 # List of directories to create
 DIRS=(
@@ -38,6 +40,19 @@ if [ ! -f "$VENV/bin/python" ]; then
         read -p "Press [Enter] to continue..."
         exit 1
     fi
+fi
+
+# Install runtime dependencies on the first start and after requirements change.
+if [ ! -f "$REQUIREMENTS_STAMP" ] || [ "$REQUIREMENTS" -nt "$REQUIREMENTS_STAMP" ]; then
+    echo "Installing Python dependencies..."
+    "$VENV/bin/python" -m pip install -r "$REQUIREMENTS"
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to install Python dependencies."
+        echo "Check your internet connection and the requirements file: $REQUIREMENTS"
+        read -p "Press [Enter] to continue..."
+        exit 1
+    fi
+    touch "$REQUIREMENTS_STAMP"
 fi
 
 echo "Starting local tutor..."

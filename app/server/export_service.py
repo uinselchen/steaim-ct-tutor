@@ -244,12 +244,14 @@ def collect_export_changes(context):
         item = item if isinstance(item, dict) else {}
         title = str(item.get("title") or item.get("section") or item.get("kind") or "Change").strip()
         reason = str(item.get("reason") or item.get("summary") or item.get("note") or "").strip()
+        location = str(item.get("location") or item.get("section") or item.get("source") or "").strip()
         before_value = str(item.get("beforeValue") or item.get("before") or "").strip()
         after_value = str(item.get("afterValue") or item.get("after") or "").strip()
         source = str(item.get("source") or item.get("section") or "").strip()
         changes.append({
             "title": title,
             "reason": reason,
+            "location": location,
             "beforeValue": before_value,
             "afterValue": after_value,
             "source": source,
@@ -488,79 +490,128 @@ def add_docx_text_section(document, title, lines):
         document.add_paragraph(line)
 
 
-def append_tutor_amendments_to_docx(document, final_plan):
-    document.add_page_break()
-    document.add_heading("AI Tutor amendments", level=1)
-    document.add_paragraph(
-        "The original lesson plan is preserved above. The following additions and adjustments "
-        "were generated during the STEaiM-CT tutor workflow."
-    )
+def iter_docx_paragraphs(document):
+    """Yield paragraphs in the body and in table cells without rebuilding the document."""
+    for paragraph in document.paragraphs:
+        yield paragraph
+    for table in document.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    yield paragraph
 
-    if final_plan.get("summary"):
-        add_docx_text_section(document, "Summary", [final_plan["summary"]])
 
+def change_replacements(change):
+    """Turn scalar or structured change values into safe in-place text replacements."""
+    change = change if isinstance(change, dict) else {}
+    before = change.get("beforeValue")
+    after = change.get("afterValue")
+    replacements = []
+
+    if isinstance(before, dict) and isinstance(after, dict):
+        for key in ("title", "duration", "description", "note"):
+            old = str(before.get(key) or "").strip()
+            new = str(after.get(key) or "").strip()
+            if old and new and old != new:
+                replacements.append((old, new))
+    elif isinstance(before, list) and isinstance(after, list):
+        old_items = normalize_text_list(before)
+        new_items = normalize_text_list(after)
+        for old, new in zip(old_items, new_items):
+            if old != new:
+                replacements.append((old, new))
+    else:
+        old = str(before or "").strip()
+        new = str(after or "").strip()
+        if old and new and old not in ("n/a", "(not recorded)") and old != new:
+            replacements.append((old, new))
+
+    return replacements
+
+
+def replace_in_docx_paragraph(paragraph, replacements):
+    changed = 0
+    has_drawing = "<w:drawing" in paragraph._p.xml or "<w:pict" in paragraph._p.xml
+    for old, new in replacements:
+        replaced_in_run = False
+        for run in paragraph.runs:
+            if old in run.text:
+                run.text = run.text.replace(old, new)
+                replaced_in_run = True
+                changed += 1
+        if not replaced_in_run and not has_drawing and old in paragraph.text:
+            paragraph.text = paragraph.text.replace(old, new)
+            changed += 1
+    return changed
+
+
+def change_location_key(change):
+    change = change if isinstance(change, dict) else {}
+    location = str(change.get("location") or "").strip()
+    title = str(change.get("title") or "").strip()
+    value = location.rsplit(">", 1)[-1].strip() if location else title
+    value = re.sub(r"\s+(?:duration|content|note)?\s*updated$", "", value, flags=re.IGNORECASE)
+    return normalize_heading_key(value)
+
+
+def paragraphs_for_change(paragraphs, change):
+    """Limit replacements to the located section or step when the change provides one."""
+    target = change_location_key(change)
+    if not target:
+        return paragraphs
+
+    matching_indexes = []
+    for index, paragraph in enumerate(paragraphs):
+        paragraph_key = normalize_heading_key(paragraph.text)
+        if paragraph_key == target or target in paragraph_key:
+            matching_indexes.append(index)
+
+    if not matching_indexes:
+        return []
+
+    start = matching_indexes[0]
+    end = len(paragraphs)
+    for index in range(start + 1, len(paragraphs)):
+        text = str(paragraphs[index].text or "").strip()
+        if normalize_heading_key(text) in SECTION_HEADINGS or re.match(r"^\d+\s*[.)]\s+", text):
+            end = index
+            break
+    return paragraphs[start:end]
+
+
+def apply_tutor_changes_to_docx(document, final_plan):
+    """Apply recorded changes at their original text locations and preserve the source layout."""
     changes = final_plan.get("changes") if isinstance(final_plan.get("changes"), list) else []
-    if changes:
-        document.add_heading("Changes based on the dialogue", level=2)
-        for change in changes:
-            title = str(change.get("title") or "Change").strip()
-            reason = str(change.get("reason") or "").strip()
-            before_value = str(change.get("beforeValue") or "").strip()
-            after_value = str(change.get("afterValue") or "").strip()
-            add_docx_bullet_paragraph(document, title, bold=True)
-            if reason:
-                document.add_paragraph(reason)
-            if before_value:
-                document.add_paragraph(f"Before: {before_value}")
-            if after_value:
-                document.add_paragraph(f"After: {after_value}")
+    paragraphs = list(iter_docx_paragraphs(document))
+    applied = 0
+    for change in changes:
+        replacements = change_replacements(change)
+        scoped_paragraphs = paragraphs_for_change(paragraphs, change)
+        if not scoped_paragraphs:
+            # A section may not have a recognizable heading in an imported document.
+            # Only fall back when the source text is unambiguous across the document.
+            scoped_paragraphs = [
+                paragraph for paragraph in paragraphs
+                if any(old in paragraph.text for old, _ in replacements)
+            ]
+            if sum(paragraph.text.count(old) for paragraph in scoped_paragraphs for old, _ in replacements) != 1:
+                scoped_paragraphs = []
+                log_message(f"[export] Could not safely locate DOCX change: {change.get('title', 'Change')}")
+        for paragraph in scoped_paragraphs:
+            applied += replace_in_docx_paragraph(paragraph, replacements)
 
-    if final_plan.get("goals"):
-        document.add_heading("Goals", level=2)
-        add_docx_bullet_list(document, final_plan.get("goals"))
-
-    if final_plan.get("skills"):
-        document.add_heading("Skills", level=2)
-        add_docx_bullet_list(document, final_plan.get("skills"))
-
-    steps = final_plan.get("steps") if isinstance(final_plan.get("steps"), list) else []
-    if steps:
-        document.add_heading("Steps", level=2)
-        for index, step in enumerate(steps, start=1):
-            step = step if isinstance(step, dict) else {}
-            title = str(step.get("title") or f"Step {index}").strip()
-            duration = str(step.get("duration") or "").strip()
-            description = str(step.get("description") or "").strip()
-            status = str(step.get("status") or "").strip()
-            note = str(step.get("note") or "").strip()
-            heading = f"{index}. {title}" + (f" ({duration})" if duration else "")
-            paragraph = document.add_paragraph()
-            paragraph.add_run(heading).bold = True
-            if description:
-                document.add_paragraph(description)
-            if status:
-                document.add_paragraph(f"Status: {status}")
-            if note:
-                document.add_paragraph(f"Note: {note}")
-
-    if final_plan.get("materials"):
-        document.add_heading("Materials", level=2)
-        add_docx_bullet_list(document, final_plan.get("materials"))
-
-    if final_plan.get("assessment"):
-        document.add_heading("Assessment", level=2)
-        add_docx_bullet_list(document, final_plan.get("assessment"))
-
-    if final_plan.get("reflection"):
-        add_docx_text_section(document, "Reflection", [final_plan["reflection"]])
+    if changes and not applied:
+        log_message("[export] No recorded DOCX change matched source text; original layout preserved")
+    else:
+        log_message(f"[export] Applied {applied} in-place DOCX text replacement(s)")
 
 
-def render_source_docx_with_amendments(context, output_path):
+def render_source_docx_with_changes(context, output_path):
     final_plan = get_final_plan_context(context)
     source_document = final_plan.get("sourceDocument") if isinstance(final_plan.get("sourceDocument"), dict) else {}
     source_path = source_document.get("path", "")
     document = Document(source_path)
-    append_tutor_amendments_to_docx(document, final_plan)
+    apply_tutor_changes_to_docx(document, final_plan)
     document.save(output_path)
     log_message(f"[export] DOCX based on original template: {os.path.basename(source_path)}")
     return output_path
@@ -674,7 +725,7 @@ def build_docx_export(context, output_path):
     source_document = context.get("sourceDocument") if isinstance(context.get("sourceDocument"), dict) else {}
     if can_use_source_docx_template(source_document):
         try:
-            return render_source_docx_with_amendments(context, output_path)
+            return render_source_docx_with_changes(context, output_path)
         except Exception:
             log_message("[export] Template-based DOCX export failed; falling back to text-only DOCX")
             log_message(traceback.format_exc())

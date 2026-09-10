@@ -144,9 +144,27 @@ class EmailServiceTests(unittest.TestCase):
         self.assertIn("STEaiM-CT Tutor change steps", text)
         self.assertIn("Uploaded file: lesson.docx", text)
         self.assertIn("Subject(s): Arts", text)
-        self.assertIn("1. Add arts focus [Steps]", text)
+        self.assertIn("1. Add arts focus @ Steps", text)
         self.assertIn("Before: Build a ramp", text)
         self.assertIn("After: Design and decorate a ramp", text)
+
+    def test_build_analysis_points_text_formats_pros_and_cons(self):
+        context = {
+            "payload": {
+                "analysis": {
+                    "strengths": [{"title": "Clear goals", "short_explanation": "Goals are measurable."}],
+                    "issues": [{"title": "Tight timing", "why_it_matters": "Transitions need more time."}],
+                }
+            }
+        }
+
+        pros = email_service.build_analysis_points_text(context, "strengths", "Pros")
+        cons = email_service.build_analysis_points_text(context, "issues", "Cons")
+
+        self.assertIn("1. Clear goals", pros)
+        self.assertIn("Goals are measurable.", pros)
+        self.assertIn("1. Tight timing", cons)
+        self.assertIn("Transitions need more time.", cons)
 
 
 class SettingsServiceTests(unittest.TestCase):
