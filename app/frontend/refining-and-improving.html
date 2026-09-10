@@ -1330,6 +1330,43 @@
       }, 0);
     }
 
+    function extractAdditionalMinutes(text) {
+      var value = String(text || "");
+      var match = value.match(/(?:add|added|increase|increased|additional|more)[^\d]{0,35}(\d+)\s*minutes?/i);
+      if (!match) {
+        match = value.match(/(\d+)\s*minutes?/i);
+      }
+      return match ? Number(match[1]) : 0;
+    }
+
+    function applyClaimedAdditionalTime(nextDraft, currentDraft, response) {
+      if (!state.activeNode || state.activeNode.id !== "time_scope") {
+        return nextDraft;
+      }
+      if (draftDurationTotal(nextDraft) > draftDurationTotal(currentDraft)) {
+        return nextDraft;
+      }
+
+      var assistantMessage = response && response.assistant_message ? response.assistant_message : "";
+      var additionalMinutes = extractAdditionalMinutes(assistantMessage);
+      if (!additionalMinutes || !Array.isArray(currentDraft.steps) || !currentDraft.steps.length) {
+        return nextDraft;
+      }
+
+      var repaired = clone(currentDraft);
+      var targetIndex = repaired.steps.length > 2 ? 2 : repaired.steps.length - 1;
+      var targetStep = repaired.steps[targetIndex] || {};
+      var currentMinutes = durationMinutes(targetStep.duration);
+      if (!currentMinutes) {
+        return nextDraft;
+      }
+      targetStep.duration = (currentMinutes + additionalMinutes) + " min";
+      targetStep.status = "Duration adjusted";
+      targetStep.note = additionalMinutes + " additional minutes added based on the tutor response.";
+      repaired.steps[targetIndex] = targetStep;
+      return repaired;
+    }
+
     function timingAssessmentIsTight() {
       var node = state.activeNode || {};
       var text = [node.label, node.pointTitle, node.prompt, node.teacherComment].join(" ").toLowerCase();
@@ -1447,6 +1484,9 @@
             return text.indexOf("time") !== -1 || text.indexOf("duration") !== -1 || text.indexOf("timing") !== -1;
           });
           if (!constrained.changes.length) {
+            constrained.changes = clone(currentDraft.changes || []);
+          }
+          if (draftDurationTotal(constrained) === draftDurationTotal(currentDraft)) {
             constrained.changes = clone(currentDraft.changes || []);
           }
         }
@@ -1621,6 +1661,7 @@
             return;
           }
           if (nextDraft) {
+            nextDraft = applyClaimedAdditionalTime(nextDraft, draftBeforeRequest, response);
             var explicitSplit = state.activeNode && state.activeNode.id === "time_scope"
               ? applyExplicitSplitChoice(text, draftBeforeRequest)
               : null;
