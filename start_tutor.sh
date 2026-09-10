@@ -33,6 +33,13 @@ done
 
 # Check and create virtual environment if it doesn't exist
 if [ ! -f "$VENV/bin/python" ]; then
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "Python 3 is required to start the tutor."
+        echo "Install Python 3.11 or newer from https://www.python.org/downloads/"
+        echo "Then run this launcher again."
+        read -r -p "Press [Enter] to continue..."
+        exit 1
+    fi
     echo "Creating local virtual environment..."
     python3 -m venv "$VENV" 2>/dev/null
     if [ ! -f "$VENV/bin/python" ]; then
