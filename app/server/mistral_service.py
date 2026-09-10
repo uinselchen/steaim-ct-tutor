@@ -329,6 +329,7 @@ def build_analysis_context_summary(payload):
     subjects = context.get("subjects") if isinstance(context.get("subjects"), list) else []
     grade_range = context.get("gradeRange") if isinstance(context.get("gradeRange"), dict) else {}
     age_range = context.get("ageRange") if isinstance(context.get("ageRange"), dict) else {}
+    language = context.get("language") if isinstance(context.get("language"), dict) else "English"
     lines = [
         "Teacher-entered UI target context (read this first):",
         f"- Country: {context.get('country') or 'not provided'}",
@@ -341,6 +342,7 @@ def build_analysis_context_summary(payload):
         "Use the UI target context as the teacher's intended use case. Extract what the document says, then check whether the lesson plan fits this UI context based on the actual tasks and activity load. If the document claims a different grade or age than the UI context, report the mismatch clearly.",
         "Subject focus instruction:",
         "Treat the selected subject(s) as the primary lens for feedback. If the document is stronger in other subjects than in the selected subject(s), say that clearly and suggest what would be needed to make it fit the selected subject(s).",
+        f"Conduct the analysis strictly in the {language} language.",
     ]
     return "\n".join(lines)
 
