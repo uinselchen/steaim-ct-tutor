@@ -1729,6 +1729,98 @@ body.analysis-page {
   gap: 16px;
 }
 
+.analysis-page.refinement-page .refinement-overview {
+  background: #ffffff;
+  border: 1px solid rgba(102, 88, 255, 0.16);
+  border-radius: 18px;
+  box-shadow: 0 8px 26px rgba(40, 48, 90, 0.08);
+  padding: 12px 14px 14px;
+}
+
+.analysis-page.refinement-page .refinement-overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.analysis-page.refinement-page .refinement-overview h2 {
+  margin: 0;
+  color: #1f2638;
+  font-size: 1rem;
+}
+
+.analysis-page.refinement-page .refinement-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analysis-page.refinement-page .overview-card {
+  display: block;
+  min-width: 0;
+  border: 1px solid #e5e8f5;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 9px 11px;
+}
+
+.analysis-page.refinement-page .overview-card-label {
+  display: inline;
+  color: #737d96;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.analysis-page.refinement-page .overview-card-label::after {
+  content: ":";
+  margin-right: 5px;
+}
+
+.analysis-page.refinement-page .overview-card strong {
+  display: inline;
+  overflow: hidden;
+  color: #252d43;
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  vertical-align: baseline;
+}
+
+.analysis-page.refinement-page .overview-card-detail {
+  display: inline;
+  overflow: hidden;
+  margin-left: 6px;
+  color: #68728c;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-page.refinement-page .overview-card-detail::before {
+  content: "· ";
+}
+
+.analysis-page.refinement-page .overview-progress-track {
+  height: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9ebf7;
+}
+
+.analysis-page.refinement-page .overview-progress-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--purple), #ec57a8);
+  transition: width 180ms ease;
+}
+
 .analysis-page.refinement-page .refinement-panel {
   background: var(--surface-2);
   border: 1px solid rgba(30, 35, 55, 0.08);
@@ -1773,6 +1865,8 @@ body.analysis-page {
 }
 
 .analysis-page.refinement-page .focus-chip {
+  appearance: none;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   padding: 6px 10px;
@@ -1784,6 +1878,13 @@ body.analysis-page {
   font-weight: 700;
 }
 
+.analysis-page.refinement-page .focus-chip:hover,
+.analysis-page.refinement-page .focus-chip.active {
+  background: #e8e9ff;
+  border-color: var(--purple);
+  color: #4742b4;
+}
+
 .analysis-page.refinement-page .chat-thread {
   display: grid;
   align-content: start;
@@ -1792,6 +1893,36 @@ body.analysis-page {
   max-height: 520px;
   overflow: auto;
   padding-right: 4px;
+}
+
+.analysis-page.refinement-page .chat-topic-group {
+  display: grid;
+  gap: 10px;
+}
+
+.analysis-page.refinement-page .chat-topic-group + .chat-topic-group {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #e9ebf4;
+}
+
+.analysis-page.refinement-page .chat-topic-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  border-bottom: 1px solid #dfe4ff;
+  background: #ffffff;
+  color: #5a56c8;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 4px 2px 6px;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .analysis-page.refinement-page .chat-row {
@@ -2076,6 +2207,15 @@ body.analysis-page {
   align-items: flex-end;
   border-top: 1px solid #edf0f7;
   padding-top: 14px;
+}
+
+.analysis-page.refinement-page .preview-summary {
+  max-width: 760px;
+  margin: 2px 0 0;
+  color: #3d455b;
+  font-size: 0.92rem;
+  font-weight: 400;
+  line-height: 1.55;
 }
 
 .analysis-page.refinement-page .change-summary-line {
@@ -2532,6 +2672,10 @@ body.analysis-page {
     grid-template-columns: 1fr;
   }
 
+  .analysis-page.refinement-page .refinement-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .analysis-page.refinement-page .preview-layout {
     grid-template-columns: 1fr;
   }
@@ -2610,6 +2754,15 @@ body.analysis-page {
   .form-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .analysis-page.refinement-page .refinement-overview-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .analysis-page.refinement-page .refinement-overview-grid {
+    grid-template-columns: 1fr;
   }
 
   .country-inline-row {

@@ -60,6 +60,38 @@
         </div>
       </section>
 
+      <section class="refinement-overview" aria-labelledby="refinementOverviewTitle">
+        <div class="refinement-overview-header">
+          <div>
+            <h2 id="refinementOverviewTitle">Refinement overview</h2>
+          </div>
+        </div>
+        <div class="refinement-overview-grid">
+          <div class="overview-card overview-progress-card">
+            <span class="overview-card-label">Progress</span>
+            <strong id="overviewProgress">0 of 0 topics</strong>
+            <div class="overview-progress-track" aria-hidden="true">
+              <span id="overviewProgressBar"></span>
+            </div>
+          </div>
+          <div class="overview-card">
+            <span class="overview-card-label">Current focus</span>
+            <strong id="overviewCurrentFocus">Preparing...</strong>
+            <span id="overviewCurrentDetail" class="overview-card-detail">The next refinement will appear here.</span>
+          </div>
+          <div class="overview-card">
+            <span class="overview-card-label">Up next</span>
+            <strong id="overviewNextFocus">Preparing...</strong>
+            <span id="overviewNextDetail" class="overview-card-detail">More topics will appear as the dialogue advances.</span>
+          </div>
+          <div class="overview-card">
+            <span class="overview-card-label">Last change</span>
+            <strong id="overviewLastChange">No changes yet</strong>
+            <span id="overviewLastDetail" class="overview-card-detail">Your decisions will be summarized here.</span>
+          </div>
+        </div>
+      </section>
+
       <section class="refinement-grid">
         <div class="refinement-panel refinement-chat-panel">
           <div class="refinement-panel-header">
@@ -96,7 +128,8 @@
           <div class="refinement-panel-header">
             <div>
               <h2 class="refinement-panel-title">My lesson plan</h2>
-              <p class="refinement-panel-subtitle">Document preview with live updates based on our discussion.</p>
+              <p class="refinement-panel-subtitle">Summary:</p>
+              <p id="previewSummary" class="preview-summary"></p>
             </div>
             <div class="preview-header-actions">
               <button id="exportDraftButton" class="action-button secondary-button preview-action" type="button">
@@ -381,11 +414,14 @@
     }
 
     function addConversation(role, text, extraClass) {
+      var topic = state.activeNode || null;
       state.conversation.push({
         role: role,
         text: text,
         time: getTimeStamp(),
-        extraClass: extraClass || ""
+        extraClass: extraClass || "",
+        topicId: topic ? topic.id : "general",
+        topicLabel: topic ? (topic.pointTitle || topic.label) : "General conversation"
       });
       persistState();
       renderConversation();
@@ -754,14 +790,32 @@
 
     function getRepliesForCategory(categoryId) {
       var replies = {
-        time_scope: ["Add more time", "Keep as is", "Split into two lessons", "Suggest another option"],
-        goals_competencies: ["Make it explicit", "Keep as is", "Suggest wording", "Add an example goal"],
-        adaptability: ["Add differentiation", "Keep as is", "Add supports", "Suggest alternative"],
-        curriculum_alignment: ["Add curriculum link", "Keep as is", "Suggest wording", "Add subject note"],
-        detail_level: ["Keep this detail", "Simplify it", "Add more structure", "Suggest alternative"],
-        target_group: ["Clarify target group", "Keep broad", "Add age note", "Suggest alternative"]
+        time_scope: ["Add more time", "Keep as is & continue", "Split into two lessons", "Suggest another option"],
+        goals_competencies: ["Make it explicit", "Keep as is & continue", "Suggest wording", "Add an example goal"],
+        adaptability: ["Add differentiation", "Keep as is & continue", "Add supports", "Suggest alternative"],
+        curriculum_alignment: ["Add curriculum link", "Keep as is & continue", "Suggest wording", "Add subject note"],
+        detail_level: ["Keep this detail & continue", "Simplify it", "Add more structure", "Suggest alternative"],
+        target_group: ["Clarify target group", "Keep broad & continue", "Add age note", "Suggest alternative"]
       };
-      return replies[categoryId] || ["Yes, add that", "No, keep as is", "Suggest alternative", "Skip for now"];
+      return replies[categoryId] || ["Yes, add that", "Keep as is & continue", "Suggest alternative", "Skip for now"];
+    }
+
+    function isKeepAsIsReply(text) {
+      return /^(keep as is(?:\s*&\s*continue)?|keep this detail(?:\s*&\s*continue)?|keep broad(?:\s*&\s*continue)?|skip(?: this point| for now)?)$/i.test(String(text || "").trim());
+    }
+
+    function continueWithoutChangingTopic(replyText) {
+      var input = document.getElementById("replyInput");
+      addConversation("teacher", replyText);
+      if (input) {
+        input.value = "";
+      }
+      state.awaitingFreeText = false;
+      addConversation("tutor", "Understood. I will keep this part as it is and move to the next topic.");
+      state.currentNodeIndex += 1;
+      state.activeNode = null;
+      persistState();
+      startNextNode();
     }
 
     function applyConversationReply(node, replyText) {
@@ -863,29 +917,88 @@
 
     function renderFocusStrip() {
       var strip = document.getElementById("focusStrip");
-      var labels = [];
-      if (selections && selections.length) {
-        labels = selections.slice(0, 4).map(function (item) {
-          return item.title || item.category_id;
-        });
-      } else {
-        labels = state.nodes.slice(0, 4).map(function (node) {
-          return node.pointTitle || node.label;
-        });
-      }
       strip.innerHTML = "";
-      labels.forEach(function (label) {
-        var chip = document.createElement("span");
+      state.nodes.forEach(function (node, index) {
+        var chip = document.createElement("button");
+        chip.type = "button";
         chip.className = "focus-chip";
-        chip.textContent = label;
+        if (state.activeNode && state.activeNode.id === node.id) {
+          chip.classList.add("active");
+        }
+        chip.textContent = node.pointTitle || node.label;
+        chip.addEventListener("click", function () {
+          jumpToTopic(index);
+        });
         strip.appendChild(chip);
       });
+    }
+
+    function jumpToTopic(index) {
+      if (state.isReplyBusy || !state.nodes[index]) {
+        return;
+      }
+      state.currentNodeIndex = index;
+      state.activeNode = state.nodes[index];
+      state.awaitingFreeText = false;
+      persistState();
+      renderFocusStrip();
+      renderRefinementOverview();
+      renderQuickReplies(state.activeNode);
+      var input = document.getElementById("replyInput");
+      if (input) {
+        input.placeholder = "Type your answer or add more details...";
+      }
+      var topicSelector = '.chat-topic-group[data-topic-id="' + state.activeNode.id.replace(/"/g, "\\\"") + '"]';
+      var existingGroup = document.querySelector(topicSelector);
+      if (existingGroup) {
+        existingGroup.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        addConversation("tutor", "Let us look at " + (state.activeNode.pointTitle || state.activeNode.label) + ". " + state.activeNode.prompt);
+      }
+    }
+
+    function renderRefinementOverview() {
+      var total = state.nodes.length;
+      var completed = Math.min(state.currentNodeIndex, total);
+      var active = state.activeNode;
+      var upcoming = active ? state.nodes.slice(state.currentNodeIndex + 1) : [];
+      var latestChange = (ensureDraft().changes || []).slice(-1)[0] || null;
+      var progress = total ? Math.round((completed / total) * 100) : 0;
+
+      setText("overviewProgress", total ? completed + " of " + total + " topics" : "Preparing topics");
+      setText("overviewCurrentFocus", active ? (active.pointTitle || active.label) : "All topics reviewed");
+      setText("overviewCurrentDetail", active ? "Question " + (state.currentNodeIndex + 1) + " of " + total : "The draft is ready for a final review.");
+      setText("overviewNextFocus", upcoming.length ? (upcoming[0].pointTitle || upcoming[0].label) : "Nothing queued");
+      setText("overviewNextDetail", upcoming.length > 1 ? upcoming.length + " more topics after this one" : (upcoming.length ? "This is the final queued topic" : "You can continue to download when ready."));
+      setText("overviewLastChange", latestChange ? formatHistoryTitle(latestChange) : "No changes yet");
+      setText("overviewLastDetail", latestChange ? formatHistoryLocation(latestChange) : "Your decisions will be summarized here.");
+      setText("overviewStatus", active ? "In progress" : (total ? "Ready to review" : "Preparing"));
+
+      var progressBar = document.getElementById("overviewProgressBar");
+      if (progressBar) {
+        progressBar.style.width = progress + "%";
+      }
     }
 
     function renderConversation() {
       var thread = document.getElementById("chatThread");
       thread.innerHTML = "";
+      var currentTopicId = null;
+      var topicGroup = null;
       state.conversation.forEach(function (message) {
+        var topicId = message.topicId || "general";
+        var topicLabel = message.topicLabel || (topicId === "general" ? "General conversation" : topicId.replace(/_/g, " "));
+        if (topicId !== currentTopicId) {
+          currentTopicId = topicId;
+          topicGroup = document.createElement("section");
+          topicGroup.className = "chat-topic-group";
+          topicGroup.dataset.topicId = topicId;
+          var topicHeader = document.createElement("div");
+          topicHeader.className = "chat-topic-header";
+          topicHeader.textContent = topicLabel;
+          topicGroup.appendChild(topicHeader);
+          thread.appendChild(topicGroup);
+        }
         var row = document.createElement("div");
         row.className = "chat-row " + message.role;
         if (message.extraClass) {
@@ -903,7 +1016,7 @@
         bubble.appendChild(text);
         bubble.appendChild(time);
         row.appendChild(bubble);
-        thread.appendChild(row);
+        topicGroup.appendChild(row);
       });
       thread.scrollTop = thread.scrollHeight;
     }
@@ -978,10 +1091,6 @@
 
       var header = document.createElement("div");
       header.className = "document-header";
-      var title = document.createElement("h3");
-      title.className = "document-title";
-      title.textContent = draft.title || "Lesson Plan";
-      header.appendChild(title);
 
       var metaRow = document.createElement("div");
       metaRow.className = "document-meta";
@@ -1140,7 +1249,9 @@
     }
 
     function renderPreview() {
-      ensureDraft();
+      var draft = ensureDraft();
+      setText("previewSummary", draft.summary || draft.title || "Lesson plan summary not available.");
+      renderRefinementOverview();
       renderPreviewTabs();
       renderSectionContent();
       renderChangeSummary();
@@ -1638,6 +1749,10 @@
       if (!text) {
         return;
       }
+      if (state.activeNode && isKeepAsIsReply(text)) {
+        continueWithoutChangingTopic(text);
+        return;
+      }
       var messageForApi = buildScopedUserMessage(payloadText || text);
       var wasAwaiting = state.awaitingFreeText;
       var wasWordingRequest = isSuggestWordingRequest(messageForApi) || isSuggestWordingRequest(text) || isExplicitSectionUpdateRequest(messageForApi) || isExplicitSectionUpdateRequest(text);
@@ -1753,6 +1868,8 @@
 
       state.activeNode = state.nodes[state.currentNodeIndex];
       var node = state.activeNode;
+      renderFocusStrip();
+      renderRefinementOverview();
       var intro = state.currentNodeIndex === 0
         ? (selections.length
           ? "You marked " + node.pointTitle + " in Step 2, so let us start there. " + node.prompt
@@ -1816,6 +1933,7 @@
         renderQuickReplies(state.activeNode);
         document.getElementById("replyInput").placeholder = "Type your answer or add more details...";
       }
+      renderRefinementOverview();
 
       document.getElementById("replyForm").addEventListener("submit", function (event) {
         event.preventDefault();
