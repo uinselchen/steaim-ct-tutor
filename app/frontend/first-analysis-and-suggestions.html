@@ -135,11 +135,12 @@
       <h3 id="privacyModalTitle">Personal data detected</h3>
       <p id="privacyModalBody"></p>
       <p class="privacy-modal-note">
-        Please remove or anonymize these details before using the document productively.
-        This will be the first refinement suggestion in the next step.
+        This does not comply with the tutor's data-protection guidance if these are real personal data.
+        Only continue if the AI is mistaken and the details are fictional examples or test data.
       </p>
       <div class="citation-modal-actions">
-        <button type="button" class="action-button primary-button" id="closePrivacyModal">I understand</button>
+        <a class="action-button secondary-button" href="lesson-info.html">Go back and remove the data</a>
+        <button type="button" class="action-button primary-button" id="confirmPrivacyExamples">Continue - examples only</button>
       </div>
     </div>
   </div>
@@ -674,6 +675,9 @@
         : "The uploaded document appears to contain personal data. These details should be removed or anonymized before productive use.";
     }
 
+    var privacyWarningActive = false;
+    var privacyExamplesConfirmed = false;
+
     function openPrivacyModal(message) {
       var backdrop = document.getElementById("privacyModalBackdrop");
       var body = document.getElementById("privacyModalBody");
@@ -685,9 +689,9 @@
       backdrop.setAttribute("aria-hidden", "false");
     }
 
-    function closePrivacyModal() {
+    function closePrivacyModal(force) {
       var backdrop = document.getElementById("privacyModalBackdrop");
-      if (!backdrop) {
+      if (!backdrop || (privacyWarningActive && !privacyExamplesConfirmed && !force)) {
         return;
       }
       backdrop.classList.remove("open");
@@ -897,11 +901,13 @@
       renderAnalysisFocus(analysis.analysis_focus);
       var privacyWarning = getPrivacyWarningText(summary, analysis);
       if (privacyWarning) {
+        privacyWarningActive = true;
         window.localStorage.setItem("step2PrivacyWarning", privacyWarning);
         setTimeout(function () {
           openPrivacyModal(privacyWarning);
         }, 250);
       } else {
+        privacyWarningActive = false;
         window.localStorage.removeItem("step2PrivacyWarning");
       }
 
@@ -947,6 +953,11 @@
     });
 
       document.getElementById("continueButton").addEventListener("click", function (event) {
+        if (privacyWarningActive && !privacyExamplesConfirmed) {
+          event.preventDefault();
+          openPrivacyModal("The uploaded document appears to contain personal data. Please remove or anonymize real personal data before continuing.");
+          return;
+        }
         event.preventDefault();
         var continueLink = document.getElementById("continueButton");
         var originalLabel = continueLink.querySelector(".button-text") ? continueLink.querySelector(".button-text").textContent : "Continue";
@@ -1027,7 +1038,10 @@
       });
 
     document.getElementById("closeCitationModal").addEventListener("click", closeCitationModal);
-    document.getElementById("closePrivacyModal").addEventListener("click", closePrivacyModal);
+    document.getElementById("confirmPrivacyExamples").addEventListener("click", function () {
+      privacyExamplesConfirmed = true;
+      closePrivacyModal(true);
+    });
     document.getElementById("citationModalBackdrop").addEventListener("click", function (event) {
       if (event.target === event.currentTarget) {
         closeCitationModal();
@@ -1035,13 +1049,13 @@
     });
     document.getElementById("privacyModalBackdrop").addEventListener("click", function (event) {
       if (event.target === event.currentTarget) {
-        closePrivacyModal();
+        closePrivacyModal(false);
       }
     });
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
         closeCitationModal();
-        closePrivacyModal();
+        closePrivacyModal(false);
       }
     });
   </script>
