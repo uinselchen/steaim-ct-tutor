@@ -1,6 +1,14 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
+if defined STEAIM_TUTOR_BATCH_ACTIVE (
+    echo ERROR: start_tutor.bat was called recursively.
+    echo This usually means the launcher file is outdated or was started through another batch wrapper.
+    echo Please download the latest project version and run start_tutor.bat directly.
+    exit /b 1
+)
+set "STEAIM_TUTOR_BATCH_ACTIVE=1"
+
 set "ROOT=%~dp0"
 set "APP=%ROOT%app"
 set "SERVER=%APP%\server"
@@ -20,11 +28,19 @@ set "ENV_EXAMPLE=%SERVER%\.env.example"
 set "CONFIG_FILE=%DATA%\config.json"
 set "TUTOR_URL=http://localhost:8000"
 set "WARNINGS=0"
+set "STARTUP_DIAGNOSTIC=%TEMP%\steaimct-tutor-startup.log"
+
+> "%STARTUP_DIAGNOSTIC%" echo STEaiM-CT Tutor startup diagnostic
+>> "%STARTUP_DIAGNOSTIC%" echo Started: %DATE% %TIME%
+>> "%STARTUP_DIAGNOSTIC%" echo Launcher: %~f0
+>> "%STARTUP_DIAGNOSTIC%" echo Arguments: %*
 
 title STEaiM-CT Tutor
 echo(
 echo STEaiM-CT Tutor startup check
 echo =============================
+echo(
+echo Startup diagnostic: "%STARTUP_DIAGNOSTIC%"
 echo(
 
 call :ensure_dir "%APP%" || goto fail
@@ -301,5 +317,6 @@ exit /b 1
 echo(
 echo Startup failed. The tutor could not be started.
 echo Please check the messages above.
+echo Startup diagnostic: "%STARTUP_DIAGNOSTIC%"
 pause
 exit /b 1
