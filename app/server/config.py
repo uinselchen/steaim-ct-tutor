@@ -96,7 +96,6 @@ def load_env_file():
                     continue
 
                 # Key is a special case
-                #if key == "MISTRAL_API_KEY" and value and value != "your_mistral_api_key_here" and not MISTRAL_API_KEY:
                 if key!="MISTRAL_API_KEY" or value == "your_mistral_api_key_here" or MISTRAL_API_KEY:
                     continue
                 # Write value into global constant
