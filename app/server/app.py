@@ -32,11 +32,6 @@ from file_extractors import extract_text_from_file
 from logging_utils import log_message
 from text_utils import parse_subjects_value
 
-def parse_bool_value(value, default=False):
-    if value is None:
-        return default
-    return str(value).strip().lower() in ("1", "true", "yes", "on")
-
 
 config.load_env_file()
 
@@ -47,6 +42,7 @@ if not config.MISTRAL_API_KEY:
     )
 
 if not os.path.exists(CONFIG_FILE):
+    # TODO: Yes, use only the project's partner countries. Please ask questions in the chat instead of using TODO comments as messages.
     default_config = {
         "countries": [
             "Slovakia",

@@ -1,9 +1,12 @@
+import contextlib
+import io
 import os
 import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +27,81 @@ import mistral_service
 import settings_service
 import step2_service
 import text_utils
+
+
+class ConfigTests(unittest.TestCase):
+    def test_load_env_file_reads_all_supported_values_and_keeps_local_key_priority(self):
+        temp_dir = tempfile.mkdtemp(prefix="steaimct-config-test-")
+        env_path = os.path.join(temp_dir, ".env")
+        key_path = os.path.join(temp_dir, "mistral_api_key.txt")
+        original_values = {
+            "ENV_FILE": config.ENV_FILE,
+            "MISTRAL_API_KEY_FILE": config.MISTRAL_API_KEY_FILE,
+        }
+        try:
+            Path(env_path).write_text(
+                "\n".join([
+                    "MISTRAL_API_KEY=env-key",
+                    "MISTRAL_API_URL=https://example.test/v1",
+                    "MISTRAL_MODEL=test-model",
+                    "SMTP_HOST=smtp.example.test",
+                    "SMTP_PORT=2525",
+                    "SMTP_USERNAME=mailer",
+                    "SMTP_PASSWORD=secret",
+                    "SMTP_USE_TLS=false",
+                    "SMTP_USE_SSL=true",
+                    "MAIL_FROM_ADDRESS=from@example.test",
+                    "MAIL_TO_ADDRESS=to@example.test",
+                ])
+                + "\n",
+                encoding="utf-8",
+            )
+            Path(key_path).write_text("local-key\n", encoding="utf-8")
+            config.ENV_FILE = env_path
+            config.MISTRAL_API_KEY_FILE = key_path
+
+            with patch.dict(os.environ, {}, clear=True):
+                config.load_env_file()
+
+            self.assertEqual(config.MISTRAL_API_KEY, "local-key")
+            self.assertEqual(config.MISTRAL_API_URL, "https://example.test/v1")
+            self.assertEqual(config.MISTRAL_MODEL, "test-model")
+            self.assertEqual(config.SMTP_HOST, "smtp.example.test")
+            self.assertEqual(config.SMTP_PORT, 2525)
+            self.assertEqual(config.SMTP_USERNAME, "mailer")
+            self.assertEqual(config.SMTP_PASSWORD, "secret")
+            self.assertFalse(config.SMTP_USE_TLS)
+            self.assertTrue(config.SMTP_USE_SSL)
+            self.assertEqual(config.MAIL_FROM_ADDRESS, "from@example.test")
+            self.assertEqual(config.MAIL_TO_ADDRESS, "to@example.test")
+        finally:
+            config.ENV_FILE = original_values["ENV_FILE"]
+            config.MISTRAL_API_KEY_FILE = original_values["MISTRAL_API_KEY_FILE"]
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_load_env_file_handles_invalid_port_and_missing_key_file(self):
+        temp_dir = tempfile.mkdtemp(prefix="steaimct-config-error-test-")
+        env_path = os.path.join(temp_dir, ".env")
+        missing_key_path = os.path.join(temp_dir, "missing-key.txt")
+        original_values = {
+            "ENV_FILE": config.ENV_FILE,
+            "MISTRAL_API_KEY_FILE": config.MISTRAL_API_KEY_FILE,
+        }
+        try:
+            Path(env_path).write_text("SMTP_PORT=not-a-port\n", encoding="utf-8")
+            config.ENV_FILE = env_path
+            config.MISTRAL_API_KEY_FILE = missing_key_path
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), patch.dict(os.environ, {}, clear=True):
+                config.load_env_file()
+
+            self.assertIsNone(config.MISTRAL_API_KEY)
+            self.assertEqual(config.SMTP_PORT, config.DEFAULT_SMTP_PORT)
+            self.assertIn("Invalid SMTP_PORT", output.getvalue())
+        finally:
+            config.ENV_FILE = original_values["ENV_FILE"]
+            config.MISTRAL_API_KEY_FILE = original_values["MISTRAL_API_KEY_FILE"]
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 class TextUtilsTests(unittest.TestCase):

@@ -1,5 +1,6 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
+chcp 65001 >nul 2>&1
+setlocal EnableExtensions DisableDelayedExpansion
 
 if defined STEAIM_TUTOR_BATCH_ACTIVE (
     echo ERROR: start_tutor.bat was called recursively.
@@ -17,6 +18,8 @@ set "DATA=%APP%\data"
 set "VENV=%APP%\venv"
 set "PY=%VENV%\Scripts\python.exe"
 set "BUNDLED_PY=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+set "PYTHON_INSTALLER_URL=https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe"
+set "PYTHON_INSTALLER=%TEMP%\steaimct-python-3.12.10-amd64.exe"
 set "LOGDIR=%DATA%\outputs"
 set "LOGFILE=%LOGDIR%\server.log"
 set "ANALYSIS_LOG=%LOGDIR%\analysis-log.txt"
@@ -109,7 +112,7 @@ call :require_file "%FRONTEND%\css\style.css" "stylesheet"
 call :require_file "%FRONTEND%\js\app.js" "start screen script"
 call :require_file "%FRONTEND%\js\lesson-info.js" "step 1 script"
 call :require_file "%FRONTEND%\assets\STEaiM_Logo_lowres.png" "STEaiM logo"
-call :require_file "%FRONTEND%\assets\EN Co-Funded by the EU_POS.png" "EU co-funded logo"
+call :require_file "%FRONTEND%\assets\eu_funded_en.jpg" "EU co-funded logo"
 call :require_file "%SERVER%\prompts\analysis_system_prompt.txt" "analysis prompt"
 call :require_file "%SERVER%\prompts\refinement_system_prompt.txt" "refinement prompt"
 call :require_file "%SERVER%\prompts\mistral_test_system_prompt.txt" "Mistral test prompt"
@@ -274,37 +277,96 @@ if exist "%BUNDLED_PY%" (
 
 where py >nul 2>nul
 if not errorlevel 1 (
-    py -3 -m venv "%VENV%"
+    py -3.12 -m venv "%VENV%" >nul 2>nul
+    if not errorlevel 1 exit /b 0
+    py -3.11 -m venv "%VENV%" >nul 2>nul
+    if not errorlevel 1 exit /b 0
+)
+
+if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+    "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" -m venv "%VENV%"
     exit /b %ERRORLEVEL%
 )
 
-where python >nul 2>nul
-if not errorlevel 1 (
-    python -m venv "%VENV%"
+if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
+    "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" -m venv "%VENV%"
     exit /b %ERRORLEVEL%
 )
 
-where winget >nul 2>nul
-if not errorlevel 1 (
-    echo Python was not found. Trying to install Python with winget...
-    winget install -e --id Python.Python.3.12 --scope user --accept-package-agreements --accept-source-agreements
-    if errorlevel 1 exit /b 1
-
-    where py >nul 2>nul
-    if not errorlevel 1 (
-        py -3 -m venv "%VENV%"
-        exit /b %ERRORLEVEL%
-    )
-
-    where python >nul 2>nul
-    if not errorlevel 1 (
-        python -m venv "%VENV%"
-        exit /b %ERRORLEVEL%
-    )
+if exist "%LOCALAPPDATA%\Programs\Python\Launcher\py.exe" (
+    "%LOCALAPPDATA%\Programs\Python\Launcher\py.exe" -3.12 -m venv "%VENV%"
+    exit /b %ERRORLEVEL%
 )
 
-echo Python 3 was not found.
+call :download_python_installer
+if errorlevel 1 exit /b 1
+
+where py >nul 2>nul
+if not errorlevel 1 (
+    py -3.12 -m venv "%VENV%" >nul 2>nul
+    if not errorlevel 1 exit /b 0
+    py -3.11 -m venv "%VENV%" >nul 2>nul
+    if not errorlevel 1 exit /b 0
+)
+
+if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+    "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" -m venv "%VENV%"
+    exit /b %ERRORLEVEL%
+)
+
+if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
+    "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" -m venv "%VENV%"
+    exit /b %ERRORLEVEL%
+)
+
+echo Python was installed, but this window cannot find it yet.
+echo Please close this window, open the tutor folder again, and run start_tutor.bat.
 exit /b 1
+
+:download_python_installer
+echo(
+echo Python 3.12 is required before the tutor can start.
+echo The official Python installer will now be downloaded.
+echo When the installer opens:
+echo   1. On the first installer screen, tick the checkbox at the bottom:
+echo      "Add python.exe to PATH".
+echo   2. Then select "Install Now".
+echo   3. Wait until the installation has finished.
+echo Then this launcher will continue automatically.
+echo(
+choice /C CN /N /M "Press C to continue with the Python download, or N to cancel: "
+if errorlevel 2 (
+    echo Python installation cancelled.
+    exit /b 1
+)
+
+echo Downloading the official Python 3.12.10 installer...
+if exist "%PYTHON_INSTALLER%" del /q "%PYTHON_INSTALLER%" >nul 2>nul
+where curl.exe >nul 2>nul
+if not errorlevel 1 (
+    curl.exe -L --fail --retry 2 -o "%PYTHON_INSTALLER%" "%PYTHON_INSTALLER_URL%"
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri '%PYTHON_INSTALLER_URL%' -OutFile '%PYTHON_INSTALLER%'"
+)
+if errorlevel 1 (
+    echo Could not download Python automatically.
+    echo Opening the official download page instead.
+    start "" "https://www.python.org/downloads/windows/"
+    exit /b 1
+)
+if not exist "%PYTHON_INSTALLER%" (
+    echo The Python installer was not downloaded.
+    start "" "https://www.python.org/downloads/windows/"
+    exit /b 1
+)
+
+echo Starting the Python installer...
+start /wait "" "%PYTHON_INSTALLER%"
+if errorlevel 1 (
+    echo The Python installer was cancelled or failed.
+    exit /b 1
+)
+exit /b 0
 
 :package_fail
 echo(
