@@ -163,6 +163,19 @@ class Step2ServiceTests(unittest.TestCase):
 
 
 class MistralServiceTests(unittest.TestCase):
+    def test_analysis_prompt_contains_computational_thinking_contract(self):
+        prompt = (SERVER_ROOT / "prompts" / "analysis_system_prompt.txt").read_text(encoding="utf-8")
+
+        for practice in mistral_service.COMPUTATIONAL_THINKING_PRACTICES:
+            self.assertIn(practice, prompt)
+        for status in ("Present", "Opportunity", "Not identified"):
+            self.assertIn(status, prompt)
+        for field in ("activity", "evidence", "limitation", "refinement"):
+            self.assertIn(field, prompt)
+        self.assertIn("learners perform", prompt)
+        self.assertIn("keywords", prompt)
+        self.assertIn("technology", prompt)
+
     def test_normalize_computational_thinking_returns_all_practices_in_order(self):
         raw = [
             {

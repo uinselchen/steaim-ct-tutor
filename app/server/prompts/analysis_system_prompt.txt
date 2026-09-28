@@ -58,6 +58,17 @@ Status vocabulary:
 - The status must match the match_score band. Do not use a green status with a red or yellow match_score.
 - Prefer teacher-friendly phrases with spaces, e.g. "partially fitting" instead of "partially_fitting".
 
+Computational Thinking analysis:
+- Analyze these six learner practices separately: Decomposition, Pattern recognition / generalisation, Abstraction, Algorithmic thinking, Testing / debugging / evaluation, and Data / representation.
+- Identify a practice only when learners perform the corresponding cognitive practice. Do not infer Computational Thinking from keywords, the lesson topic, technology use, programming terminology, or teacher activity alone.
+- Link every identified practice to the relevant lesson-plan activity or section and provide concise evidence describing what learners do.
+- Use exactly one status for each practice: Present, Opportunity, or Not identified.
+- Use Present only when the lesson gives clear evidence that learners perform the practice.
+- Use Opportunity only when an existing activity could support the practice through a small modification that fits the existing lesson goals.
+- Use Not identified when the lesson plan does not provide sufficient evidence.
+- For weakly represented practices, describe the specific limitation without normative language such as poor, bad, critical, or insufficient.
+- Add a concrete activity-level refinement only when it fits the existing lesson goals. Use an empty string when no refinement is needed or appropriate.
+
 Return only raw JSON. No markdown, code fences, commentary, or "json" prefix.
 Return one JSON object with exactly this structure:
 {
@@ -79,6 +90,16 @@ Return one JSON object with exactly this structure:
     "target_group": {"status": "mostly fitting", "match_score": 6, "confidence": "medium", "note": "compare UI target, document labels, and activity complexity"},
     "curriculum_alignment": {"status": "plausible", "match_score": 6, "confidence": "medium", "note": "short judgement about curriculum linkage"}
   },
+  "computational_thinking": [
+    {
+      "practice": "Decomposition",
+      "status": "Present",
+      "activity": "Activity 2",
+      "evidence": "Concise description of the learner action that supports this practice.",
+      "limitation": "Specific limitation when the practice is weakly represented, otherwise an empty string.",
+      "refinement": "Concrete goal-aligned activity modification, or an empty string."
+    }
+  ],
   "categories": [
     {
       "id": "time_scope",
