@@ -60,6 +60,7 @@ Status vocabulary:
 
 Computational Thinking analysis:
 - Analyze these six learner practices separately: Decomposition, Pattern recognition / generalisation, Abstraction, Algorithmic thinking, Testing / debugging / evaluation, and Data / representation.
+- Return exactly six computational_thinking entries, with exactly one entry for each of the six practices, in the order listed above.
 - Identify a practice only when learners perform the corresponding cognitive practice. Do not infer Computational Thinking from keywords, the lesson topic, technology use, programming terminology, or teacher activity alone.
 - Link every identified practice to the relevant lesson-plan activity or section and provide concise evidence describing what learners do.
 - Use exactly one status for each practice: Present, Opportunity, or Not identified.

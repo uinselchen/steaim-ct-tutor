@@ -175,6 +175,8 @@ class MistralServiceTests(unittest.TestCase):
         self.assertIn("learners perform", prompt)
         self.assertIn("keywords", prompt)
         self.assertIn("technology", prompt)
+        self.assertIn("exactly six", prompt)
+        self.assertIn("exactly six", prompt)
 
     def test_normalize_computational_thinking_returns_all_practices_in_order(self):
         raw = [
