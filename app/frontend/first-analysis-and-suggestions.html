@@ -1021,7 +1021,8 @@
           activity: String(entry.activity || "").trim(),
           evidence: String(entry.evidence || "").trim(),
           limitation: String(entry.limitation || "").trim(),
-          refinement: String(entry.refinement || "").trim()
+          refinement: String(entry.refinement || "").trim(),
+          positiveNote: String(entry.positive_note || "").trim()
         };
       });
     }
@@ -1082,6 +1083,8 @@
         }
         if (item.refinement) {
           appendCtDetail(detail, "Possible refinement", item.refinement);
+        } else if (item.positiveNote) {
+          appendCtDetail(detail, "Positive note", item.positiveNote);
         }
         details.appendChild(detail);
         rowLayout.appendChild(details);
@@ -1171,10 +1174,8 @@
         }
         if (item.refinement) {
           lines.push("  Possible refinement: " + item.refinement);
-        } else if (item.status === "Present") {
-          lines.push("  Positive note: This practice is clearly evidenced in the learner activity.");
-        } else {
-          lines.push("  Possible refinement: Clarify or strengthen this practice within the existing activity if it fits the lesson goals.");
+        } else if (item.positiveNote) {
+          lines.push("  Positive note: " + item.positiveNote);
         }
         lines.push("");
       });
@@ -1187,7 +1188,9 @@
           lines.push("- " + (item.title || "Identified point"));
           if (item.short_explanation) lines.push("  " + item.short_explanation);
           if (item.why_it_matters) lines.push("  Why it matters: " + item.why_it_matters);
-          if (item.citation && item.citation.cited_text) {
+          if (item.evidence) {
+            lines.push("  Evidence / basis: " + item.evidence);
+          } else if (item.citation && item.citation.cited_text) {
             lines.push("  Evidence / basis: " + item.citation.cited_text);
           } else if (item.short_explanation || item.why_it_matters) {
             lines.push("  Evidence / basis: The point is based on the lesson-plan activity described above.");
@@ -1196,10 +1199,12 @@
           }
           if (item.suggested_next_action) {
             lines.push("  Suggested improvement: " + item.suggested_next_action);
+          } else if (item.positive_note) {
+            lines.push("  Positive note: " + item.positive_note);
           } else if (normalizeMatchScore(item.match_score) >= 7) {
             lines.push("  Positive note: This point is assessed as a strong fit in the lesson plan.");
           } else {
-            lines.push("  Suggested improvement: Clarify or adapt this point in the refinement discussion based on the evidence above.");
+            lines.push("  Suggested improvement: The analysis returned no concrete next action; use the evidence above to define one activity-level adjustment.");
           }
         });
       });

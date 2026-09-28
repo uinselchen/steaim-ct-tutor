@@ -33,6 +33,8 @@ Context rules:
 - If UI context, document claims, and activity complexity differ, report the mismatch.
 - If UI grade/age exists, short_summary and analysis_focus.target_group.note must mention whether the plan fits that UI target group.
 - If the UI grade is much lower than the document grade or activity complexity, do not call the target group clear or high confidence. State that the uploaded plan appears designed for older learners and needs major adaptation for the UI grade.
+- If the target grade lies within the document's grade range, treat that as meaningful alignment. Do not call the target group mismatched or not suitable merely because the document also includes younger or older learners.
+- Use not suitable only when there is no meaningful grade/age overlap or when concrete activity evidence shows a developmental mismatch. Do not infer that an activity is only suitable for younger or older learners from basic materials or measuring tasks alone.
 - The lesson_plan_summary.confidence.note must say whether the summary is based on UI context, document claims, or activity judgement.
 - detected_age_range and detected_grade_range should reflect activity-based judgement, not only document labels.
 - If the document range is wider than the UI range, say which parts fit the UI range and which parts are extensions.
@@ -49,6 +51,12 @@ Curriculum rules:
 - If country is provided, try to align with the corresponding curriculum for subject and school level.
 - If alignment is plausible but no explicit curriculum references exist, say that transparently.
 - Do not claim strong explicit alignment unless the document contains explicit references or the provided curriculum context supports it.
+- If no explicit curriculum reference is present, state: "No explicit curriculum reference was found in the lesson plan." Do not imply curriculum alignment only from a subject name or a list of school subjects.
+
+Cross-curricular subject rules:
+- Do not judge a cross-curricular lesson as weakly aligned merely because another subject is present.
+- Evaluate the selected subject through the actual learner activities. For Arts, count artistic making, material exploration, colour, form, texture, design decisions, creative choices, thematic work, and reflection on the created object as Arts evidence.
+- Describe another subject as supporting context unless its content replaces the selected subject's learner goals and activities.
 
 Status vocabulary:
 - For every analysis_focus status, use exactly one phrase from this controlled vocabulary.
@@ -68,7 +76,9 @@ Computational Thinking analysis:
 - Use Opportunity only when an existing activity could support the practice through a small modification that fits the existing lesson goals.
 - Use Not identified when the lesson plan does not provide sufficient evidence.
 - For weakly represented practices, describe the specific limitation without normative language such as poor, bad, critical, or insufficient.
-- Add a concrete activity-level refinement only when it fits the existing lesson goals. Use an empty string when no refinement is needed or appropriate.
+- Following a fixed recipe or procedure alone is not Algorithmic thinking. Explicitly comparing recipes, testing ratios, observing outcomes, evaluating textures, or adjusting a mixture can be evidence for testing/evaluation or pattern recognition even without programming language, formal graphs, or debugging terminology.
+- If the lesson plan contains a related learner activity, always name it even when the status is Opportunity. Use Not identified only when no related learner activity exists anywhere in the document.
+- Add a concrete activity-level refinement only when it fits the existing lesson goals. The refinement must name the existing activity, the learner action to add or change, and the expected result. Never use generic refinements such as "clarify or strengthen this practice". Use an empty string when no refinement is needed or appropriate.
 
 Return only raw JSON. No markdown, code fences, commentary, or "json" prefix.
 Return one JSON object with exactly this structure:
@@ -98,7 +108,8 @@ Return one JSON object with exactly this structure:
       "activity": "Activity 2",
       "evidence": "Concise description of the learner action that supports this practice.",
       "limitation": "Specific limitation when the practice is weakly represented, otherwise an empty string.",
-      "refinement": "Concrete goal-aligned activity modification, or an empty string."
+      "refinement": "Concrete goal-aligned activity modification, or an empty string.",
+      "positive_note": "Concrete positive note when the practice is clearly evidenced, otherwise an empty string."
     }
   ],
   "categories": [
@@ -112,6 +123,7 @@ Return one JSON object with exactly this structure:
           "title": "Timing seems tight",
           "short_explanation": "Short teacher-friendly explanation.",
           "why_it_matters": "Why this matters for lesson flow and pace.",
+          "evidence": "Sentence describing the concrete lesson-plan activity or text that supports this point.",
           "citation": {
             "label": "p. 2, section Learning activities, lines 12-18",
             "page": 2,
@@ -123,6 +135,7 @@ Return one JSON object with exactly this structure:
             "context_after": ["..."]
           },
           "suggested_next_action": "If selected, the tutor can help improve this point.",
+          "positive_note": "A concrete positive note when no improvement is needed.",
           "match_score": 4,
           "confidence": "medium",
           "teacher_comment_placeholder": "Add more details or correct this interpretation..."
@@ -143,6 +156,10 @@ Rules:
 - If the document is not a lesson plan or does not fit the selected subject/grade, use a low match_score even if the document is internally coherent.
 - Add concrete target_group items for UI/document/task mismatches.
 - Add concrete time_scope items when stated duration ignores setup, transitions, testing, reflection, poster work, or presentation.
+- Every category item must include an evidence sentence tied to a concrete lesson activity or document passage.
+- Every category item must include either a concrete suggested_next_action or a concrete positive_note. Do not leave both empty.
+- A suggested_next_action must name the activity and the learner/teacher change. A positive_note must name what is already working; do not use generic praise.
+- Never use generic suggestions such as "clarify or strengthen this point".
 - Do not invent citations. If uncertain, say so and use low confidence.
 - Be concrete, traceable, teacher-friendly, non-judgemental, actionable, and evidence-based.
 - Prefer short titles and concise explanations.

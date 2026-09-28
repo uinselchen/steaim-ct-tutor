@@ -44,6 +44,7 @@ def normalize_computational_thinking(value):
             "evidence": str(entry.get("evidence", "") or "").strip(),
             "limitation": str(entry.get("limitation", "") or "").strip(),
             "refinement": str(entry.get("refinement", "") or "").strip(),
+            "positive_note": str(entry.get("positive_note", "") or "").strip(),
         })
     return normalized
 

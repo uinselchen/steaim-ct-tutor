@@ -176,6 +176,12 @@ class MistralServiceTests(unittest.TestCase):
         self.assertIn("keywords", prompt)
         self.assertIn("technology", prompt)
         self.assertIn("exactly six", prompt)
+        self.assertIn("target grade lies within the document's grade range", prompt)
+        self.assertIn("Do not judge a cross-curricular lesson as weakly aligned", prompt)
+        self.assertIn("No explicit curriculum reference was found", prompt)
+        self.assertIn("Never use generic refinements", prompt)
+        self.assertIn("If the lesson plan contains a related learner activity", prompt)
+        self.assertIn("positive_note", prompt)
         self.assertIn("exactly six", prompt)
 
     def test_normalize_computational_thinking_returns_all_practices_in_order(self):
@@ -195,6 +201,7 @@ class MistralServiceTests(unittest.TestCase):
                 "evidence": "Learners work on one complete design task.",
                 "limitation": "The task is not split into smaller constraints.",
                 "refinement": "Ask learners to divide the design into smaller constraints.",
+                "positive_note": "Learners already plan the overall design before building it.",
             },
             {
                 "practice": "Data / representation",
@@ -220,6 +227,7 @@ class MistralServiceTests(unittest.TestCase):
         )
         self.assertEqual(result[0]["status"], "Opportunity")
         self.assertEqual(result[0]["refinement"], "Ask learners to divide the design into smaller constraints.")
+        self.assertEqual(result[0]["positive_note"], "Learners already plan the overall design before building it.")
         self.assertEqual(result[3]["evidence"], "Learners write and compare step sequences.")
         self.assertEqual(result[1]["status"], "Not identified")
         self.assertEqual(result[2]["activity"], "")
