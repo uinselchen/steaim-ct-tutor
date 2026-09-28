@@ -264,6 +264,10 @@
 
           <div class="analysis-actions">
             <a href="lesson-info.html" class="action-link secondary-button">Back</a>
+            <button id="downloadAnalysisButton" class="action-button secondary-button" type="button">
+              <span class="button-text">Download analysis</span>
+              <span class="button-arrow">↓</span>
+            </button>
             <a id="continueButton" class="action-button primary-button" href="refining-and-improving.html">
               <span class="button-text">Continue</span>
               <span class="button-arrow">→</span>
@@ -1118,6 +1122,102 @@
       }
     }
 
+    function buildAnalysisDownloadText(analysis) {
+      var summary = analysis.lesson_plan_summary || {};
+      var lines = [
+        "STEaiM-CT Tutor - First analysis",
+        "================================",
+        "",
+        "LESSON PLAN SUMMARY",
+        summary.short_summary || "No summary returned.",
+        "Detected subjects: " + (normalizeItems(summary.detected_subjects).join(", ") || "Not detected"),
+        "Detected grade range: " + formatRange(summary.detected_grade_range),
+        "Detected age range: " + formatRange(summary.detected_age_range),
+        ""
+      ];
+
+      if (summary.notes_for_teacher) {
+        lines.push("Note for teacher: " + summary.notes_for_teacher, "");
+      }
+
+      lines.push("ANALYSIS FOCUS");
+      var focus = analysis.analysis_focus && typeof analysis.analysis_focus === "object" ? analysis.analysis_focus : {};
+      [
+        ["Time scope", "time_scope"],
+        ["Goals / competencies", "goals_competencies"],
+        ["Adaptability", "adaptability"],
+        ["Detail level", "detail_level"],
+        ["Target group", "target_group"],
+        ["Curriculum alignment", "curriculum_alignment"]
+      ].forEach(function (entry) {
+        var item = focus[entry[1]] || {};
+        lines.push(
+          entry[0] + ": " + formatStatusLabel(item.status) +
+          (item.match_score ? " (Match: " + item.match_score + "/10)" : "")
+        );
+        if (item.note) {
+          lines.push("  " + item.note);
+        }
+      });
+      lines.push("");
+
+      lines.push("COMPUTATIONAL THINKING");
+      normalizeComputationalThinkingForDisplay(analysis.computational_thinking).forEach(function (item) {
+        lines.push(item.practice + " - " + item.status);
+        lines.push("  Activity: " + (item.activity || "No associated activity identified"));
+        lines.push("  Evidence: " + (item.evidence || "No sufficient learner evidence identified."));
+        if (item.limitation) {
+          lines.push("  Limitation: " + item.limitation);
+        }
+        if (item.refinement) {
+          lines.push("  Possible refinement: " + item.refinement);
+        }
+        lines.push("");
+      });
+
+      lines.push("DETAILED ANALYSIS");
+      var categories = Array.isArray(analysis.categories) ? analysis.categories : [];
+      categories.forEach(function (category) {
+        lines.push("\n" + (category.title || "Category"));
+        (Array.isArray(category.items) ? category.items : []).forEach(function (item) {
+          lines.push("- " + (item.title || "Identified point"));
+          if (item.short_explanation) lines.push("  " + item.short_explanation);
+          if (item.why_it_matters) lines.push("  Why it matters: " + item.why_it_matters);
+          if (item.suggested_next_action) lines.push("  Suggested next action: " + item.suggested_next_action);
+        });
+      });
+
+      var clarifications = [];
+      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
+        if (box.value.trim()) {
+          clarifications.push((box.dataset.ctPractice || "CT practice") + ": " + box.value.trim());
+        }
+      });
+      if (clarifications.length) {
+        lines.push("\nTEACHER CLARIFICATIONS");
+        clarifications.forEach(function (clarification) {
+          lines.push("- " + clarification);
+        });
+      }
+      return lines.join("\n").trim() + "\n";
+    }
+
+    function downloadAnalysisText(analysis, meta) {
+      var filename = (meta && meta.filename ? meta.filename : "lesson-plan")
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-z0-9_-]+/gi, "-")
+        .replace(/^-+|-+$/g, "") || "lesson-plan";
+      var blob = new Blob([buildAnalysisDownloadText(analysis)], { type: "text/plain;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = filename + "-analysis.txt";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
       function getAdditionalUploadState() {
         var raw = window.localStorage.getItem("step2AdditionalUploadMeta");
         try {
@@ -1201,6 +1301,13 @@
 
       setText("analysisNextStep", "Select the points you want to refine, add clarifications if needed, and continue to the dialogue.");
       renderMeta(meta);
+    }
+
+    var downloadAnalysisButton = document.getElementById("downloadAnalysisButton");
+    if (downloadAnalysisButton && analysis && !analysis.error) {
+      downloadAnalysisButton.addEventListener("click", function () {
+        downloadAnalysisText(analysis, meta);
+      });
     }
 
     renderAdditionalUploadList(getAdditionalUploadState());
