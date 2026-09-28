@@ -11,6 +11,43 @@ from prompts import load_prompt_file
 from text_utils import build_conversation_text, parse_subjects_value
 
 
+COMPUTATIONAL_THINKING_PRACTICES = (
+    "Decomposition",
+    "Pattern recognition / generalisation",
+    "Abstraction",
+    "Algorithmic thinking",
+    "Testing / debugging / evaluation",
+    "Data / representation",
+)
+COMPUTATIONAL_THINKING_STATUSES = {"Present", "Opportunity", "Not identified"}
+
+
+def normalize_computational_thinking(value):
+    """Return a stable, safe CT analysis shape for the Step 2 UI."""
+    entries = value if isinstance(value, list) else []
+    by_practice = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        practice = str(entry.get("practice", "")).strip()
+        if practice in COMPUTATIONAL_THINKING_PRACTICES and practice not in by_practice:
+            by_practice[practice] = entry
+
+    normalized = []
+    for practice in COMPUTATIONAL_THINKING_PRACTICES:
+        entry = by_practice.get(practice, {})
+        status = str(entry.get("status", "")).strip()
+        normalized.append({
+            "practice": practice,
+            "status": status if status in COMPUTATIONAL_THINKING_STATUSES else "Not identified",
+            "activity": str(entry.get("activity", "") or "").strip(),
+            "evidence": str(entry.get("evidence", "") or "").strip(),
+            "limitation": str(entry.get("limitation", "") or "").strip(),
+            "refinement": str(entry.get("refinement", "") or "").strip(),
+        })
+    return normalized
+
+
 def get_step3_focus_label(payload):
     current_node = payload.get("currentNode") if isinstance(payload.get("currentNode"), dict) else {}
     focus_title = str(current_node.get("pointTitle", "")).strip()
@@ -385,7 +422,12 @@ def call_mistral_analysis(payload):
     try:
         content = response_data["choices"][0]["message"]["content"]
         log_message(f"[mistral] Raw content preview: {content[:500]}")
-        return parse_mistral_json_content(content, "mistral", config.MISTRAL_TEST_TIMEOUT)
+        parsed = parse_mistral_json_content(content, "mistral", config.MISTRAL_TEST_TIMEOUT)
+        if isinstance(parsed, dict) and "error" not in parsed:
+            parsed["computational_thinking"] = normalize_computational_thinking(
+                parsed.get("computational_thinking")
+            )
+        return parsed
     except Exception as error:
         log_message(f"[mistral] Could not parse response: {error}")
         log_message(traceback.format_exc())

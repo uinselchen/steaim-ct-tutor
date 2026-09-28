@@ -163,6 +163,63 @@ class Step2ServiceTests(unittest.TestCase):
 
 
 class MistralServiceTests(unittest.TestCase):
+    def test_normalize_computational_thinking_returns_all_practices_in_order(self):
+        raw = [
+            {
+                "practice": "Algorithmic thinking",
+                "status": "Present",
+                "activity": "Activity 3",
+                "evidence": "Learners write and compare step sequences.",
+                "limitation": "",
+                "refinement": "",
+            },
+            {
+                "practice": "Decomposition",
+                "status": "Opportunity",
+                "activity": "Activity 2",
+                "evidence": "Learners work on one complete design task.",
+                "limitation": "The task is not split into smaller constraints.",
+                "refinement": "Ask learners to divide the design into smaller constraints.",
+            },
+            {
+                "practice": "Data / representation",
+                "status": "Not identified",
+                "activity": "",
+                "evidence": "No learner data representation is described.",
+            },
+            {"practice": "Unknown practice", "status": "Present"},
+        ]
+
+        result = mistral_service.normalize_computational_thinking(raw)
+
+        self.assertEqual(
+            [item["practice"] for item in result],
+            [
+                "Decomposition",
+                "Pattern recognition / generalisation",
+                "Abstraction",
+                "Algorithmic thinking",
+                "Testing / debugging / evaluation",
+                "Data / representation",
+            ],
+        )
+        self.assertEqual(result[0]["status"], "Opportunity")
+        self.assertEqual(result[0]["refinement"], "Ask learners to divide the design into smaller constraints.")
+        self.assertEqual(result[3]["evidence"], "Learners write and compare step sequences.")
+        self.assertEqual(result[1]["status"], "Not identified")
+        self.assertEqual(result[2]["activity"], "")
+
+    def test_normalize_computational_thinking_defaults_malformed_values(self):
+        result = mistral_service.normalize_computational_thinking(
+            [{"practice": "Abstraction", "status": "Maybe", "evidence": 123}, "not an object"]
+        )
+
+        abstraction = result[2]
+        self.assertEqual(abstraction["status"], "Not identified")
+        self.assertEqual(abstraction["evidence"], "123")
+        self.assertEqual(abstraction["activity"], "")
+        self.assertEqual(result[0]["status"], "Not identified")
+
     def test_parse_json_response_block_repairs_common_model_mistakes(self):
         raw = """```json
         {summary: "ok", "done": True, "items": ["a",],}
