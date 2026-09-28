@@ -71,7 +71,6 @@ document.addEventListener("DOMContentLoaded", function () {
   function applyStatus(status) {
     status = status || {};
     var mistral = status.mistral || {};
-    var email = status.email || {};
     var paths = status.paths || {};
 
     renderRuntimeStatus(status);
@@ -82,11 +81,6 @@ document.addEventListener("DOMContentLoaded", function () {
         ? "Configured. Model: " + (mistral.model || "default") + ". API URL: " + (mistral.apiUrl || "not set")
         : "No API key configured. Enter it below; it will be stored locally in " + (mistral.apiKeyFile || "app/server/mistral_api_key.txt") + ".",
       mistral.configured ? "status-ok" : "status-warning"
-    );
-    setText(
-      "emailStatus",
-      email.configured ? "Configured. Recipient: " + (email.recipient || "not shown") : "Missing SMTP or MAIL_TO_ADDRESS settings in app/server/.env.",
-      email.configured ? "status-ok" : "status-warning"
     );
     setText(
       "curriculaStatus",
@@ -115,7 +109,6 @@ document.addEventListener("DOMContentLoaded", function () {
       .then(applyStatus)
       .catch(function (error) {
         setText("mistralStatus", error.message, "status-warning");
-        setText("emailStatus", "Status unavailable.", "status-warning");
         setText("curriculaStatus", "Status unavailable.", "status-warning");
         setText("logsStatus", "Status unavailable.", "status-warning");
       });

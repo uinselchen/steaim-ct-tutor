@@ -77,9 +77,6 @@
 
         <div class="download-bottom-actions">
           <a href="refining-and-improving.html" class="action-link secondary-button">Back to editing</a>
-          <button id="saveAccountButton" class="action-button secondary-button outline-button" type="button">
-            <span class="button-text">Send by email</span>
-          </button>
           <button id="copyClipboardButton" class="action-button secondary-button outline-button" type="button">
             <span class="button-text">Copy to clipboard</span>
           </button>
@@ -115,21 +112,6 @@
           <button id="viewAllStrengthsButton" class="text-button" type="button">View all strengths</button>
         </section>
 
-        <section class="download-help-card">
-          <div class="download-help-icon">✓</div>
-          <div class="download-help-text">
-            <h3>Send a copy by email</h3>
-            <p>If enabled, the changes, pros, and cons will be sent as text files to the configured local email address when you finish.</p>
-          </div>
-          <div class="download-help-toggle">
-            <label class="toggle-line toggle-label" for="emailShareToggle">
-              <input id="emailShareToggle" class="toggle-input" type="checkbox" />
-              <span class="toggle-switch"></span>
-              <span>Yes, send it to email</span>
-            </label>
-            <p>The recipient is configured locally in <code>app/server/.env</code>.</p>
-          </div>
-        </section>
       </aside>
     </main>
   </div>
@@ -232,30 +214,12 @@
     var draft = getDraft();
     var conversation = getConversationLog();
     var preparation = getPreparation();
-    var emailToggleKey = "downloadEmailEnabled";
-
-    function getEmailShareEnabled() {
-      return window.localStorage.getItem(emailToggleKey) === "true";
-    }
-
-    function setEmailShareEnabled(value) {
-      window.localStorage.setItem(emailToggleKey, value ? "true" : "false");
-      var toggle = document.getElementById("emailShareToggle");
-      if (toggle) {
-        toggle.checked = !!value;
-      }
-    }
-
       function setBusyState(isBusy) {
         var finishButton = document.getElementById("finishButton");
-        var sendButton = document.getElementById("saveAccountButton");
         var docxButton = document.getElementById("downloadDocxButton");
         var pdfButton = document.getElementById("downloadPdfButton");
         if (finishButton) {
           finishButton.disabled = !!isBusy;
-        }
-        if (sendButton) {
-          sendButton.disabled = !!isBusy;
         }
         if (docxButton) {
           docxButton.disabled = !!isBusy;
@@ -274,61 +238,6 @@
         lines.push(time + role + ": " + (message.text || ""));
       });
       return lines.join("\n");
-    }
-
-    function buildEmailPayload() {
-      return {
-        enabled: true,
-        sessionId: preparation && preparation.sessionId ? preparation.sessionId : "",
-        filename: preparation && preparation.filename ? preparation.filename : "",
-        draft: draft,
-        analysis: safeParse(window.localStorage.getItem("step2Analysis"), {}),
-        sourceDocument: preparation && preparation.sourceDocument ? preparation.sourceDocument : null
-      };
-      }
-
-      function sendSummaryEmail() {
-        if (!getEmailShareEnabled()) {
-          setText("downloadStatus", "Enable the switch if you want to send a copy by email.");
-          return Promise.resolve(null);
-        }
-        if (!draft && !(preparation && preparation.sessionId)) {
-          setText("downloadStatus", "No draft found. Please return to Step 3 first.");
-          return Promise.reject(new Error("No draft found"));
-        }
-
-      setBusyState(true);
-      setText("downloadStatus", "Sending email...");
-
-      return fetch("/send-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(buildEmailPayload())
-      }).then(function (response) {
-        return response.text().then(function (text) {
-          var data = null;
-          try {
-            data = text ? JSON.parse(text) : null;
-          } catch (error) {
-            data = null;
-          }
-          if (!response.ok) {
-            var message = (data && data.error) ? data.error : "Unable to send email.";
-            throw new Error(message);
-          }
-          return data || {};
-        });
-      }).then(function (result) {
-        setText("downloadStatus", "Email sent successfully.");
-        return result;
-      }).catch(function (error) {
-        setText("downloadStatus", error && error.message ? error.message : "Unable to send email.");
-        throw error;
-      }).finally(function () {
-        setBusyState(false);
-      });
     }
 
     function buildPreview() {
@@ -651,18 +560,7 @@
           window.location.href = "start.html";
         };
 
-      if (!getEmailShareEnabled()) {
-        finalize();
-        return;
-      }
-
-      sendSummaryEmail()
-        .then(function () {
-          finalize();
-        })
-        .catch(function () {
-          // Keep the current page open so the user can try again.
-        });
+      finalize();
     }
 
     function start() {
@@ -670,7 +568,6 @@
       renderChangeList();
       renderStrengths();
       buildPreview();
-      setEmailShareEnabled(getEmailShareEnabled());
       if (!draft) {
         setText("downloadStatus", "Please return to Step 3 and create a draft first.");
       }
@@ -688,13 +585,6 @@
       });
       document.getElementById("printPreviewButton").addEventListener("click", function () {
         window.print();
-      });
-      document.getElementById("saveAccountButton").addEventListener("click", function () {
-        sendSummaryEmail().catch(function () {});
-      });
-      document.getElementById("emailShareToggle").addEventListener("change", function (event) {
-        setEmailShareEnabled(event.target.checked);
-        setText("downloadStatus", event.target.checked ? "Email sharing enabled." : "Email sharing disabled.");
       });
       document.getElementById("viewAllChangesButton").addEventListener("click", openHistoryModal);
       document.getElementById("viewAllStrengthsButton").addEventListener("click", openStrengthsModal);
