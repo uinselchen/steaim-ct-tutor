@@ -5,6 +5,113 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>First Analysis and Suggestions</title>
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .ct-analysis-panel {
+      margin: 28px 0;
+      padding: 24px;
+      border: 1px solid #dfe3f4;
+      border-radius: 18px;
+      background: #fff;
+    }
+
+    .ct-analysis-intro {
+      margin: 6px 0 18px;
+      color: #68718b;
+      line-height: 1.5;
+    }
+
+    .ct-analysis-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .ct-analysis-table th,
+    .ct-analysis-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #edf0f8;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .ct-analysis-table th {
+      color: #68718b;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .ct-analysis-table th:nth-child(1) { width: 34%; }
+    .ct-analysis-table th:nth-child(2) { width: 20%; }
+    .ct-analysis-table th:nth-child(3) { width: 46%; }
+
+    .ct-analysis-row:last-child td { border-bottom: 0; }
+
+    .ct-analysis-details {
+      width: 100%;
+    }
+
+    .ct-analysis-details summary {
+      cursor: pointer;
+      list-style-position: outside;
+    }
+
+    .ct-analysis-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.35fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .ct-practice-name {
+      color: #202840;
+      font-weight: 700;
+    }
+
+    .ct-status {
+      display: inline-flex;
+      width: fit-content;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .ct-status-present { color: #21734b; background: #e8f7ed; }
+    .ct-status-opportunity { color: #8a6517; background: #fff5d9; }
+    .ct-status-not-identified { color: #68718b; background: #eef0f6; }
+
+    .ct-activity {
+      color: #68718b;
+      line-height: 1.4;
+    }
+
+    .ct-analysis-detail {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0 4px 22px;
+      padding: 14px 16px;
+      border-left: 3px solid #dfe3f4;
+      color: #4f5872;
+      line-height: 1.5;
+    }
+
+    .ct-analysis-detail strong { color: #202840; }
+
+    @media (max-width: 760px) {
+      .ct-analysis-panel { padding: 16px; }
+      .ct-analysis-table, .ct-analysis-table thead, .ct-analysis-table tbody,
+      .ct-analysis-table tr, .ct-analysis-table th, .ct-analysis-table td {
+        display: block;
+      }
+      .ct-analysis-table thead { display: none; }
+      .ct-analysis-table td { border-bottom: 0; padding: 5px 0; }
+      .ct-analysis-row { padding: 12px 0; border-bottom: 1px solid #edf0f8; }
+      .ct-analysis-summary { grid-template-columns: 1fr; gap: 7px; }
+      .ct-analysis-detail { margin-left: 0; }
+    }
+  </style>
 </head>
 <body class="analysis-page">
   <div class="page-shell">
@@ -92,6 +199,23 @@
         </section>
 
         <div id="analysisSections"></div>
+
+        <section id="computationalThinkingPanel" class="ct-analysis-panel" hidden>
+          <h2>Computational Thinking</h2>
+          <p class="ct-analysis-intro">
+            Evidence-based feedback on computational thinking practices performed by learners in the lesson plan.
+          </p>
+          <table class="ct-analysis-table">
+            <thead>
+              <tr>
+                <th scope="col">CT practice</th>
+                <th scope="col">Status</th>
+                <th scope="col">Associated activity</th>
+              </tr>
+            </thead>
+            <tbody id="computationalThinkingRows"></tbody>
+          </table>
+        </section>
 
         <section class="analysis-bottom">
           <div class="analysis-bottom-grid">
@@ -817,6 +941,106 @@
       });
     }
 
+    var COMPUTATIONAL_THINKING_PRACTICES = [
+      "Decomposition",
+      "Pattern recognition / generalisation",
+      "Abstraction",
+      "Algorithmic thinking",
+      "Testing / debugging / evaluation",
+      "Data / representation"
+    ];
+
+    function normalizeComputationalThinkingForDisplay(value) {
+      var entries = Array.isArray(value) ? value : [];
+      var byPractice = {};
+      entries.forEach(function (entry) {
+        if (!entry || typeof entry !== "object") {
+          return;
+        }
+        var practice = String(entry.practice || "").trim();
+        if (COMPUTATIONAL_THINKING_PRACTICES.indexOf(practice) !== -1 && !byPractice[practice]) {
+          byPractice[practice] = entry;
+        }
+      });
+      return COMPUTATIONAL_THINKING_PRACTICES.map(function (practice) {
+        var entry = byPractice[practice] || {};
+        var status = String(entry.status || "Not identified").trim();
+        if (["Present", "Opportunity", "Not identified"].indexOf(status) === -1) {
+          status = "Not identified";
+        }
+        return {
+          practice: practice,
+          status: status,
+          activity: String(entry.activity || "").trim(),
+          evidence: String(entry.evidence || "").trim(),
+          limitation: String(entry.limitation || "").trim(),
+          refinement: String(entry.refinement || "").trim()
+        };
+      });
+    }
+
+    function appendCtDetail(container, label, value) {
+      var line = document.createElement("div");
+      var strong = document.createElement("strong");
+      strong.textContent = label + ": ";
+      line.appendChild(strong);
+      var text = document.createTextNode(value);
+      line.appendChild(text);
+      container.appendChild(line);
+    }
+
+    function renderComputationalThinking(value) {
+      var panel = document.getElementById("computationalThinkingPanel");
+      var rows = document.getElementById("computationalThinkingRows");
+      if (!panel || !rows) {
+        return;
+      }
+      rows.textContent = "";
+      normalizeComputationalThinkingForDisplay(value).forEach(function (item) {
+        var row = document.createElement("tr");
+        row.className = "ct-analysis-row";
+        var cell = document.createElement("td");
+        cell.colSpan = 3;
+
+        var details = document.createElement("details");
+        details.className = "ct-analysis-details";
+        var summary = document.createElement("summary");
+        var summaryGrid = document.createElement("span");
+        summaryGrid.className = "ct-analysis-summary";
+
+        var practice = document.createElement("span");
+        practice.className = "ct-practice-name";
+        practice.textContent = item.practice;
+        var status = document.createElement("span");
+        status.className = "ct-status ct-status-" + item.status.toLowerCase().replace(/[^a-z]+/g, "-");
+        status.textContent = item.status;
+        var activity = document.createElement("span");
+        activity.className = "ct-activity";
+        activity.textContent = item.activity || "No associated activity identified";
+
+        summaryGrid.appendChild(practice);
+        summaryGrid.appendChild(status);
+        summaryGrid.appendChild(activity);
+        summary.appendChild(summaryGrid);
+        details.appendChild(summary);
+
+        var detail = document.createElement("div");
+        detail.className = "ct-analysis-detail";
+        appendCtDetail(detail, "Evidence", item.evidence || "No sufficient learner evidence identified.");
+        if (item.limitation) {
+          appendCtDetail(detail, "Limitation", item.limitation);
+        }
+        if (item.refinement) {
+          appendCtDetail(detail, "Possible refinement", item.refinement);
+        }
+        details.appendChild(detail);
+        cell.appendChild(details);
+        row.appendChild(cell);
+        rows.appendChild(row);
+      });
+      panel.hidden = false;
+    }
+
     function renderMeta(meta) {
       var metaBox = document.getElementById("analysisMeta");
       var lines = [];
@@ -899,6 +1123,7 @@
       var summary = analysis.lesson_plan_summary || {};
       renderSummary(summary, analysis);
       renderAnalysisFocus(analysis.analysis_focus);
+      renderComputationalThinking(analysis.computational_thinking);
       var privacyWarning = getPrivacyWarningText(summary, analysis);
       if (privacyWarning) {
         privacyWarningActive = true;
