@@ -235,6 +235,27 @@ class MistralServiceTests(unittest.TestCase):
         self.assertEqual(abstraction["activity"], "")
         self.assertEqual(result[0]["status"], "Not identified")
 
+    def test_call_mistral_analysis_normalizes_computational_thinking_response(self):
+        original_key = config.MISTRAL_API_KEY
+        config.MISTRAL_API_KEY = "test-key"
+        response = {
+            "choices": [{
+                "message": {
+                    "content": '{"lesson_plan_summary": {}, "computational_thinking": [{"practice": "Abstraction", "status": "Present", "activity": "Activity 1", "evidence": "Learners remove irrelevant details."}]}'
+                }
+            }]
+        }
+        try:
+            with patch.object(mistral_service, "post_mistral_chat_completion", return_value=response):
+                result = mistral_service.call_mistral_analysis({"documentText": "lesson"})
+
+            self.assertEqual(len(result["computational_thinking"]), 6)
+            self.assertEqual(result["computational_thinking"][2]["status"], "Present")
+            self.assertEqual(result["computational_thinking"][2]["activity"], "Activity 1")
+            self.assertEqual(result["computational_thinking"][0]["status"], "Not identified")
+        finally:
+            config.MISTRAL_API_KEY = original_key
+
     def test_parse_json_response_block_repairs_common_model_mistakes(self):
         raw = """```json
         {summary: "ok", "done": True, "items": ["a",],}
