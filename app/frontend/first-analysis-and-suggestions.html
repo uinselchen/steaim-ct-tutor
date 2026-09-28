@@ -1171,6 +1171,10 @@
         }
         if (item.refinement) {
           lines.push("  Possible refinement: " + item.refinement);
+        } else if (item.status === "Present") {
+          lines.push("  Positive note: This practice is clearly evidenced in the learner activity.");
+        } else {
+          lines.push("  Possible refinement: Clarify or strengthen this practice within the existing activity if it fits the lesson goals.");
         }
         lines.push("");
       });
@@ -1183,7 +1187,20 @@
           lines.push("- " + (item.title || "Identified point"));
           if (item.short_explanation) lines.push("  " + item.short_explanation);
           if (item.why_it_matters) lines.push("  Why it matters: " + item.why_it_matters);
-          if (item.suggested_next_action) lines.push("  Suggested next action: " + item.suggested_next_action);
+          if (item.citation && item.citation.cited_text) {
+            lines.push("  Evidence / basis: " + item.citation.cited_text);
+          } else if (item.short_explanation || item.why_it_matters) {
+            lines.push("  Evidence / basis: The point is based on the lesson-plan activity described above.");
+          } else {
+            lines.push("  Evidence / basis: No detailed evidence sentence was returned for this point.");
+          }
+          if (item.suggested_next_action) {
+            lines.push("  Suggested improvement: " + item.suggested_next_action);
+          } else if (normalizeMatchScore(item.match_score) >= 7) {
+            lines.push("  Positive note: This point is assessed as a strong fit in the lesson plan.");
+          } else {
+            lines.push("  Suggested improvement: Clarify or adapt this point in the refinement discussion based on the evidence above.");
+          }
         });
       });
 
