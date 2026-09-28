@@ -10,13 +10,7 @@ import mimetypes
 import tempfile
 import traceback
 from http import HTTPStatus
-
 import config
-import email_service
-import mistral_service
-import settings_service
-import step2_service
-import step3_service
 from config import (
     APP_ROOT,
     CONFIG_FILE,
@@ -26,6 +20,11 @@ from config import (
     LESSONPLANS_ROOT,
     PORT,
 )
+import email_service
+import mistral_service
+import settings_service
+import step2_service
+import step3_service
 import export_service
 from export_service import normalize_filename_piece
 from file_extractors import extract_text_from_file
@@ -41,18 +40,19 @@ if not config.MISTRAL_API_KEY:
         f"the local key file is {config.MISTRAL_API_KEY_FILE}."
     )
 
+#TODO: Shouldn't we only use partner countries as default?
 if not os.path.exists(CONFIG_FILE):
     # TODO: Yes, use only the project's partner countries. Please ask questions in the chat instead of using TODO comments as messages.
     default_config = {
         "countries": [
-            "Slovakia",
-            "Germany",
             "Austria",
-            "Spain",
             "Czech Republic",
+            "Italy"
+            "Germany",
+            "Spain",
             "Poland",
             "Portugal",
-            "Italy"
+            "Slovakia",
         ],
         "subjects": [
             "Mathematics",
@@ -65,6 +65,8 @@ if not os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, "w", encoding="utf-8") as config_file:
         json.dump(default_config, config_file, indent=2)
 
+
+###  ####
 class TutorHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         route = urllib.parse.urlparse(self.path).path
