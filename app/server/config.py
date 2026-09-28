@@ -32,6 +32,11 @@ MISTRAL_MODEL = DEFAULT_MISTRAL_MODEL
 MISTRAL_ANALYSIS_TIMEOUT = 180
 MISTRAL_REFINEMENT_TIMEOUT = 120
 MISTRAL_TEST_TIMEOUT = 30
+
+# Optional email backend configuration. The current UI does not expose email
+# sending, but the backend can be re-enabled by setting SMTP_HOST,
+# SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, MAIL_FROM_ADDRESS, and
+# MAIL_TO_ADDRESS in app/server/.env, then calling POST /send-email.
 SMTP_HOST = None
 SMTP_PORT = DEFAULT_SMTP_PORT
 SMTP_USERNAME = None

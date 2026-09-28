@@ -20,6 +20,9 @@ from config import (
     LESSONPLANS_ROOT,
     PORT,
 )
+# Optional backend endpoint for local email exports. The frontend controls are
+# currently hidden; restore a POST /send-email client action if email delivery
+# is needed again and configure the SMTP values in app/server/.env.
 import email_service
 import mistral_service
 import settings_service
@@ -101,6 +104,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             self.handle_step2_prepare()
         elif route == "/step3-refine":
             self.handle_step3_refine()
+        # Kept for optional local email integrations; no current UI calls it.
         elif route == "/send-email":
             self.handle_send_email()
         elif route == "/export-docx":
@@ -541,6 +545,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def handle_send_email(self):
+        """Send the optional change-summary email through local SMTP setup."""
         try:
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
