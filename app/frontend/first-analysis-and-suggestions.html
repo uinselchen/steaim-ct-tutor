@@ -41,14 +41,23 @@
       text-transform: uppercase;
     }
 
-    .ct-analysis-table th:nth-child(1) { width: 34%; }
-    .ct-analysis-table th:nth-child(2) { width: 20%; }
-    .ct-analysis-table th:nth-child(3) { width: 46%; }
+    .ct-analysis-table th:nth-child(1) { width: 27%; }
+    .ct-analysis-table th:nth-child(2) { width: 16%; }
+    .ct-analysis-table th:nth-child(3) { width: 32%; }
+    .ct-analysis-table th:nth-child(4) { width: 25%; }
 
     .ct-analysis-row:last-child td { border-bottom: 0; }
 
     .ct-analysis-details {
       width: 100%;
+      grid-column: 1 / span 3;
+    }
+
+    .ct-row-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr) minmax(190px, 0.9fr);
+      gap: 16px;
+      align-items: start;
     }
 
     .ct-analysis-details summary {
@@ -99,6 +108,24 @@
 
     .ct-analysis-detail strong { color: #202840; }
 
+    .ct-discussion-box {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 76px;
+      padding: 10px 12px;
+      border: 1px solid #dfe3f4;
+      border-radius: 10px;
+      color: #202840;
+      font: inherit;
+      line-height: 1.4;
+      resize: vertical;
+    }
+
+    .ct-discussion-box:focus {
+      outline: 2px solid #635bff;
+      outline-offset: 1px;
+    }
+
     @media (max-width: 760px) {
       .ct-analysis-panel { padding: 16px; }
       .ct-analysis-table, .ct-analysis-table thead, .ct-analysis-table tbody,
@@ -109,6 +136,8 @@
       .ct-analysis-table td { border-bottom: 0; padding: 5px 0; }
       .ct-analysis-row { padding: 12px 0; border-bottom: 1px solid #edf0f8; }
       .ct-analysis-summary { grid-template-columns: 1fr; gap: 7px; }
+      .ct-row-layout { grid-template-columns: 1fr; gap: 12px; }
+      .ct-analysis-details { grid-column: 1; }
       .ct-analysis-detail { margin-left: 0; }
     }
   </style>
@@ -211,6 +240,7 @@
                 <th scope="col">CT practice</th>
                 <th scope="col">Status</th>
                 <th scope="col">Associated activity</th>
+                <th scope="col">Discussion / clarification</th>
               </tr>
             </thead>
             <tbody id="computationalThinkingRows"></tbody>
@@ -824,6 +854,19 @@
 
     function collectSelectionsForNextStep() {
       var selected = collectSelections();
+      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
+        var clarification = box.value.trim();
+        if (!clarification) {
+          return;
+        }
+        var practice = box.dataset.ctPractice || "Computational Thinking practice";
+        selected.push({
+          category_id: "computational_thinking",
+          item_id: "clarification-" + practice.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          title: "Clarify " + practice,
+          teacher_comment: clarification
+        });
+      });
       var privacyWarning = window.localStorage.getItem("step2PrivacyWarning") || "";
       if (privacyWarning) {
         selected = selected.filter(function (item) {
@@ -1000,7 +1043,10 @@
         var row = document.createElement("tr");
         row.className = "ct-analysis-row";
         var cell = document.createElement("td");
-        cell.colSpan = 3;
+        cell.colSpan = 4;
+
+        var rowLayout = document.createElement("span");
+        rowLayout.className = "ct-row-layout";
 
         var details = document.createElement("details");
         details.className = "ct-analysis-details";
@@ -1034,7 +1080,16 @@
           appendCtDetail(detail, "Possible refinement", item.refinement);
         }
         details.appendChild(detail);
-        cell.appendChild(details);
+        rowLayout.appendChild(details);
+        if (item.status === "Not identified") {
+          var discussion = document.createElement("textarea");
+          discussion.className = "ct-discussion-box";
+          discussion.dataset.ctPractice = item.practice;
+          discussion.setAttribute("aria-label", "Discussion or clarification for " + item.practice);
+          discussion.placeholder = "Add clarification...";
+          rowLayout.appendChild(discussion);
+        }
+        cell.appendChild(rowLayout);
         row.appendChild(cell);
         rows.appendChild(row);
       });
