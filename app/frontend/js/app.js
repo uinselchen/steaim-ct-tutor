@@ -1,4 +1,17 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Each tutor restart begins in English; the selection can still be changed for this run.
+  window.localStorage.setItem("preferredLanguage", "English");
+  window.localStorage.setItem("preferredLanguageCountry", "");
+  window.dispatchEvent(new Event("languagechange"));
+
+  // A browser session starts with no lesson-specific conversation state.
+  if (!window.sessionStorage.getItem("tutorSessionInitialized")) {
+    ["step2Analysis", "step2UploadMeta", "step2Selections", "step2Preparation", "step2PointDiscussions", "step2AdditionalUploadMeta", "step2PrivacyWarning", "step3Draft", "step3Conversation", "step3Progress", "step3Session"].forEach(function (key) {
+      window.localStorage.removeItem(key);
+    });
+    window.sessionStorage.setItem("tutorSessionInitialized", "1");
+  }
+
   var startButton = document.getElementById("startButton");
   var infoButton = document.getElementById("infoButton");
   var projectButton = document.getElementById("projectButton");
@@ -7,8 +20,81 @@ document.addEventListener("DOMContentLoaded", function () {
   var configureApiKeyButton = document.getElementById("configureApiKeyButton");
   var apiKeyModalTitle = document.getElementById("apiKeyModalTitle");
   var apiKeyModalMessage = document.getElementById("apiKeyModalMessage");
+  var languageCountrySelect = document.getElementById("languageCountrySelect");
   var apiKeyConfigured = null;
   var setupReady = null;
+
+  var countryLanguages = {
+    Austria: "German",
+    Germany: "German",
+    Switzerland: "German",
+    Spain: "Spanish",
+    CzechRepublic: "Czech",
+    Poland: "Polish",
+    Portugal: "Portuguese",
+    Italy: "Italian",
+    France: "French",
+    Slovakia: "Slovak",
+    Hungary: "Hungarian",
+    Slovenia: "Slovenian",
+    Croatia: "Croatian",
+    Romania: "Romanian",
+    Bulgaria: "Bulgarian",
+    Greece: "Greek"
+  };
+
+  function languageForCountry(country) {
+    var key = String(country || "").replace(/[^A-Za-z]/g, "");
+    return countryLanguages[key] || String(country || "English");
+  }
+
+  function loadLanguageCountries() {
+    if (!languageCountrySelect) {
+      return;
+    }
+    fetch("/config")
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("Unable to load countries.");
+        }
+        return response.json();
+      })
+      .then(function (config) {
+        var countries = Array.isArray(config && config.countries) ? config.countries : [];
+        var storedCountry = window.localStorage.getItem("preferredLanguageCountry") || "";
+        languageCountrySelect.innerHTML = "";
+        var defaultOption = document.createElement("option");
+        defaultOption.value = "";
+        defaultOption.textContent = "English (default)";
+        languageCountrySelect.appendChild(defaultOption);
+        countries.forEach(function (country) {
+          var option = document.createElement("option");
+          option.value = country;
+          option.textContent = country + " (" + languageForCountry(country) + ")";
+          languageCountrySelect.appendChild(option);
+        });
+        if (countries.indexOf(storedCountry) !== -1) {
+          languageCountrySelect.value = storedCountry;
+        } else {
+          languageCountrySelect.value = "";
+          window.localStorage.setItem("preferredLanguageCountry", "");
+          window.localStorage.setItem("preferredLanguage", "English");
+        }
+        window.dispatchEvent(new Event("languagechange"));
+      })
+      .catch(function () {
+        languageCountrySelect.innerHTML = "<option value=\"\">English (default)</option>";
+      });
+  }
+
+  if (languageCountrySelect) {
+    languageCountrySelect.addEventListener("change", function () {
+      var country = languageCountrySelect.value;
+      window.localStorage.setItem("preferredLanguageCountry", country);
+      window.localStorage.setItem("preferredLanguage", languageForCountry(country));
+      window.dispatchEvent(new Event("languagechange"));
+    });
+  }
 
   function setApiKeyModalOpen(open) {
     if (!apiKeyModalBackdrop) {
@@ -107,4 +193,5 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   loadApiKeyStatus();
+  loadLanguageCountries();
 });

@@ -650,6 +650,127 @@ def render_lines_to_docx(lines, output_path):
     return output_path
 
 
+def build_analysis_docx(analysis, meta, discussions, clarifications, output_path):
+    if Document is None:
+        raise RuntimeError("python-docx is not available")
+
+    analysis = analysis if isinstance(analysis, dict) else {}
+    meta = meta if isinstance(meta, dict) else {}
+    discussions = discussions if isinstance(discussions, dict) else {}
+    clarifications = clarifications if isinstance(clarifications, list) else []
+    summary = analysis.get("lesson_plan_summary") if isinstance(analysis.get("lesson_plan_summary"), dict) else {}
+    document = Document()
+    document.add_heading("STEaiM-CT Tutor - First Analysis", level=0)
+    document.add_paragraph("Structured analysis and discussion record")
+
+    document.add_heading("Lesson context", level=1)
+    context_items = [
+        ("Uploaded document", meta.get("filename") or "Not available"),
+        ("Country", meta.get("country") or "Not specified"),
+        ("Subject", ", ".join(normalize_text_list(meta.get("subjects"))) or "Not specified"),
+        ("School grade", f"{meta.get('gradeFrom') or '?'} to {meta.get('gradeTo') or meta.get('gradeFrom') or '?'}"),
+        ("Age", f"{meta.get('ageFrom') or '?'} to {meta.get('ageTo') or meta.get('ageFrom') or '?'}"),
+    ]
+    for label, value in context_items:
+        add_docx_bullet_paragraph(document, f"{label}: {value}")
+
+    document.add_heading("Tutor understanding of the lesson plan", level=1)
+    document.add_paragraph(str(summary.get("short_summary") or "No summary returned."))
+    if summary.get("notes_for_teacher"):
+        add_docx_bullet_paragraph(document, f"Note for teacher: {summary['notes_for_teacher']}")
+    for label, value in (
+        ("Detected subjects", ", ".join(normalize_text_list(summary.get("detected_subjects"))) or "Not detected"),
+        ("Detected school grade", format_export_range(summary.get("detected_grade_range"))),
+        ("Detected age", format_export_range(summary.get("detected_age_range"))),
+    ):
+        add_docx_bullet_paragraph(document, f"{label}: {value}")
+
+    focus = analysis.get("analysis_focus") if isinstance(analysis.get("analysis_focus"), dict) else {}
+    document.add_heading("Analysis focus", level=1)
+    for label, key in (
+        ("Time scope", "time_scope"),
+        ("Goals / competencies", "goals_competencies"),
+        ("Adaptability", "adaptability"),
+        ("Detail level", "detail_level"),
+        ("Target group", "target_group"),
+        ("Curriculum alignment", "curriculum_alignment"),
+    ):
+        item = focus.get(key) if isinstance(focus.get(key), dict) else {}
+        document.add_heading(label, level=2)
+        status = str(item.get("status") or "unclear")
+        score = item.get("match_score")
+        add_docx_bullet_paragraph(document, f"Status: {status}" + (f" (Match: {score}/10)" if score else ""))
+        if item.get("note"):
+            add_docx_bullet_paragraph(document, item["note"])
+
+    document.add_heading("Computational Thinking", level=1)
+    for item in analysis.get("computational_thinking") if isinstance(analysis.get("computational_thinking"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        document.add_heading(str(item.get("practice") or "CT practice"), level=2)
+        add_docx_bullet_paragraph(document, f"Status: {item.get('status') or 'Not identified'}")
+        add_docx_bullet_paragraph(document, f"Activity: {item.get('activity') or 'No associated activity identified'}")
+        add_docx_bullet_paragraph(document, f"Evidence: {item.get('evidence') or 'No sufficient learner evidence identified.'}")
+        if item.get("limitation"):
+            add_docx_bullet_paragraph(document, f"Limitation: {item['limitation']}")
+        if item.get("refinement"):
+            add_docx_bullet_paragraph(document, f"Possible refinement: {item['refinement']}")
+        elif item.get("positive_note"):
+            add_docx_bullet_paragraph(document, f"Positive note: {item['positive_note']}")
+
+    document.add_heading("Detailed analysis", level=1)
+    for category in analysis.get("categories") if isinstance(analysis.get("categories"), list) else []:
+        if not isinstance(category, dict):
+            continue
+        document.add_heading(str(category.get("title") or "Category"), level=2)
+        for item in category.get("items") if isinstance(category.get("items"), list) else []:
+            if not isinstance(item, dict):
+                continue
+            document.add_heading(str(item.get("title") or "Identified point"), level=3)
+            for label, key in (("Explanation", "short_explanation"), ("Why it matters", "why_it_matters"), ("Evidence / basis", "evidence")):
+                if item.get(key):
+                    add_docx_bullet_paragraph(document, f"{label}: {item[key]}")
+            citation = item.get("citation") if isinstance(item.get("citation"), dict) else {}
+            if not item.get("evidence") and citation.get("cited_text"):
+                add_docx_bullet_paragraph(document, f"Evidence / basis: {citation['cited_text']}")
+            if item.get("suggested_next_action"):
+                add_docx_bullet_paragraph(document, f"Suggested improvement: {item['suggested_next_action']}")
+            elif item.get("positive_note"):
+                add_docx_bullet_paragraph(document, f"Positive note: {item['positive_note']}")
+
+    included_discussions = [item for item in discussions.values() if isinstance(item, dict) and item.get("includeInDownload") is not False]
+    if included_discussions:
+        document.add_heading("Discussion outcomes", level=1)
+        for discussion in included_discussions:
+            document.add_heading(
+                f"{discussion.get('categoryTitle') or 'Category'} - {discussion.get('pointTitle') or 'Identified point'}",
+                level=2,
+            )
+            for label, key in (("Decision", "decision"), ("Discussion summary", "summary"), ("Suggested adaptation", "adaptationProposal")):
+                if discussion.get(key):
+                    add_docx_bullet_paragraph(document, f"{label}: {discussion[key]}")
+            for message in discussion.get("messages") if isinstance(discussion.get("messages"), list) else []:
+                if isinstance(message, dict) and message.get("text"):
+                    speaker = "Teacher" if message.get("role") == "teacher" else "Tutor"
+                    add_docx_bullet_paragraph(document, f"{speaker}: {message['text']}")
+
+    if clarifications:
+        document.add_heading("Teacher clarifications", level=1)
+        for clarification in clarifications:
+            add_docx_bullet_paragraph(document, clarification)
+
+    document.save(output_path)
+    return output_path
+
+
+def format_export_range(value):
+    if isinstance(value, dict):
+        start = value.get("from") if value.get("from") is not None else "?"
+        end = value.get("to") if value.get("to") is not None else start
+        return f"{start} to {end}"
+    return str(value or "Not detected")
+
+
 def render_lines_to_pdf(lines, output_path):
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(

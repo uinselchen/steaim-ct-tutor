@@ -9,6 +9,12 @@
 <body>
   <main class="startscreen">
     <section class="start-card">
+      <div class="language-picker" aria-label="Tutor language">
+        <label for="languageCountrySelect">Tutor language</label>
+        <select id="languageCountrySelect">
+          <option value="">Loading countries...</option>
+        </select>
+      </div>
       <div class="brand-logos start-brand-logos">
         <img class="start-logo-erasmus" src="assets/eu_funded_en.jpg" alt="Co-funded by the EU logo" />
         <img class="start-logo-main" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
@@ -63,6 +69,7 @@
       </div>
     </section>
   </div>
+  <script src="js/i18n.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -358,6 +358,8 @@ def build_ui_target_context(metadata):
             "display": format_context_range(metadata.get("ageFrom", ""), metadata.get("ageTo", "")),
         },
         "specifics": str(metadata.get("specifics", "")).strip(),
+        "language": str(metadata.get("language", "")).strip() or "English",
+        "languageCountry": str(metadata.get("languageCountry", "")).strip(),
         "priority": "Use this teacher-entered UI context as the intended lesson context. Check the uploaded document against it.",
     }
 
@@ -367,7 +369,11 @@ def build_analysis_context_summary(payload):
     subjects = context.get("subjects") if isinstance(context.get("subjects"), list) else []
     grade_range = context.get("gradeRange") if isinstance(context.get("gradeRange"), dict) else {}
     age_range = context.get("ageRange") if isinstance(context.get("ageRange"), dict) else {}
-    language = context.get("language") if isinstance(context.get("language"), dict) else "English"
+    language_value = context.get("language")
+    if isinstance(language_value, dict):
+        language = language_value.get("name") or language_value.get("language") or "English"
+    else:
+        language = str(language_value or "English")
     lines = [
         "Teacher-entered UI target context (read this first):",
         f"- Country: {context.get('country') or 'not provided'}",
@@ -375,6 +381,7 @@ def build_analysis_context_summary(payload):
         f"- Intended grade range: {grade_range.get('display') or 'not provided'}",
         f"- Intended age range: {age_range.get('display') or 'not provided'}",
         f"- Specific teacher notes: {context.get('specifics') or 'none'}",
+        f"- Preferred tutor language: {language}",
         "",
         "Analysis instruction:",
         "Use the UI target context as the teacher's intended use case. Extract what the document says, then check whether the lesson plan fits this UI context based on the actual tasks and activity load. If the document claims a different grade or age than the UI context, report the mismatch clearly.",
@@ -458,6 +465,7 @@ def call_mistral_analysis_discussion(payload):
             "assistant_message": str(parsed.get("assistant_message", "")).strip(),
             "decision": str(parsed.get("decision", "")).strip(),
             "summary": str(parsed.get("summary", "")).strip(),
+            "adaptation_proposal": str(parsed.get("adaptation_proposal", "")).strip(),
             "include_in_download": bool(parsed.get("include_in_download", True)),
         }
     except urllib.error.HTTPError as error:

@@ -5,6 +5,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,6 +23,7 @@ config.ANALYSIS_LOG_FILE = os.path.join(TEST_LOG_ROOT, "analysis-log.txt")
 config.MISTRAL_PROMPT_LOG_FILE = os.path.join(TEST_LOG_ROOT, "mistral-prompt-log.txt")
 
 import email_service
+import export_service
 import logging_utils
 import mistral_service
 import settings_service
@@ -180,6 +182,8 @@ class MistralServiceTests(unittest.TestCase):
         discussion_prompt = (SERVER_ROOT / "prompts" / "analysis_discussion_system_prompt.txt").read_text(encoding="utf-8")
         self.assertIn("Discuss exactly one analysis point at a time", discussion_prompt)
         self.assertIn("include_in_download", discussion_prompt)
+        self.assertIn("latest teacher message", discussion_prompt)
+        self.assertIn("concrete adaptation proposal", discussion_prompt)
         self.assertIn("target grade lies within the document's grade range", prompt)
         self.assertIn("Do not judge a cross-curricular lesson as weakly aligned", prompt)
         self.assertIn("No explicit curriculum reference was found", prompt)
@@ -278,7 +282,7 @@ class MistralServiceTests(unittest.TestCase):
         response = {
             "choices": [{
                 "message": {
-                    "content": '{"assistant_message": "The evidence supports keeping this point.", "decision": "Keep as is", "summary": "The teacher confirmed the timing is intentional.", "include_in_download": true}'
+                    "content": '{"assistant_message": "The evidence supports keeping this point.", "decision": "Keep as is", "summary": "The teacher confirmed the timing is intentional.", "adaptation_proposal": "Keep the activity unchanged and document the timing rationale.", "include_in_download": true}'
                 }
             }]
         }
@@ -291,6 +295,7 @@ class MistralServiceTests(unittest.TestCase):
 
             self.assertEqual(result["decision"], "Keep as is")
             self.assertEqual(result["summary"], "The teacher confirmed the timing is intentional.")
+            self.assertEqual(result["adaptation_proposal"], "Keep the activity unchanged and document the timing rationale.")
             self.assertTrue(result["include_in_download"])
         finally:
             config.MISTRAL_API_KEY = original_key
@@ -389,6 +394,38 @@ class EmailServiceTests(unittest.TestCase):
         self.assertIn("Goals are measurable.", pros)
         self.assertIn("1. Tight timing", cons)
         self.assertIn("Transitions need more time.", cons)
+
+
+class ExportServiceTests(unittest.TestCase):
+    def test_build_analysis_docx_contains_structured_sections(self):
+        output_path = os.path.join(tempfile.gettempdir(), "steaimct-analysis-test.docx")
+        try:
+            export_service.build_analysis_docx(
+                {
+                    "lesson_plan_summary": {
+                        "short_summary": "Learners make and compare dough recipes.",
+                        "detected_subjects": ["Chemistry"],
+                    },
+                    "analysis_focus": {
+                        "curriculum_alignment": {"status": "plausible", "match_score": 6, "note": "No explicit reference."}
+                    },
+                    "computational_thinking": [],
+                    "categories": [],
+                },
+                {"filename": "lesson.docx", "country": "Austria", "subjects": ["Chemistry"], "gradeFrom": "2", "ageFrom": "7"},
+                {},
+                [],
+                output_path,
+            )
+            with zipfile.ZipFile(output_path) as document:
+                xml = document.read("word/document.xml").decode("utf-8")
+            self.assertIn("Uploaded document", xml)
+            self.assertIn("lesson.docx", xml)
+            self.assertIn("Learners make and compare dough recipes", xml)
+            self.assertIn("Curriculum alignment", xml)
+        finally:
+            if os.path.exists(output_path):
+                os.remove(output_path)
 
 
 class SettingsServiceTests(unittest.TestCase):

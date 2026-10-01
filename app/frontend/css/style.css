@@ -79,6 +79,39 @@ a {
 .analysis-page .analysis-summary-box,
 .analysis-page .analysis-upload-box,
 .start-card {
+  position: relative;
+}
+
+.language-picker {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.language-picker select {
+  min-width: 190px;
+  padding: 8px 30px 8px 10px;
+  border: 1px solid #dfe3f4;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+@media (max-width: 700px) {
+  .language-picker {
+    position: static;
+    margin-bottom: 18px;
+  }
+}
+
+.start-card {
   box-shadow: var(--shadow);
 }
 

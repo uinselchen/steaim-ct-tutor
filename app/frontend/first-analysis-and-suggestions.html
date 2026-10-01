@@ -123,14 +123,41 @@
 
     .point-discussion {
       min-width: 220px;
+      padding: 10px;
+      border: 2px solid #cfd4ee;
+      border-radius: 14px;
+      background: #fbfbff;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
     }
 
     .point-discussion-messages {
       display: grid;
       gap: 6px;
-      max-height: 150px;
+      max-height: 180px;
       overflow-y: auto;
       margin-bottom: 8px;
+      padding-right: 8px;
+      scrollbar-width: auto;
+      scrollbar-color: #7a73e8 #e9eafa;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-track {
+      background: #e9eafa;
+      border-radius: 999px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-thumb {
+      background: #7068df;
+      border: 2px solid #e9eafa;
+      border-radius: 999px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-thumb:hover {
+      background: #5148c4;
     }
 
     .point-discussion-message {
@@ -336,7 +363,7 @@
           <div class="analysis-actions">
             <a href="lesson-info.html" class="action-link secondary-button">Back</a>
             <button id="downloadAnalysisButton" class="action-button secondary-button" type="button">
-              <span class="button-text">Download analysis</span>
+              <span class="button-text">Download analysis (DOCX)</span>
               <span class="button-arrow">↓</span>
             </button>
             <a id="continueButton" class="action-button primary-button" href="refining-and-improving.html">
@@ -375,6 +402,10 @@
   </div>
 
   <script>
+    function uiText(text) {
+      return window.tutorTranslate ? window.tutorTranslate(text, text) : text;
+    }
+
     function normalizeItems(value) {
       if (!value) {
         return [];
@@ -405,11 +436,11 @@
 
     function formatRange(range) {
       if (!range) {
-        return "? to ?";
+      return "? " + uiText("to") + " ?";
       }
       var fromValue = range.from === 0 || range.from ? String(range.from) : "?";
       var toValue = range.to === 0 || range.to ? String(range.to) : "?";
-      return fromValue + " to " + toValue;
+      return fromValue + " " + uiText("to") + " " + toValue;
     }
 
     function renderAnalysisError(message, rawText) {
@@ -426,7 +457,7 @@
         raw.style.marginTop = "12px";
         raw.style.whiteSpace = "pre-wrap";
         raw.style.wordBreak = "break-word";
-        raw.textContent = "Raw response:\n" + rawText;
+        raw.textContent = uiText("Raw response:") + "\n" + rawText;
         errorBox.appendChild(raw);
       }
     }
@@ -567,7 +598,7 @@
       (discussion.messages || []).forEach(function (message) {
         var bubble = document.createElement("div");
         bubble.className = "point-discussion-message " + (message.role === "teacher" ? "teacher" : "tutor");
-        bubble.textContent = (message.role === "teacher" ? "You: " : "Tutor: ") + (message.text || "");
+        bubble.textContent = (message.role === "teacher" ? uiText("You: ") : uiText("Tutor: ")) + (message.text || "");
         container.appendChild(bubble);
       });
     }
@@ -575,7 +606,7 @@
     function createPointDiscussion(item, category, row) {
       var key = getPointDiscussionKey(category.id, item.id);
       var allDiscussions = loadPointDiscussions();
-      var discussion = allDiscussions[key] || { messages: [], decision: "", summary: "", includeInDownload: true };
+      var discussion = allDiscussions[key] || { messages: [], decision: "", summary: "", adaptationProposal: "", includeInDownload: true };
       discussion.categoryTitle = category.title || "Category";
       discussion.pointTitle = item.title || "Identified point";
       allDiscussions[key] = discussion;
@@ -595,17 +626,17 @@
       var send = document.createElement("button");
       send.type = "button";
       send.className = "point-discussion-send";
-      send.textContent = "Send";
+      send.textContent = uiText("Send");
 
       var metaRow = document.createElement("div");
       metaRow.className = "point-discussion-meta";
       var decisionLabel = document.createElement("span");
-      decisionLabel.textContent = "Decision:";
+      decisionLabel.textContent = uiText("Decision:");
       var decision = document.createElement("select");
       ["", "Keep as is", "Change", "Add clarification", "Not applicable", "Needs more information"].forEach(function (value) {
         var option = document.createElement("option");
         option.value = value;
-        option.textContent = value || "Open";
+        option.textContent = uiText(value || "Open");
         decision.appendChild(option);
       });
       decision.value = discussion.decision || "";
@@ -628,7 +659,7 @@
         savePointDiscussions(current);
       });
       includeLabel.appendChild(includeCheckbox);
-      includeLabel.appendChild(document.createTextNode(" Include in download"));
+      includeLabel.appendChild(document.createTextNode(" " + uiText("Include in download")));
       metaRow.appendChild(decisionLabel);
       metaRow.appendChild(decision);
       metaRow.appendChild(includeLabel);
@@ -664,6 +695,7 @@
             },
             lesson_context: meta || {},
             analysis_summary: analysis && analysis.lesson_plan_summary ? analysis.lesson_plan_summary : {},
+            analysis_focus: analysis && analysis.analysis_focus ? analysis.analysis_focus : {},
             conversation: state.messages,
             user_message: text
           })
@@ -683,12 +715,22 @@
           }
           next.decision = data.decision || next.decision || "";
           next.summary = data.summary || next.summary || "";
+          next.adaptationProposal = data.adaptation_proposal || next.adaptationProposal || "";
           next.includeInDownload = data.include_in_download !== false;
           updated[key] = next;
           savePointDiscussions(updated);
           decision.value = next.decision;
           includeCheckbox.checked = next.includeInDownload;
           renderPointDiscussionMessages(messages, next);
+          if (next.adaptationProposal) {
+            var proposalMessage = "Suggested adaptation: " + next.adaptationProposal;
+            var lastMessage = next.messages[next.messages.length - 1];
+            if (!lastMessage || lastMessage.text !== proposalMessage) {
+              next.messages.push({ role: "tutor", text: proposalMessage });
+              savePointDiscussions(updated);
+              renderPointDiscussionMessages(messages, next);
+            }
+          }
         }).catch(function (error) {
           var updated = loadPointDiscussions();
           var next = updated[key] || { messages: [] };
@@ -755,7 +797,7 @@
       table.appendChild(colgroup);
 
       var thead = document.createElement("thead");
-      thead.innerHTML = "<tr><th>Focus on this?</th><th>Identified point</th><th>Why we mentioned this</th><th>Citation from your text</th><th>Confidence</th><th>Discussion</th></tr>";
+      thead.innerHTML = "<tr><th>" + uiText("Focus on this?") + "</th><th>" + uiText("Identified point") + "</th><th>" + uiText("Why we mentioned this") + "</th><th>" + uiText("Citation from your text") + "</th><th>" + uiText("Confidence") + "</th><th>" + uiText("Discussion") + "</th></tr>";
       table.appendChild(thead);
 
       var tbody = document.createElement("tbody");
@@ -813,7 +855,7 @@
           var citeButton = document.createElement("button");
           citeButton.type = "button";
           citeButton.className = "citation-button";
-          citeButton.textContent = item.citation && item.citation.label ? item.citation.label : "No citation";
+          citeButton.textContent = item.citation && item.citation.label ? item.citation.label : uiText("No citation");
           citeButton.addEventListener("click", function () {
             openCitationModal(item.citation || {});
           });
@@ -1152,7 +1194,7 @@
       var summaryScore = normalizeMatchScore(summary.match_score);
       var confidenceElement = document.getElementById("analysisSummaryConfidence");
       if (confidenceElement) {
-        confidenceElement.textContent = (summaryScore ? "Match: " + summaryScore + "/10 · " : "") + "Confidence: " + confidenceText;
+        confidenceElement.textContent = (summaryScore ? uiText("Match:") + " " + summaryScore + "/10 · " : "") + uiText("Confidence:") + " " + uiText(confidenceText);
         confidenceElement.className = "analysis-summary-confidence";
         if (summaryScore) {
           confidenceElement.classList.add(getScoreClass(summaryScore));
@@ -1209,11 +1251,11 @@
         var label = document.createElement("span");
         label.className = "summary-chip-label";
         var confidence = node.confidence || "unclear";
-        label.textContent = entry.label + (score ? " (Match: " + score + "/10, Confidence: " + confidence + ")" : " (Confidence: " + confidence + ")");
+        label.textContent = uiText(entry.label) + (score ? " (" + uiText("Match:") + " " + score + "/10, " + uiText("Confidence:") + " " + uiText(confidence) + ")" : " (" + uiText("Confidence:") + " " + uiText(confidence) + ")");
 
         var status = document.createElement("div");
         status.style.fontWeight = "700";
-        status.textContent = formatStatusLabel(node.status);
+        status.textContent = uiText(formatStatusLabel(node.status));
         if (score) {
           status.className = getScoreClass(score) + "-text";
         } else if (statusWordClass) {
@@ -1346,7 +1388,7 @@
           discussion.className = "ct-discussion-box";
           discussion.dataset.ctPractice = item.practice;
           discussion.setAttribute("aria-label", "Discussion or clarification for " + item.practice);
-          discussion.placeholder = "Add clarification...";
+          discussion.placeholder = uiText("Add clarification...");
           rowLayout.appendChild(discussion);
         }
         cell.appendChild(rowLayout);
@@ -1360,12 +1402,12 @@
       var metaBox = document.getElementById("analysisMeta");
       var lines = [];
       if (meta) {
-        if (meta.filename) lines.push("File: " + meta.filename);
-        if (meta.country) lines.push("Country: " + meta.country);
-        if (meta.subjects && meta.subjects.length) lines.push("Subjects: " + meta.subjects.join(", "));
-        if (meta.gradeFrom || meta.gradeTo) lines.push("Grades: " + (meta.gradeFrom || "?") + " to " + (meta.gradeTo || "?"));
-        if (meta.ageFrom || meta.ageTo) lines.push("Age: " + (meta.ageFrom || "?") + " to " + (meta.ageTo || "?"));
-        if (meta.specifics) lines.push("Specifics: " + meta.specifics);
+        if (meta.filename) lines.push(uiText("File:") + " " + meta.filename);
+        if (meta.country) lines.push(uiText("Country:") + " " + meta.country);
+        if (meta.subjects && meta.subjects.length) lines.push(uiText("Subjects:") + " " + meta.subjects.join(", "));
+        if (meta.gradeFrom || meta.gradeTo) lines.push(uiText("Grades:") + " " + (meta.gradeFrom || "?") + " " + uiText("to") + " " + (meta.gradeTo || "?"));
+        if (meta.ageFrom || meta.ageTo) lines.push(uiText("Age:") + " " + (meta.ageFrom || "?") + " " + uiText("to") + " " + (meta.ageTo || "?"));
+        if (meta.specifics) lines.push(uiText("Specifics:") + " " + meta.specifics);
       }
       metaBox.innerHTML = "";
       lines.forEach(function (line) {
@@ -1374,7 +1416,7 @@
         metaBox.appendChild(div);
       });
       if (!lines.length) {
-        metaBox.textContent = "No metadata available.";
+        metaBox.textContent = uiText("No metadata available.");
       }
     }
 
@@ -1476,6 +1518,9 @@
         if (discussion.summary) {
           lines.push("  Discussion summary: " + discussion.summary);
         }
+        if (discussion.adaptationProposal) {
+          lines.push("  Suggested adaptation: " + discussion.adaptationProposal);
+        }
         (discussion.messages || []).forEach(function (message) {
           if (message && message.text) {
             lines.push("  " + (message.role === "teacher" ? "Teacher" : "Tutor") + ": " + message.text);
@@ -1497,20 +1542,44 @@
       return lines.join("\n").trim() + "\n";
     }
 
-    function downloadAnalysisText(analysis, meta) {
+    function downloadAnalysisDocx(analysis, meta) {
       var filename = (meta && meta.filename ? meta.filename : "lesson-plan")
         .replace(/\.[^/.]+$/, "")
         .replace(/[^a-z0-9_-]+/gi, "-")
         .replace(/^-+|-+$/g, "") || "lesson-plan";
-      var blob = new Blob([buildAnalysisDownloadText(analysis)], { type: "text/plain;charset=utf-8" });
-      var url = URL.createObjectURL(blob);
-      var link = document.createElement("a");
-      link.href = url;
-      link.download = filename + "-analysis.txt";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      var clarifications = [];
+      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
+        if (box.value.trim()) {
+          clarifications.push((box.dataset.ctPractice || "CT practice") + ": " + box.value.trim());
+        }
+      });
+      fetch("/export-analysis-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis: analysis,
+          meta: meta || {},
+          discussions: loadPointDiscussions(),
+          clarifications: clarifications,
+          sessionId: window.localStorage.getItem("step2SessionId") || "analysis"
+        })
+      }).then(function (response) {
+        if (!response.ok) {
+          throw new Error("Unable to generate the analysis document.");
+        }
+        return response.blob();
+      }).then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = filename + "-analysis.docx";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }).catch(function (error) {
+        window.alert(error.message || "Unable to generate the analysis document.");
+      });
     }
 
       function getAdditionalUploadState() {
@@ -1601,7 +1670,7 @@
     var downloadAnalysisButton = document.getElementById("downloadAnalysisButton");
     if (downloadAnalysisButton && analysis && !analysis.error) {
       downloadAnalysisButton.addEventListener("click", function () {
-        downloadAnalysisText(analysis, meta);
+        downloadAnalysisDocx(analysis, meta);
       });
     }
 
@@ -1741,5 +1810,6 @@
       }
     });
   </script>
+  <script src="js/i18n.js"></script>
 </body>
 </html>

@@ -104,6 +104,8 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             self.handle_step2_prepare()
         elif route == "/analysis-discuss":
             self.handle_analysis_discuss()
+        elif route == "/export-analysis-docx":
+            self.handle_export_analysis_docx()
         elif route == "/step3-refine":
             self.handle_step3_refine()
         # Kept for optional local email integrations; no current UI calls it.
@@ -256,6 +258,8 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             "ageFrom": form.getvalue("ageFrom", "").strip(),
             "ageTo": form.getvalue("ageTo", "").strip(),
             "specifics": specifics,
+            "language": form.getvalue("language", "").strip() or "English",
+            "languageCountry": form.getvalue("languageCountry", "").strip(),
             "documentText": extracted_text[:30000],
             "sourceDocument": {
                 "filename": filename,
@@ -492,6 +496,45 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
+
+    def handle_export_analysis_docx(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            data = json.loads(body.decode("utf-8"))
+        except Exception:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+            return
+
+        try:
+            analysis = data.get("analysis") if isinstance(data, dict) else {}
+            meta = data.get("meta") if isinstance(data, dict) else {}
+            session_id = str(data.get("sessionId", "analysis")) if isinstance(data, dict) else "analysis"
+            export_folder = export_service.ensure_export_folder(session_id)
+            source_name = str(meta.get("filename", "lesson-plan")) if isinstance(meta, dict) else "lesson-plan"
+            export_slug = export_service.normalize_filename_piece(source_name, default="lesson-plan")
+            export_path = os.path.join(export_folder, f"{export_slug}-analysis.docx")
+            export_service.build_analysis_docx(
+                analysis,
+                meta,
+                data.get("discussions", {}) if isinstance(data, dict) else {},
+                data.get("clarifications", []) if isinstance(data, dict) else [],
+                export_path,
+            )
+            with open(export_path, "rb") as export_file:
+                docx_bytes = export_file.read()
+        except Exception:
+            log_message("[export-analysis] DOCX generation failed")
+            log_message(traceback.format_exc())
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to generate analysis DOCX")
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        self.send_header("Content-Disposition", f'attachment; filename="{os.path.basename(export_path)}"')
+        self.send_header("Content-Length", str(len(docx_bytes)))
+        self.end_headers()
+        self.wfile.write(docx_bytes)
 
     def handle_step3_refine(self):
         try:

@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", function () {
+  function tr(text) {
+    return window.tutorTranslate ? window.tutorTranslate(text, text) : text;
+  }
+
   function setText(id, text, state) {
     var element = document.getElementById(id);
     if (!element) {
@@ -27,7 +31,7 @@ document.addEventListener("DOMContentLoaded", function () {
     prompts = Array.isArray(prompts) ? prompts : [];
     if (!prompts.length) {
       var empty = document.createElement("li");
-      empty.textContent = "No prompt files found.";
+      empty.textContent = tr("No prompt files found.");
       list.appendChild(empty);
       return;
     }
@@ -49,10 +53,10 @@ document.addEventListener("DOMContentLoaded", function () {
     var mistral = status.mistral || {};
     var runtime = status.runtime || {};
     var checks = [
-      { ok: !!mistral.configured, label: mistral.configured ? "Mistral API key configured" : "Mistral API key missing" },
-      { ok: runtime.exportDependencies !== false, label: runtime.exportDependencies !== false ? "DOCX/PDF export packages available" : "Missing export packages: " + (runtime.missingDependencies || []).join(", ") },
-      { ok: runtime.requiredFolders !== false, label: runtime.requiredFolders !== false ? "Local tutor folders ready" : "Missing folders: " + (runtime.missingFolders || []).join(", ") },
-      { ok: !!runtime.python, label: runtime.python ? "Python " + runtime.python + " detected" : "Python runtime unavailable" }
+      { ok: !!mistral.configured, label: mistral.configured ? tr("Mistral API key configured") : tr("Mistral API key missing") },
+      { ok: runtime.exportDependencies !== false, label: runtime.exportDependencies !== false ? tr("DOCX/PDF export packages available") : tr("Missing export packages: ") + (runtime.missingDependencies || []).join(", ") },
+      { ok: runtime.requiredFolders !== false, label: runtime.requiredFolders !== false ? tr("Local tutor folders ready") : tr("Missing folders: ") + (runtime.missingFolders || []).join(", ") },
+      { ok: !!runtime.python, label: runtime.python ? "Python " + runtime.python + " detected" : tr("Python runtime unavailable") }
     ];
     list.innerHTML = "";
     checks.forEach(function (check) {
@@ -63,7 +67,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     var ready = checks.every(function (check) { return check.ok; });
     if (summary) {
-      summary.textContent = ready ? "Ready" : "Action required";
+      summary.textContent = ready ? tr("Ready") : tr("Action required");
       summary.className = ready ? "status-ok" : "status-warning";
     }
   }
