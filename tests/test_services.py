@@ -176,12 +176,20 @@ class MistralServiceTests(unittest.TestCase):
         self.assertIn("keywords", prompt)
         self.assertIn("technology", prompt)
         self.assertIn("exactly six", prompt)
+
+        discussion_prompt = (SERVER_ROOT / "prompts" / "analysis_discussion_system_prompt.txt").read_text(encoding="utf-8")
+        self.assertIn("Discuss exactly one analysis point at a time", discussion_prompt)
+        self.assertIn("include_in_download", discussion_prompt)
         self.assertIn("target grade lies within the document's grade range", prompt)
         self.assertIn("Do not judge a cross-curricular lesson as weakly aligned", prompt)
         self.assertIn("No explicit curriculum reference was found", prompt)
         self.assertIn("Never use generic refinements", prompt)
         self.assertIn("If the lesson plan contains a related learner activity", prompt)
         self.assertIn("positive_note", prompt)
+        self.assertIn("Evaluate target-group fit and subject fit as separate dimensions", prompt)
+        self.assertIn("No explicit curriculum reference is not the same as curriculum misalignment", prompt)
+        self.assertIn("If status is Opportunity, activity, evidence, limitation, and refinement are required", prompt)
+        self.assertIn("Do not lower target-group scores when the selected grade is within the document's grade range", prompt)
         self.assertIn("exactly six", prompt)
 
     def test_normalize_computational_thinking_returns_all_practices_in_order(self):
@@ -261,6 +269,29 @@ class MistralServiceTests(unittest.TestCase):
             self.assertEqual(result["computational_thinking"][2]["status"], "Present")
             self.assertEqual(result["computational_thinking"][2]["activity"], "Activity 1")
             self.assertEqual(result["computational_thinking"][0]["status"], "Not identified")
+        finally:
+            config.MISTRAL_API_KEY = original_key
+
+    def test_call_mistral_analysis_discussion_returns_structured_result(self):
+        original_key = config.MISTRAL_API_KEY
+        config.MISTRAL_API_KEY = "test-key"
+        response = {
+            "choices": [{
+                "message": {
+                    "content": '{"assistant_message": "The evidence supports keeping this point.", "decision": "Keep as is", "summary": "The teacher confirmed the timing is intentional.", "include_in_download": true}'
+                }
+            }]
+        }
+        try:
+            with patch.object(mistral_service, "post_mistral_chat_completion", return_value=response):
+                result = mistral_service.call_mistral_analysis_discussion({
+                    "point": {"title": "Timing"},
+                    "user_message": "The timing is intentional."
+                })
+
+            self.assertEqual(result["decision"], "Keep as is")
+            self.assertEqual(result["summary"], "The teacher confirmed the timing is intentional.")
+            self.assertTrue(result["include_in_download"])
         finally:
             config.MISTRAL_API_KEY = original_key
 

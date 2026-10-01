@@ -45,6 +45,22 @@ document.addEventListener("DOMContentLoaded", function () {
     if (element) {
       element.textContent = message;
     }
+    var headingSelectors = {
+      countryError: ".country-inline-row label",
+      subjectsError: ".subject-field .field-label-row label",
+      gradeError: "#gradeFrom",
+      ageError: "#ageFrom",
+      fileError: ".upload-field > label"
+    };
+    var headingSelector = headingSelectors[id];
+    var target = headingSelector ? document.querySelector(headingSelector) : null;
+    if (target && (id === "gradeError" || id === "ageError")) {
+      target = target.closest(".form-field");
+      target = target ? target.querySelector("label") : null;
+    }
+    if (target) {
+      target.classList.toggle("validation-heading-error", Boolean(message));
+    }
   }
 
   function clearError(id) {

@@ -726,6 +726,10 @@ h1 {
   margin-bottom: 6px;
 }
 
+.validation-heading-error {
+  color: #c0392b !important;
+}
+
 .country-inline-row {
   display: flex;
   align-items: center;

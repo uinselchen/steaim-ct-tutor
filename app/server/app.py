@@ -102,6 +102,8 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             self.handle_analyze()
         elif route == "/step2-prepare":
             self.handle_step2_prepare()
+        elif route == "/analysis-discuss":
+            self.handle_analysis_discuss()
         elif route == "/step3-refine":
             self.handle_step3_refine()
         # Kept for optional local email integrations; no current UI calls it.
@@ -463,6 +465,33 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(pdf_bytes)))
         self.end_headers()
         self.wfile.write(pdf_bytes)
+
+    def handle_analysis_discuss(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            payload = json.loads(body.decode("utf-8"))
+        except Exception:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+            return
+
+        if not isinstance(payload, dict):
+            self.send_error(HTTPStatus.BAD_REQUEST, "Missing payload")
+            return
+
+        point = payload.get("point") if isinstance(payload.get("point"), dict) else {}
+        point_title = str(point.get("title", "")).strip() or "analysis point"
+        log_message(f"[mistral-analysis-discussion] Point discussion: {point_title}")
+        result = mistral_service.call_mistral_analysis_discussion(payload)
+        if "error" in result:
+            log_message(f"[mistral-analysis-discussion] Failed: {result.get('error')}")
+            self.send_response(HTTPStatus.BAD_GATEWAY)
+        else:
+            log_message("[mistral-analysis-discussion] Success")
+            self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
 
     def handle_step3_refine(self):
         try:

@@ -435,6 +435,41 @@ def call_mistral_analysis(payload):
         return {"error": f"Could not parse Mistral response as JSON: {error}", "raw": response_data}
 
 
+def call_mistral_analysis_discussion(payload):
+    if not config.MISTRAL_API_KEY:
+        log_message("[mistral-analysis-discussion] Missing MISTRAL_API_KEY")
+        return {
+            "error": "MISTRAL_API_KEY is not configured in app/server/.env"
+        }
+
+    system_prompt = load_prompt_file("analysis_discussion_system_prompt.txt")
+    user_prompt = json.dumps(payload if isinstance(payload, dict) else {}, ensure_ascii=False, indent=2)
+    request_body = build_mistral_request_body(system_prompt, user_prompt)
+    log_mistral_prompt("analysis-discussion", system_prompt, user_prompt, request_body)
+
+    try:
+        response_data = post_mistral_chat_completion(request_body, config.MISTRAL_ANALYSIS_TIMEOUT)
+        log_message(f"[mistral-analysis-discussion] Response received, model={config.MISTRAL_MODEL}")
+        content = response_data["choices"][0]["message"]["content"]
+        parsed = parse_mistral_json_content(content, "mistral-analysis-discussion", config.MISTRAL_TEST_TIMEOUT)
+        if not isinstance(parsed, dict):
+            return {"error": "Analysis discussion returned an invalid response."}
+        return {
+            "assistant_message": str(parsed.get("assistant_message", "")).strip(),
+            "decision": str(parsed.get("decision", "")).strip(),
+            "summary": str(parsed.get("summary", "")).strip(),
+            "include_in_download": bool(parsed.get("include_in_download", True)),
+        }
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="ignore")
+        log_message(f"[mistral-analysis-discussion] HTTPError {error.code}: {detail}")
+        return {"error": f"Mistral analysis discussion failed with HTTP {error.code}", "detail": detail}
+    except Exception as error:
+        log_message(f"[mistral-analysis-discussion] Request failed: {error}")
+        log_message(traceback.format_exc())
+        return {"error": f"Mistral analysis discussion failed: {error}"}
+
+
 def call_mistral_refinement(payload):
     if not config.MISTRAL_API_KEY:
         log_message("[mistral-step3] Missing MISTRAL_API_KEY")

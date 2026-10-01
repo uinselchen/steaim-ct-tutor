@@ -121,6 +121,77 @@
       resize: vertical;
     }
 
+    .point-discussion {
+      min-width: 220px;
+    }
+
+    .point-discussion-messages {
+      display: grid;
+      gap: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+      margin-bottom: 8px;
+    }
+
+    .point-discussion-message {
+      padding: 7px 9px;
+      border-radius: 9px;
+      background: #f4f5fb;
+      color: #4f5872;
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+
+    .point-discussion-message.teacher {
+      background: #eeeaff;
+      color: #3e367f;
+    }
+
+    .point-discussion-compose {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+    }
+
+    .point-discussion-input {
+      width: 100%;
+      min-height: 54px;
+      padding: 8px;
+      border: 1px solid #dfe3f4;
+      border-radius: 8px;
+      resize: vertical;
+      font: inherit;
+    }
+
+    .point-discussion-send {
+      align-self: end;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 8px;
+      background: #5950f5;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .point-discussion-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 7px;
+      color: #68718b;
+      font-size: 0.78rem;
+    }
+
+    .point-discussion-meta select {
+      max-width: 150px;
+      padding: 4px;
+      border: 1px solid #dfe3f4;
+      border-radius: 6px;
+      background: #fff;
+      color: #4f5872;
+    }
+
     .ct-discussion-box:focus {
       outline: 2px solid #635bff;
       outline-offset: 1px;
@@ -471,6 +542,180 @@
       return mapped;
     }
 
+    var pointDiscussionsStorageKey = "step2PointDiscussions";
+
+    function loadPointDiscussions() {
+      try {
+        var raw = window.localStorage.getItem(pointDiscussionsStorageKey);
+        var parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function savePointDiscussions(value) {
+      window.localStorage.setItem(pointDiscussionsStorageKey, JSON.stringify(value || {}));
+    }
+
+    function getPointDiscussionKey(categoryId, itemId) {
+      return String(categoryId || "category") + ":" + String(itemId || "point");
+    }
+
+    function renderPointDiscussionMessages(container, discussion) {
+      container.innerHTML = "";
+      (discussion.messages || []).forEach(function (message) {
+        var bubble = document.createElement("div");
+        bubble.className = "point-discussion-message " + (message.role === "teacher" ? "teacher" : "tutor");
+        bubble.textContent = (message.role === "teacher" ? "You: " : "Tutor: ") + (message.text || "");
+        container.appendChild(bubble);
+      });
+    }
+
+    function createPointDiscussion(item, category, row) {
+      var key = getPointDiscussionKey(category.id, item.id);
+      var allDiscussions = loadPointDiscussions();
+      var discussion = allDiscussions[key] || { messages: [], decision: "", summary: "", includeInDownload: true };
+      discussion.categoryTitle = category.title || "Category";
+      discussion.pointTitle = item.title || "Identified point";
+      allDiscussions[key] = discussion;
+      savePointDiscussions(allDiscussions);
+
+      var wrapper = document.createElement("div");
+      wrapper.className = "point-discussion";
+      var messages = document.createElement("div");
+      messages.className = "point-discussion-messages";
+      renderPointDiscussionMessages(messages, discussion);
+
+      var compose = document.createElement("div");
+      compose.className = "point-discussion-compose";
+      var input = document.createElement("textarea");
+      input.className = "point-discussion-input";
+      input.placeholder = "Discuss this point...";
+      var send = document.createElement("button");
+      send.type = "button";
+      send.className = "point-discussion-send";
+      send.textContent = "Send";
+
+      var metaRow = document.createElement("div");
+      metaRow.className = "point-discussion-meta";
+      var decisionLabel = document.createElement("span");
+      decisionLabel.textContent = "Decision:";
+      var decision = document.createElement("select");
+      ["", "Keep as is", "Change", "Add clarification", "Not applicable", "Needs more information"].forEach(function (value) {
+        var option = document.createElement("option");
+        option.value = value;
+        option.textContent = value || "Open";
+        decision.appendChild(option);
+      });
+      decision.value = discussion.decision || "";
+      decision.addEventListener("change", function () {
+        var current = loadPointDiscussions();
+        current[key] = current[key] || { messages: [] };
+        current[key].decision = decision.value;
+        current[key].includeInDownload = includeCheckbox.checked;
+        savePointDiscussions(current);
+      });
+
+      var includeLabel = document.createElement("label");
+      var includeCheckbox = document.createElement("input");
+      includeCheckbox.type = "checkbox";
+      includeCheckbox.checked = discussion.includeInDownload !== false;
+      includeCheckbox.addEventListener("change", function () {
+        var current = loadPointDiscussions();
+        current[key] = current[key] || { messages: [] };
+        current[key].includeInDownload = includeCheckbox.checked;
+        savePointDiscussions(current);
+      });
+      includeLabel.appendChild(includeCheckbox);
+      includeLabel.appendChild(document.createTextNode(" Include in download"));
+      metaRow.appendChild(decisionLabel);
+      metaRow.appendChild(decision);
+      metaRow.appendChild(includeLabel);
+
+      function sendMessage() {
+        var text = input.value.trim();
+        if (!text || send.disabled) {
+          return;
+        }
+        send.disabled = true;
+        var current = loadPointDiscussions();
+        var state = current[key] || { messages: [] };
+        state.messages = Array.isArray(state.messages) ? state.messages : [];
+        state.messages.push({ role: "teacher", text: text });
+        current[key] = state;
+        savePointDiscussions(current);
+        renderPointDiscussionMessages(messages, state);
+        input.value = "";
+        fetch("/analysis-discuss", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            point: {
+              category: category.title,
+              category_id: category.id,
+              item_id: item.id,
+              title: item.title,
+              explanation: item.short_explanation,
+              why_it_matters: item.why_it_matters,
+              evidence: item.evidence || (item.citation && item.citation.cited_text) || "",
+              suggested_next_action: item.suggested_next_action || "",
+              positive_note: item.positive_note || ""
+            },
+            lesson_context: meta || {},
+            analysis_summary: analysis && analysis.lesson_plan_summary ? analysis.lesson_plan_summary : {},
+            conversation: state.messages,
+            user_message: text
+          })
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) {
+              throw new Error(data && data.error ? data.error : "Unable to discuss this point.");
+            }
+            return data;
+          });
+        }).then(function (data) {
+          var updated = loadPointDiscussions();
+          var next = updated[key] || { messages: [] };
+          next.messages = Array.isArray(next.messages) ? next.messages : [];
+          if (data.assistant_message) {
+            next.messages.push({ role: "tutor", text: data.assistant_message });
+          }
+          next.decision = data.decision || next.decision || "";
+          next.summary = data.summary || next.summary || "";
+          next.includeInDownload = data.include_in_download !== false;
+          updated[key] = next;
+          savePointDiscussions(updated);
+          decision.value = next.decision;
+          includeCheckbox.checked = next.includeInDownload;
+          renderPointDiscussionMessages(messages, next);
+        }).catch(function (error) {
+          var updated = loadPointDiscussions();
+          var next = updated[key] || { messages: [] };
+          next.messages.push({ role: "tutor", text: "Error: " + (error.message || "Unable to discuss this point.") });
+          updated[key] = next;
+          savePointDiscussions(updated);
+          renderPointDiscussionMessages(messages, next);
+        }).finally(function () {
+          send.disabled = false;
+        });
+      }
+
+      send.addEventListener("click", sendMessage);
+      input.addEventListener("keydown", function (event) {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+      compose.appendChild(input);
+      compose.appendChild(send);
+      wrapper.appendChild(messages);
+      wrapper.appendChild(compose);
+      wrapper.appendChild(metaRow);
+      return wrapper;
+    }
+
     function renderCategory(container, category) {
       var card = document.createElement("section");
       card.className = "category-card";
@@ -510,7 +755,7 @@
       table.appendChild(colgroup);
 
       var thead = document.createElement("thead");
-      thead.innerHTML = "<tr><th>Focus on this?</th><th>Identified point</th><th>Why we mentioned this</th><th>Citation from your text</th><th>Confidence</th><th>Anything to add or clarify?</th></tr>";
+      thead.innerHTML = "<tr><th>Focus on this?</th><th>Identified point</th><th>Why we mentioned this</th><th>Citation from your text</th><th>Confidence</th><th>Discussion</th></tr>";
       table.appendChild(thead);
 
       var tbody = document.createElement("tbody");
@@ -581,10 +826,7 @@
           confidenceTd.appendChild(confidence);
 
           var noteTd = document.createElement("td");
-          var note = document.createElement("textarea");
-          note.className = "comment-box";
-          note.placeholder = item.teacher_comment_placeholder || "Add more details...";
-          noteTd.appendChild(note);
+          noteTd.appendChild(createPointDiscussion(item, category, tr));
 
           tr.appendChild(focusTd);
           tr.appendChild(pointTd);
@@ -606,15 +848,26 @@
 
     function collectSelections() {
       var selections = [];
+      var discussions = loadPointDiscussions();
       document.querySelectorAll(".item-table tbody tr").forEach(function (row) {
         var checkbox = row.querySelector("input[type='checkbox']");
-        var note = row.querySelector("textarea");
-        if (checkbox && checkbox.checked) {
+        var key = getPointDiscussionKey(row.dataset.categoryId, row.dataset.itemId);
+        var discussion = discussions[key] || {};
+        var messages = Array.isArray(discussion.messages) ? discussion.messages : [];
+        var hasDiscussion = messages.length > 0;
+        var lastTeacherMessage = messages.slice().reverse().find(function (message) {
+          return message && message.role === "teacher";
+        });
+        var discussionComment = discussion.summary || (lastTeacherMessage && lastTeacherMessage.text) || "";
+        if (discussion.decision) {
+          discussionComment = "Decision: " + discussion.decision + (discussionComment ? "\n" + discussionComment : "");
+        }
+        if (checkbox && (checkbox.checked || hasDiscussion)) {
           selections.push({
             category_id: row.dataset.categoryId || "",
             item_id: row.dataset.itemId || "",
             title: (row.querySelector(".point-title") || {}).textContent || "",
-            teacher_comment: note ? note.value.trim() : ""
+            teacher_comment: discussionComment
           });
         }
       });
@@ -1210,6 +1463,26 @@
       });
 
       var clarifications = [];
+      var pointDiscussions = loadPointDiscussions();
+      Object.keys(pointDiscussions).forEach(function (key) {
+        var discussion = pointDiscussions[key] || {};
+        if (discussion.includeInDownload === false || (!discussion.summary && !(discussion.messages || []).length)) {
+          return;
+        }
+        lines.push("\nDISCUSSION: " + (discussion.categoryTitle || "Category") + " - " + (discussion.pointTitle || "Identified point"));
+        if (discussion.decision) {
+          lines.push("  Decision: " + discussion.decision);
+        }
+        if (discussion.summary) {
+          lines.push("  Discussion summary: " + discussion.summary);
+        }
+        (discussion.messages || []).forEach(function (message) {
+          if (message && message.text) {
+            lines.push("  " + (message.role === "teacher" ? "Teacher" : "Tutor") + ": " + message.text);
+          }
+        });
+      });
+
       document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
         if (box.value.trim()) {
           clarifications.push((box.dataset.ctPractice || "CT practice") + ": " + box.value.trim());

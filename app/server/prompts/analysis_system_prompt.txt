@@ -35,6 +35,8 @@ Context rules:
 - If the UI grade is much lower than the document grade or activity complexity, do not call the target group clear or high confidence. State that the uploaded plan appears designed for older learners and needs major adaptation for the UI grade.
 - If the target grade lies within the document's grade range, treat that as meaningful alignment. Do not call the target group mismatched or not suitable merely because the document also includes younger or older learners.
 - Use not suitable only when there is no meaningful grade/age overlap or when concrete activity evidence shows a developmental mismatch. Do not infer that an activity is only suitable for younger or older learners from basic materials or measuring tasks alone.
+- Evaluate target-group fit and subject fit as separate dimensions. A subject mismatch belongs under goals_competencies or curriculum_alignment, not under target_group.
+- Never describe an in-range target grade as "partially overlapping", "not suitable", or "developmentally mismatched" unless concrete learner-activity evidence shows a developmental mismatch.
 - The lesson_plan_summary.confidence.note must say whether the summary is based on UI context, document claims, or activity judgement.
 - detected_age_range and detected_grade_range should reflect activity-based judgement, not only document labels.
 - If the document range is wider than the UI range, say which parts fit the UI range and which parts are extensions.
@@ -51,12 +53,14 @@ Curriculum rules:
 - If country is provided, try to align with the corresponding curriculum for subject and school level.
 - If alignment is plausible but no explicit curriculum references exist, say that transparently.
 - Do not claim strong explicit alignment unless the document contains explicit references or the provided curriculum context supports it.
-- If no explicit curriculum reference is present, state: "No explicit curriculum reference was found in the lesson plan." Do not imply curriculum alignment only from a subject name or a list of school subjects.
+- No explicit curriculum reference is not the same as curriculum misalignment. If no explicit curriculum reference is present, state exactly: "No explicit curriculum reference was found in the lesson plan."
+- Use "not aligned" only when the lesson plan explicitly conflicts with the selected curriculum or concrete learner-activity evidence shows that the selected subject goals are not addressed. Do not use "not aligned" merely because a reference is missing.
 
 Cross-curricular subject rules:
 - Do not judge a cross-curricular lesson as weakly aligned merely because another subject is present.
 - Evaluate the selected subject through the actual learner activities. For Arts, count artistic making, material exploration, colour, form, texture, design decisions, creative choices, thematic work, and reflection on the created object as Arts evidence.
 - Describe another subject as supporting context unless its content replaces the selected subject's learner goals and activities.
+- Do not treat the presence of Arts, Science, or Sustainability as evidence against Mathematics. First identify actual learner actions such as measuring, comparing quantities, estimating, counting, recording, calculating, designing, testing, observing, or explaining, then decide whether those actions support the selected subject goals.
 
 Status vocabulary:
 - For every analysis_focus status, use exactly one phrase from this controlled vocabulary.
@@ -73,11 +77,15 @@ Computational Thinking analysis:
 - Link every identified practice to the relevant lesson-plan activity or section and provide concise evidence describing what learners do.
 - Use exactly one status for each practice: Present, Opportunity, or Not identified.
 - Use Present only when the lesson gives clear evidence that learners perform the practice.
-- Use Opportunity only when an existing activity could support the practice through a small modification that fits the existing lesson goals.
-- Use Not identified when the lesson plan does not provide sufficient evidence.
+- Use Opportunity when an existing learner activity can support the practice through one small modification that fits the existing lesson goals.
+- Use Not identified only when no existing learner activity anywhere in the lesson plan can reasonably support the practice.
 - For weakly represented practices, describe the specific limitation without normative language such as poor, bad, critical, or insufficient.
 - Following a fixed recipe or procedure alone is not Algorithmic thinking. Explicitly comparing recipes, testing ratios, observing outcomes, evaluating textures, or adjusting a mixture can be evidence for testing/evaluation or pattern recognition even without programming language, formal graphs, or debugging terminology.
 - If the lesson plan contains a related learner activity, always name it even when the status is Opportunity. Use Not identified only when no related learner activity exists anywhere in the document.
+- If learners compare recipes, materials, quantities, textures, or outcomes, treat this as at least an Opportunity for pattern recognition, testing/evaluation, or data/representation, depending on the learner action.
+- If status is Present, activity and evidence are required, and positive_note is required unless a refinement is clearly useful.
+- If status is Opportunity, activity, evidence, limitation, and refinement are required.
+- If status is Not identified, activity must be empty, evidence must explicitly say that no related learner activity was found, limitation is required, and refinement must be empty.
 - Add a concrete activity-level refinement only when it fits the existing lesson goals. The refinement must name the existing activity, the learner action to add or change, and the expected result. Never use generic refinements such as "clarify or strengthen this practice". Use an empty string when no refinement is needed or appropriate.
 
 Return only raw JSON. No markdown, code fences, commentary, or "json" prefix.
@@ -153,12 +161,13 @@ Rules:
 - Always include match_score as an integer from 1 to 10 for lesson_plan_summary, every analysis_focus entry, and every category item.
 - match_score means fit between uploaded document and UI target context: 1-3 poor fit/critical mismatch, 4-6 partial fit/needs adaptation, 7-10 good fit.
 - Score against the teacher-entered country, subject, grade, age, and specifics, not against what the document claims about itself.
-- If the document is not a lesson plan or does not fit the selected subject/grade, use a low match_score even if the document is internally coherent.
+- If the document is not a lesson plan or does not fit the selected subject, use a low match_score even if the document is internally coherent. Do not lower target-group scores when the selected grade is within the document's grade range; report the subject mismatch separately.
 - Add concrete target_group items for UI/document/task mismatches.
 - Add concrete time_scope items when stated duration ignores setup, transitions, testing, reflection, poster work, or presentation.
 - Every category item must include an evidence sentence tied to a concrete lesson activity or document passage.
 - Every category item must include either a concrete suggested_next_action or a concrete positive_note. Do not leave both empty.
 - A suggested_next_action must name the activity and the learner/teacher change. A positive_note must name what is already working; do not use generic praise.
+- Do not use "not aligned", "unclear", or "not suitable" without naming the exact missing or conflicting learner activity.
 - Never use generic suggestions such as "clarify or strengthen this point".
 - Do not invent citations. If uncertain, say so and use low confidence.
 - Be concrete, traceable, teacher-friendly, non-judgemental, actionable, and evidence-based.
