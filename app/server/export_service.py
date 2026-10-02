@@ -702,6 +702,36 @@ def build_analysis_docx(analysis, meta, discussions, clarifications, output_path
         add_docx_bullet_paragraph(document, f"Status: {status}" + (f" (Match: {score}/10)" if score else ""))
         if item.get("note"):
             add_docx_bullet_paragraph(document, item["note"])
+        if item.get("suggestion"):
+            add_docx_bullet_paragraph(document, f"Suggested next step: {item['suggestion']}")
+        if key == "time_scope" and item.get("recommended_timing"):
+            add_docx_bullet_paragraph(document, f"Suggested timing: {item['recommended_timing']}")
+        if key == "time_scope" and isinstance(item.get("timing_breakdown"), list):
+            for part in item["timing_breakdown"]:
+                if isinstance(part, dict) and part.get("activity") and part.get("minutes"):
+                    rationale = f" ({part['rationale']})" if part.get("rationale") else ""
+                    add_docx_bullet_paragraph(document, f"Timing: {part['activity']} - {part['minutes']} min{rationale}")
+
+    document.add_heading("Patterns across the lesson", level=1)
+    patterns = analysis.get("patterns_across_lesson") if isinstance(analysis.get("patterns_across_lesson"), list) else []
+    if not patterns:
+        add_docx_bullet_paragraph(document, "No meaningful cross-lesson pattern was identified.")
+    for pattern in patterns[:4]:
+        if not isinstance(pattern, dict):
+            continue
+        document.add_heading(str(pattern.get("title") or "Cross-lesson pattern"), level=2)
+        locations = pattern.get("locations") if isinstance(pattern.get("locations"), list) else []
+        if locations:
+            add_docx_bullet_paragraph(document, f"Where it appears: {', '.join(str(item) for item in locations)}")
+        if pattern.get("explanation"):
+            add_docx_bullet_paragraph(document, f"What connects them: {pattern['explanation']}")
+        if pattern.get("relevance"):
+            add_docx_bullet_paragraph(document, f"Why this pattern may matter: {pattern['relevance']}")
+        for evidence in pattern.get("evidence") if isinstance(pattern.get("evidence"), list) else []:
+            add_docx_bullet_paragraph(document, f"Evidence: {evidence}")
+        ct_practices = pattern.get("ct_practices") if isinstance(pattern.get("ct_practices"), list) else []
+        if ct_practices:
+            add_docx_bullet_paragraph(document, f"Related CT practices: {', '.join(str(item) for item in ct_practices)}")
 
     document.add_heading("Computational Thinking", level=1)
     for item in analysis.get("computational_thinking") if isinstance(analysis.get("computational_thinking"), list) else []:

@@ -48,6 +48,11 @@ Time scope rules:
 - Consider introduction, setup, material exploration, construction, testing, repeated measurement, data recording, group comparison, reflection, poster work, presentation, transitions, and group management.
 - If stated duration covers only core activity but not poster/presentation/assessment, say so.
 - Mark timing as tight when stated duration leaves little room for setup, transitions, measurement errors, reflection, or presentation.
+- For analysis_focus.time_scope, the note must explicitly explain why the timing is tight, manageable, or realistic by naming the concrete activities and omitted or included phases.
+- For analysis_focus.time_scope, always return a recommended_timing string. It must propose a realistic total or range for the selected UI grade/age, not a generic school timetable.
+- Also return a timing_breakdown array for analysis_focus.time_scope. Each entry must contain activity, minutes, and rationale. Include only phases that are genuinely typical for the described learner activities and age/grade, such as setup, instruction, hands-on work, measurement, group comparison, reflection, or presentation.
+- Base minutes on the selected UI grade/age and the actual activity complexity. Do not add presentations, posters, repeated measurements, or other phases merely because they are generally possible; include them only when the lesson plan requires or strongly implies them.
+- If the plan is suitable for the age/grade but timing is realistic, say so and provide a concise age-appropriate breakdown anyway. If the plan is not suitable for the selected age/grade, do not invent a precise classroom schedule; explain the limitation and mark the breakdown as an empty array.
 
 Curriculum rules:
 - If country is provided, try to align with the corresponding curriculum for subject and school level.
@@ -102,13 +107,26 @@ Return one JSON object with exactly this structure:
     "notes_for_teacher": "optional short note"
   },
   "analysis_focus": {
-    "time_scope": {"status": "tight", "match_score": 4, "confidence": "medium", "note": "realistic timing based on actual activity load"},
-    "goals_competencies": {"status": "clear", "match_score": 8, "confidence": "high", "note": "short judgement about goals and competencies"},
-    "adaptability": {"status": "good", "match_score": 7, "confidence": "medium", "note": "short judgement about differentiation and adaptability"},
-    "detail_level": {"status": "balanced", "match_score": 8, "confidence": "high", "note": "short judgement about detail level"},
-    "target_group": {"status": "mostly fitting", "match_score": 6, "confidence": "medium", "note": "compare UI target, document labels, and activity complexity"},
-    "curriculum_alignment": {"status": "plausible", "match_score": 6, "confidence": "medium", "note": "short judgement about curriculum linkage"}
+    "time_scope": {"status": "tight", "match_score": 4, "confidence": "medium", "note": "explicit reason based on the actual activities and omitted phases", "suggestion": "Reserve time for setup, the hands-on activity, and reflection based on the selected age group.", "recommended_timing": "Recommended age-appropriate total or range", "timing_breakdown": [{"activity": "Setup", "minutes": 10, "rationale": "Why this is typical for the selected age/grade and activity"}]},
+    "goals_competencies": {"status": "clear", "match_score": 8, "confidence": "high", "note": "short judgement about goals and competencies", "suggestion": "Keep the clear goal and make the expected learner outcome explicit in the activity instructions."},
+    "adaptability": {"status": "good", "match_score": 7, "confidence": "medium", "note": "short judgement about differentiation and adaptability", "suggestion": "Keep the adaptable activity and name one support or extension for the selected age group."},
+    "detail_level": {"status": "balanced", "match_score": 8, "confidence": "high", "note": "short judgement about detail level", "suggestion": "Keep the level of detail and add only the missing learner-facing instruction or success criterion."},
+    "target_group": {"status": "mostly fitting", "match_score": 6, "confidence": "medium", "note": "compare UI target, document labels, and activity complexity", "suggestion": "Adjust the activity language, materials, or challenge level to the selected grade and age."},
+    "curriculum_alignment": {"status": "plausible", "match_score": 6, "confidence": "medium", "note": "short judgement about curriculum linkage", "suggestion": "Add one explicit link between the learner activity, the selected subject, and the stated country curriculum."}
   },
+  "patterns_across_lesson": [
+    {
+      "id": "pattern-1",
+      "title": "Short descriptive cross-lesson pattern",
+      "locations": ["Activity 2", "Activity 4"],
+      "related_item_ids": ["category-id:item-id", "category-id:item-id-2"],
+      "explanation": "Factual explanation of the recurring learner action or sequence.",
+      "relevance": "Why this recurring structure may matter pedagogically or structurally.",
+      "evidence": ["Evidence from Activity 2", "Evidence from Activity 4"],
+      "ct_practices": ["Pattern recognition / generalisation"],
+      "refinement_candidate": true
+    }
+  ],
   "computational_thinking": [
     {
       "practice": "Decomposition",
@@ -167,6 +185,8 @@ Rules:
 - Every category item must include an evidence sentence tied to a concrete lesson activity or document passage.
 - Every category item must include either a concrete suggested_next_action or a concrete positive_note. Do not leave both empty.
 - A suggested_next_action must name the activity and the learner/teacher change. A positive_note must name what is already working; do not use generic praise.
+- Every analysis_focus entry must include a concrete suggestion string. The suggestion must either name an activity-level improvement that fits the lesson and selected context, or explicitly recommend keeping the current approach with a brief reason when no change is needed.
+- Do not leave analysis_focus.suggestion empty and do not use generic wording such as improve this point, consider adapting, or clarify as needed.
 - Do not use "not aligned", "unclear", or "not suitable" without naming the exact missing or conflicting learner activity.
 - Never use generic suggestions such as "clarify or strengthen this point".
 - Do not invent citations. If uncertain, say so and use low confidence.
@@ -174,3 +194,7 @@ Rules:
 - Prefer short titles and concise explanations.
 - Avoid double quotes inside string values where possible; rephrase instead of nesting quotes.
 - Use analysis_focus for the six core lenses before listing detailed categories.
+- Return patterns_across_lesson as a maximum of four meaningful, prioritised patterns. Each pattern must connect at least two distinct lesson activities, sections, or analysis findings; isolated findings are not patterns.
+- Base patterns primarily on learner actions and explicit relationships such as repeated compare, classify, test, revise, reflect, observe, represent, or evaluate sequences. Do not infer patterns from keywords, topic, technology, programming terminology, or teacher activity alone.
+- Every pattern must include a short title, at least two locations or related analysis points, a factual explanation, why the relationship may matter, and supporting evidence where available. Use only CT practices clearly supported by learner activity; otherwise return an empty ct_practices list.
+- Do not invent relationships, repeat an existing finding without showing a relationship, add match scores or status labels, or treat a pattern as a problem by default. Return an empty array when no meaningful cross-lesson pattern is supported.

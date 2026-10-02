@@ -325,6 +325,17 @@
           <p id="analysisTeacherNote" class="analysis-summary-text"></p>
         </section>
 
+        <section id="patternsAcrossLessonPanel" class="patterns-analysis-panel" hidden>
+          <div class="patterns-analysis-header">
+            <div>
+              <h2>Patterns across the lesson</h2>
+              <p class="patterns-analysis-intro">Cross-cutting relationships between activities, sections, and learner actions.</p>
+            </div>
+            <span class="patterns-analysis-badge">Cross-lesson overview</span>
+          </div>
+          <div id="patternsAcrossLessonList" class="patterns-analysis-list"></div>
+        </section>
+
         <div id="analysisSections"></div>
 
         <section id="computationalThinkingPanel" class="ct-analysis-panel" hidden>
@@ -622,7 +633,7 @@
       compose.className = "point-discussion-compose";
       var input = document.createElement("textarea");
       input.className = "point-discussion-input";
-      input.placeholder = "Discuss this point...";
+      input.placeholder = uiText("Discuss this point...");
       var send = document.createElement("button");
       send.type = "button";
       send.className = "point-discussion-send";
@@ -814,6 +825,7 @@
           var tr = document.createElement("tr");
           tr.dataset.categoryId = category.id || "";
           tr.dataset.itemId = item.id || "";
+          tr.id = "analysis-point-" + (category.id || "category") + "-" + (item.id || "item");
           var score = normalizeMatchScore(item.match_score);
           var itemWordClass = getWordScoreClass([item.title, item.short_explanation, item.why_it_matters].join(" "));
           if (score) {
@@ -1153,19 +1165,51 @@
 
     function collectSelectionsForNextStep() {
       var selected = collectSelections();
-      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
-        var clarification = box.value.trim();
-        if (!clarification) {
+      var discussions = loadPointDiscussions();
+      Object.keys(discussions).forEach(function (key) {
+        var discussion = discussions[key] || {};
+        if (key.indexOf("computational_thinking:") !== 0 || discussion.includeInDownload === false) {
           return;
         }
-        var practice = box.dataset.ctPractice || "Computational Thinking practice";
+        var messages = Array.isArray(discussion.messages) ? discussion.messages : [];
+        var lastTeacherMessage = messages.slice().reverse().find(function (message) {
+          return message && message.role === "teacher";
+        });
+        if (!discussion.decision && !lastTeacherMessage) {
+          return;
+        }
         selected.push({
           category_id: "computational_thinking",
-          item_id: "clarification-" + practice.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          title: "Clarify " + practice,
-          teacher_comment: clarification
+          item_id: key.split(":").slice(1).join(":") || "ct-discussion",
+          title: discussion.pointTitle || "Computational Thinking",
+          teacher_comment: (discussion.decision ? "Decision: " + discussion.decision : "") +
+            (lastTeacherMessage ? "\n" + lastTeacherMessage.text : "")
         });
       });
+      var patternFocus = safeParse(window.localStorage.getItem("step2PatternFocus"));
+      if (patternFocus && patternFocus.title) {
+        var patternLines = [
+          "Pattern: " + patternFocus.title,
+          "Locations: " + (patternFocus.locations || []).join(", "),
+          "What connects them: " + (patternFocus.explanation || ""),
+          "Why it may matter: " + (patternFocus.relevance || "")
+        ];
+        if (Array.isArray(patternFocus.evidence) && patternFocus.evidence.length) {
+          patternLines.push("Evidence: " + patternFocus.evidence.join(" | "));
+        }
+        if (Array.isArray(patternFocus.ct_practices) && patternFocus.ct_practices.length) {
+          patternLines.push("Related CT practices: " + patternFocus.ct_practices.join(", "));
+        }
+        selected = selected.filter(function (item) {
+          return item.category_id !== "patterns_across_lesson";
+        });
+        selected.push({
+          category_id: "patterns_across_lesson",
+          item_id: patternFocus.id || "pattern-focus",
+          title: patternFocus.title,
+          teacher_comment: patternLines.join("\n")
+        });
+      }
       var privacyWarning = window.localStorage.getItem("step2PrivacyWarning") || "";
       if (privacyWarning) {
         selected = selected.filter(function (item) {
@@ -1179,6 +1223,145 @@
         });
       }
       return selected;
+    }
+
+    function normalizePatternsForDisplay(value) {
+      var entries = Array.isArray(value) ? value : [];
+      return entries.filter(function (entry) {
+        if (!entry || typeof entry !== "object") {
+          return false;
+        }
+        var locations = Array.isArray(entry.locations) ? entry.locations : [];
+        var relatedIds = Array.isArray(entry.related_item_ids) ? entry.related_item_ids : [];
+        return locations.length >= 2 || relatedIds.length >= 2;
+      }).slice(0, 4).map(function (entry, index) {
+        return {
+          id: String(entry.id || "pattern-" + (index + 1)),
+          title: String(entry.title || "Cross-lesson pattern"),
+          locations: Array.isArray(entry.locations) ? entry.locations.map(String) : [],
+          relatedItemIds: Array.isArray(entry.related_item_ids) ? entry.related_item_ids.map(String) : [],
+          explanation: String(entry.explanation || ""),
+          relevance: String(entry.relevance || ""),
+          evidence: Array.isArray(entry.evidence) ? entry.evidence.map(String).filter(Boolean) : [],
+          ctPractices: Array.isArray(entry.ct_practices) ? entry.ct_practices.map(String).filter(Boolean) : [],
+          refinementCandidate: entry.refinement_candidate !== false
+        };
+      });
+    }
+
+    function highlightPatternFindings(pattern) {
+      document.querySelectorAll(".pattern-highlight").forEach(function (row) {
+        row.classList.remove("pattern-highlight");
+      });
+      var rows = [];
+      (pattern.relatedItemIds || []).forEach(function (itemId) {
+        document.querySelectorAll(".item-table tbody tr").forEach(function (row) {
+          if (row.dataset.itemId === itemId || (row.dataset.categoryId + ":" + row.dataset.itemId) === itemId) {
+            rows.push(row);
+          }
+        });
+      });
+      rows.forEach(function (row) {
+        row.classList.add("pattern-highlight");
+      });
+      if (rows.length) {
+        rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+
+    function renderPatternsAcrossLesson(value) {
+      var panel = document.getElementById("patternsAcrossLessonPanel");
+      var list = document.getElementById("patternsAcrossLessonList");
+      if (!panel || !list) {
+        return;
+      }
+      var patterns = normalizePatternsForDisplay(value);
+      panel.hidden = false;
+      list.innerHTML = "";
+      var panelTitle = panel.querySelector("h2");
+      var panelIntro = panel.querySelector(".patterns-analysis-intro");
+      var panelBadge = panel.querySelector(".patterns-analysis-badge");
+      if (panelTitle) panelTitle.textContent = uiText("Patterns across the lesson");
+      if (panelIntro) panelIntro.textContent = uiText("Cross-cutting relationships between activities, sections, and learner actions.");
+      if (panelBadge) panelBadge.textContent = uiText("Cross-lesson overview");
+      if (!patterns.length) {
+        var empty = document.createElement("p");
+        empty.className = "patterns-analysis-empty";
+        empty.textContent = uiText("No meaningful cross-lesson pattern identified.");
+        list.appendChild(empty);
+        return;
+      }
+      patterns.forEach(function (pattern) {
+        var details = document.createElement("details");
+        details.className = "pattern-analysis-card";
+        var summary = document.createElement("summary");
+        var title = document.createElement("span");
+        title.className = "pattern-analysis-title";
+        title.textContent = pattern.title;
+        var locations = document.createElement("span");
+        locations.className = "pattern-analysis-locations";
+        locations.textContent = pattern.locations.join(", ");
+        summary.appendChild(title);
+        summary.appendChild(locations);
+        details.appendChild(summary);
+
+        var body = document.createElement("div");
+        body.className = "pattern-analysis-body";
+        function addPatternField(label, text) {
+          if (!text) return;
+          var line = document.createElement("p");
+          var strong = document.createElement("strong");
+          strong.textContent = label + ": ";
+          line.appendChild(strong);
+          line.appendChild(document.createTextNode(text));
+          body.appendChild(line);
+        }
+        addPatternField(uiText("Where it appears"), pattern.locations.join(", "));
+        addPatternField(uiText("What connects them"), pattern.explanation);
+        addPatternField(uiText("Why this pattern may matter"), pattern.relevance);
+        if (pattern.evidence.length) {
+          var evidenceLabel = document.createElement("strong");
+          evidenceLabel.textContent = uiText("Evidence") + ":";
+          body.appendChild(evidenceLabel);
+          var evidenceList = document.createElement("ul");
+          pattern.evidence.forEach(function (text) {
+            var item = document.createElement("li");
+            item.textContent = text;
+            evidenceList.appendChild(item);
+          });
+          body.appendChild(evidenceList);
+        }
+        if (pattern.ctPractices.length) {
+          addPatternField(uiText("Related CT practices"), pattern.ctPractices.join(", "));
+        }
+        var actions = document.createElement("div");
+        actions.className = "pattern-analysis-actions";
+        if (pattern.relatedItemIds.length) {
+          var inspect = document.createElement("button");
+          inspect.type = "button";
+          inspect.className = "pattern-analysis-link";
+          inspect.textContent = uiText("View related findings");
+          inspect.addEventListener("click", function () {
+            highlightPatternFindings(pattern);
+          });
+          actions.appendChild(inspect);
+        }
+        if (pattern.refinementCandidate) {
+          var explore = document.createElement("button");
+          explore.type = "button";
+          explore.className = "pattern-analysis-button";
+          explore.textContent = uiText("Explore this pattern");
+          explore.addEventListener("click", function () {
+            window.localStorage.setItem("step2PatternFocus", JSON.stringify(pattern));
+            explore.textContent = uiText("Selected for Step 3");
+            explore.classList.add("is-selected");
+          });
+          actions.appendChild(explore);
+        }
+        body.appendChild(actions);
+        details.appendChild(body);
+        list.appendChild(details);
+      });
     }
 
     function renderSummary(summary, analysis) {
@@ -1235,8 +1418,9 @@
 
       labels.forEach(function (entry) {
         var node = focus[entry.key] || {};
-        var chip = document.createElement("div");
+        var chip = document.createElement("details");
         chip.className = "summary-chip";
+        chip.open = false;
         var score = normalizeMatchScore(node.match_score);
         var statusWordClass = getWordScoreClass(node.status);
         var noteWordClass = getWordScoreClass(node.note);
@@ -1274,10 +1458,45 @@
           note.style.color = "#5f667a";
         }
 
-        chip.appendChild(label);
-        chip.appendChild(status);
+        var chipSummary = document.createElement("summary");
+        chipSummary.className = "summary-chip-summary";
+        chipSummary.appendChild(label);
+        chipSummary.appendChild(status);
+        chip.appendChild(chipSummary);
+        var chipBody = document.createElement("div");
+        chipBody.className = "summary-chip-body";
         if (node.note) {
-          chip.appendChild(note);
+          chipBody.appendChild(note);
+        }
+        if (node.suggestion) {
+          var suggestion = document.createElement("div");
+          suggestion.className = "summary-chip-suggestion";
+          suggestion.textContent = uiText("Suggested next step") + ": " + node.suggestion;
+          chipBody.appendChild(suggestion);
+        }
+        if (entry.key === "time_scope" && node.recommended_timing) {
+          var timing = document.createElement("div");
+          timing.className = "summary-chip-timing";
+          timing.textContent = uiText("Suggested timing") + ": " + node.recommended_timing;
+          chipBody.appendChild(timing);
+        }
+        if (entry.key === "time_scope" && Array.isArray(node.timing_breakdown) && node.timing_breakdown.length) {
+          var breakdown = document.createElement("ul");
+          breakdown.className = "summary-chip-breakdown";
+          node.timing_breakdown.forEach(function (part) {
+            if (!part || !part.activity || !part.minutes) {
+              return;
+            }
+            var item = document.createElement("li");
+            item.textContent = part.activity + " - " + part.minutes + " min" + (part.rationale ? ": " + part.rationale : "");
+            breakdown.appendChild(item);
+          });
+          if (breakdown.children.length) {
+            chipBody.appendChild(breakdown);
+          }
+        }
+        if (chipBody.children.length) {
+          chip.appendChild(chipBody);
         }
         grid.appendChild(chip);
       });
@@ -1384,12 +1603,17 @@
         details.appendChild(detail);
         rowLayout.appendChild(details);
         if (item.status === "Not identified") {
-          var discussion = document.createElement("textarea");
-          discussion.className = "ct-discussion-box";
-          discussion.dataset.ctPractice = item.practice;
-          discussion.setAttribute("aria-label", "Discussion or clarification for " + item.practice);
-          discussion.placeholder = uiText("Add clarification...");
-          rowLayout.appendChild(discussion);
+          var ctDiscussionItem = {
+            id: "ct-" + item.practice.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            title: item.practice,
+            short_explanation: item.limitation || "",
+            why_it_matters: "Clarify whether learners perform this computational thinking practice.",
+            evidence: item.evidence || "",
+            suggested_next_action: item.refinement || "",
+            positive_note: item.positiveNote || ""
+          };
+          var ctCategory = { id: "computational_thinking", title: "Computational Thinking" };
+          rowLayout.appendChild(createPointDiscussion(ctDiscussionItem, ctCategory, row));
         }
         cell.appendChild(rowLayout);
         row.appendChild(cell);
@@ -1456,7 +1680,44 @@
         if (item.note) {
           lines.push("  " + item.note);
         }
+        if (item.suggestion) {
+          lines.push("  Suggested next step: " + item.suggestion);
+        }
+        if (entry[1] === "time_scope" && item.recommended_timing) {
+          lines.push("  Suggested timing: " + item.recommended_timing);
+        }
+        if (entry[1] === "time_scope" && Array.isArray(item.timing_breakdown)) {
+          item.timing_breakdown.forEach(function (part) {
+            if (part && part.activity && part.minutes) {
+              lines.push("  Timing: " + part.activity + " - " + part.minutes + " min" + (part.rationale ? " (" + part.rationale + ")" : ""));
+            }
+          });
+        }
       });
+      lines.push("");
+
+      lines.push("PATTERNS ACROSS THE LESSON");
+      normalizePatternsForDisplay(analysis.patterns_across_lesson).forEach(function (pattern) {
+        lines.push(pattern.title);
+        if (pattern.locations.length) {
+          lines.push("  Where it appears: " + pattern.locations.join(", "));
+        }
+        if (pattern.explanation) {
+          lines.push("  What connects them: " + pattern.explanation);
+        }
+        if (pattern.relevance) {
+          lines.push("  Why this pattern may matter: " + pattern.relevance);
+        }
+        pattern.evidence.forEach(function (evidence) {
+          lines.push("  Evidence: " + evidence);
+        });
+        if (pattern.ctPractices.length) {
+          lines.push("  Related CT practices: " + pattern.ctPractices.join(", "));
+        }
+      });
+      if (!normalizePatternsForDisplay(analysis.patterns_across_lesson).length) {
+        lines.push("No meaningful cross-lesson pattern was identified.");
+      }
       lines.push("");
 
       lines.push("COMPUTATIONAL THINKING");
@@ -1528,10 +1789,20 @@
         });
       });
 
-      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
-        if (box.value.trim()) {
-          clarifications.push((box.dataset.ctPractice || "CT practice") + ": " + box.value.trim());
+      Object.keys(pointDiscussions).forEach(function (key) {
+        if (key.indexOf("computational_thinking:") !== 0) {
+          return;
         }
+        var discussion = pointDiscussions[key] || {};
+        if (discussion.includeInDownload === false) {
+          return;
+        }
+        var teacherMessages = (discussion.messages || []).filter(function (message) {
+          return message && message.role === "teacher" && message.text;
+        });
+        teacherMessages.forEach(function (message) {
+          clarifications.push((discussion.pointTitle || "CT practice") + ": " + message.text);
+        });
       });
       if (clarifications.length) {
         lines.push("\nTEACHER CLARIFICATIONS");
@@ -1548,10 +1819,21 @@
         .replace(/[^a-z0-9_-]+/gi, "-")
         .replace(/^-+|-+$/g, "") || "lesson-plan";
       var clarifications = [];
-      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
-        if (box.value.trim()) {
-          clarifications.push((box.dataset.ctPractice || "CT practice") + ": " + box.value.trim());
+      var pointDiscussions = loadPointDiscussions();
+      Object.keys(pointDiscussions).forEach(function (key) {
+        if (key.indexOf("computational_thinking:") !== 0) {
+          return;
         }
+        var discussion = pointDiscussions[key] || {};
+        if (discussion.includeInDownload === false) {
+          return;
+        }
+        var teacherMessages = (discussion.messages || []).filter(function (message) {
+          return message && message.role === "teacher" && message.text;
+        });
+        teacherMessages.forEach(function (message) {
+          clarifications.push((discussion.pointTitle || "CT practice") + ": " + message.text);
+        });
       });
       fetch("/export-analysis-docx", {
         method: "POST",
@@ -1642,6 +1924,7 @@
       var summary = analysis.lesson_plan_summary || {};
       renderSummary(summary, analysis);
       renderAnalysisFocus(analysis.analysis_focus);
+      renderPatternsAcrossLesson(analysis.patterns_across_lesson);
       renderComputationalThinking(analysis.computational_thinking);
       var privacyWarning = getPrivacyWarningText(summary, analysis);
       if (privacyWarning) {

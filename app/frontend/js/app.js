@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // A browser session starts with no lesson-specific conversation state.
   if (!window.sessionStorage.getItem("tutorSessionInitialized")) {
-    ["step2Analysis", "step2UploadMeta", "step2Selections", "step2Preparation", "step2PointDiscussions", "step2AdditionalUploadMeta", "step2PrivacyWarning", "step3Draft", "step3Conversation", "step3Progress", "step3Session"].forEach(function (key) {
+    ["step2Analysis", "step2UploadMeta", "step2Selections", "step2Preparation", "step2PointDiscussions", "step2AdditionalUploadMeta", "step2PrivacyWarning", "step2PatternFocus", "step3Draft", "step3Conversation", "step3Progress", "step3Session"].forEach(function (key) {
       window.localStorage.removeItem(key);
     });
     window.sessionStorage.setItem("tutorSessionInitialized", "1");

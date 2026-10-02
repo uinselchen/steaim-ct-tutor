@@ -20,6 +20,36 @@ COMPUTATIONAL_THINKING_PRACTICES = (
     "Data / representation",
 )
 COMPUTATIONAL_THINKING_STATUSES = {"Present", "Opportunity", "Not identified"}
+CT_PRACTICE_LABELS = set(COMPUTATIONAL_THINKING_PRACTICES)
+
+
+def normalize_patterns_across_lesson(value):
+    """Keep only a small, evidence-bearing set of cross-lesson patterns."""
+    entries = value if isinstance(value, list) else []
+    normalized = []
+    for index, entry in enumerate(entries[:4], start=1):
+        if not isinstance(entry, dict):
+            continue
+        locations = entry.get("locations") if isinstance(entry.get("locations"), list) else []
+        related_item_ids = entry.get("related_item_ids") if isinstance(entry.get("related_item_ids"), list) else []
+        locations = [str(item).strip() for item in locations if str(item).strip()]
+        related_item_ids = [str(item).strip() for item in related_item_ids if str(item).strip()]
+        if len(locations) < 2 and len(related_item_ids) < 2:
+            continue
+        evidence = entry.get("evidence") if isinstance(entry.get("evidence"), list) else []
+        ct_practices = entry.get("ct_practices") if isinstance(entry.get("ct_practices"), list) else []
+        normalized.append({
+            "id": str(entry.get("id") or f"pattern-{index}").strip(),
+            "title": str(entry.get("title") or "Cross-lesson pattern").strip(),
+            "locations": locations,
+            "related_item_ids": related_item_ids,
+            "explanation": str(entry.get("explanation") or "").strip(),
+            "relevance": str(entry.get("relevance") or "").strip(),
+            "evidence": [str(item).strip() for item in evidence if str(item).strip()],
+            "ct_practices": [str(item).strip() for item in ct_practices if str(item).strip() in CT_PRACTICE_LABELS],
+            "refinement_candidate": bool(entry.get("refinement_candidate")),
+        })
+    return normalized
 
 
 def normalize_computational_thinking(value):
@@ -434,6 +464,9 @@ def call_mistral_analysis(payload):
         if isinstance(parsed, dict) and "error" not in parsed:
             parsed["computational_thinking"] = normalize_computational_thinking(
                 parsed.get("computational_thinking")
+            )
+            parsed["patterns_across_lesson"] = normalize_patterns_across_lesson(
+                parsed.get("patterns_across_lesson")
             )
         return parsed
     except Exception as error:

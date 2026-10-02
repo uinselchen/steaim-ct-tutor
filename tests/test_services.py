@@ -213,6 +213,12 @@ class MistralServiceTests(unittest.TestCase):
         self.assertIn("No explicit curriculum reference was found", prompt)
         self.assertIn("Never use generic refinements", prompt)
         self.assertIn("If the lesson plan contains a related learner activity", prompt)
+        self.assertIn("recommended_timing", prompt)
+        self.assertIn("timing_breakdown", prompt)
+        self.assertIn("selected UI grade/age", prompt)
+        self.assertIn("Every analysis_focus entry must include a concrete suggestion string", prompt)
+        self.assertIn("patterns_across_lesson", prompt)
+        self.assertIn("at least two distinct lesson activities", prompt)
 
     def test_analysis_prompt_prioritizes_selected_tutor_language(self):
         prompt = (SERVER_ROOT / "prompts" / "analysis_system_prompt.txt").read_text(encoding="utf-8")
@@ -285,6 +291,25 @@ class MistralServiceTests(unittest.TestCase):
         self.assertEqual(abstraction["evidence"], "123")
         self.assertEqual(abstraction["activity"], "")
         self.assertEqual(result[0]["status"], "Not identified")
+
+    def test_normalize_patterns_across_lesson_keeps_only_cross_lesson_patterns(self):
+        result = mistral_service.normalize_patterns_across_lesson([
+            {
+                "id": "repeat-cycle",
+                "title": "Repeated compare-evaluate cycle",
+                "locations": ["Activity 2", "Activity 4"],
+                "related_item_ids": ["goals:item-1", "steps:item-2"],
+                "explanation": "Learners compare outcomes twice.",
+                "relevance": "The reasoning structure recurs.",
+                "evidence": ["Activity 2 evidence"],
+                "ct_practices": ["Pattern recognition / generalisation", "Unknown"],
+                "refinement_candidate": True,
+            },
+            {"title": "Isolated finding", "locations": ["Activity 1"]},
+        ])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["id"], "repeat-cycle")
+        self.assertEqual(result[0]["ct_practices"], ["Pattern recognition / generalisation"])
 
     def test_call_mistral_analysis_normalizes_computational_thinking_response(self):
         original_key = config.MISTRAL_API_KEY
@@ -440,6 +465,13 @@ class ExportServiceTests(unittest.TestCase):
                     "analysis_focus": {
                         "curriculum_alignment": {"status": "plausible", "match_score": 6, "note": "No explicit reference."}
                     },
+                    "patterns_across_lesson": [{
+                        "title": "Repeated compare-evaluate cycle",
+                        "locations": ["Activity 2", "Activity 4"],
+                        "explanation": "Learners compare outcomes in both activities.",
+                        "relevance": "The reasoning structure recurs.",
+                        "evidence": ["Activity 2 evidence"],
+                    }],
                     "computational_thinking": [],
                     "categories": [],
                 },
@@ -454,6 +486,7 @@ class ExportServiceTests(unittest.TestCase):
             self.assertIn("lesson.docx", xml)
             self.assertIn("Learners make and compare dough recipes", xml)
             self.assertIn("Curriculum alignment", xml)
+            self.assertIn("Repeated compare-evaluate cycle", xml)
         finally:
             if os.path.exists(output_path):
                 os.remove(output_path)
