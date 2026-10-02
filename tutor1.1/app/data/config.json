@@ -1,0 +1,18 @@
+{
+  "countries": [
+    "Slovakia",
+    "Austria",
+    "Spain",
+    "Czech Republic",
+    "Portugal",
+    "Other"
+  ],
+  "subjects": [
+    "Mathematics",
+    "Informatics / CS",
+    "Biology",
+    "Physics",
+    "Chemistry",
+    "Arts"
+  ]
+}

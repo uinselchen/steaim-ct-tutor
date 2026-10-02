@@ -1,9 +1,13 @@
+import contextlib
+import io
 import os
 import shutil
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +23,7 @@ config.ANALYSIS_LOG_FILE = os.path.join(TEST_LOG_ROOT, "analysis-log.txt")
 config.MISTRAL_PROMPT_LOG_FILE = os.path.join(TEST_LOG_ROOT, "mistral-prompt-log.txt")
 
 import email_service
+import export_service
 import logging_utils
 import mistral_service
 import settings_service
@@ -26,7 +31,95 @@ import step2_service
 import text_utils
 
 
+class ConfigTests(unittest.TestCase):
+    def test_load_env_file_reads_all_supported_values_and_keeps_local_key_priority(self):
+        temp_dir = tempfile.mkdtemp(prefix="steaimct-config-test-")
+        env_path = os.path.join(temp_dir, ".env")
+        key_path = os.path.join(temp_dir, "mistral_api_key.txt")
+        original_values = {
+            "ENV_FILE": config.ENV_FILE,
+            "MISTRAL_API_KEY_FILE": config.MISTRAL_API_KEY_FILE,
+        }
+        try:
+            Path(env_path).write_text(
+                "\n".join([
+                    "MISTRAL_API_KEY=env-key",
+                    "MISTRAL_API_URL=https://example.test/v1",
+                    "MISTRAL_MODEL=test-model",
+                    "SMTP_HOST=smtp.example.test",
+                    "SMTP_PORT=2525",
+                    "SMTP_USERNAME=mailer",
+                    "SMTP_PASSWORD=secret",
+                    "SMTP_USE_TLS=false",
+                    "SMTP_USE_SSL=true",
+                    "MAIL_FROM_ADDRESS=from@example.test",
+                    "MAIL_TO_ADDRESS=to@example.test",
+                ])
+                + "\n",
+                encoding="utf-8",
+            )
+            Path(key_path).write_text("local-key\n", encoding="utf-8")
+            config.ENV_FILE = env_path
+            config.MISTRAL_API_KEY_FILE = key_path
+
+            with patch.dict(os.environ, {}, clear=True):
+                config.load_env_file()
+
+            self.assertEqual(config.MISTRAL_API_KEY, "local-key")
+            self.assertEqual(config.MISTRAL_API_URL, "https://example.test/v1")
+            self.assertEqual(config.MISTRAL_MODEL, "test-model")
+            self.assertEqual(config.SMTP_HOST, "smtp.example.test")
+            self.assertEqual(config.SMTP_PORT, 2525)
+            self.assertEqual(config.SMTP_USERNAME, "mailer")
+            self.assertEqual(config.SMTP_PASSWORD, "secret")
+            self.assertFalse(config.SMTP_USE_TLS)
+            self.assertTrue(config.SMTP_USE_SSL)
+            self.assertEqual(config.MAIL_FROM_ADDRESS, "from@example.test")
+            self.assertEqual(config.MAIL_TO_ADDRESS, "to@example.test")
+        finally:
+            config.ENV_FILE = original_values["ENV_FILE"]
+            config.MISTRAL_API_KEY_FILE = original_values["MISTRAL_API_KEY_FILE"]
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_load_env_file_handles_invalid_port_and_missing_key_file(self):
+        temp_dir = tempfile.mkdtemp(prefix="steaimct-config-error-test-")
+        env_path = os.path.join(temp_dir, ".env")
+        missing_key_path = os.path.join(temp_dir, "missing-key.txt")
+        original_values = {
+            "ENV_FILE": config.ENV_FILE,
+            "MISTRAL_API_KEY_FILE": config.MISTRAL_API_KEY_FILE,
+        }
+        try:
+            Path(env_path).write_text("SMTP_PORT=not-a-port\n", encoding="utf-8")
+            config.ENV_FILE = env_path
+            config.MISTRAL_API_KEY_FILE = missing_key_path
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), patch.dict(os.environ, {}, clear=True):
+                config.load_env_file()
+
+            self.assertIsNone(config.MISTRAL_API_KEY)
+            self.assertEqual(config.SMTP_PORT, config.DEFAULT_SMTP_PORT)
+            self.assertIn("Invalid SMTP_PORT", output.getvalue())
+        finally:
+            config.ENV_FILE = original_values["ENV_FILE"]
+            config.MISTRAL_API_KEY_FILE = original_values["MISTRAL_API_KEY_FILE"]
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 class TextUtilsTests(unittest.TestCase):
+    def test_logging_handles_unicode_on_legacy_console_encoding(self):
+        output = io.BytesIO()
+        stream = type("LegacyConsole", (), {})()
+        stream.encoding = "cp1252"
+        stream.buffer = output
+        stream.write = lambda value: output.write(value.encode("cp1252"))
+        stream.flush = lambda: None
+
+        with patch.object(logging_utils.sys, "stdout", stream):
+            logging_utils.log_message("Unicode test: ň")
+
+        self.assertIn("Unicode test", output.getvalue().decode("cp1252"))
+
     def test_logging_redacts_api_keys_and_bearer_tokens(self):
         original_key = config.MISTRAL_API_KEY
         config.MISTRAL_API_KEY = "test-secret-api-key-123"
@@ -83,8 +176,186 @@ class Step2ServiceTests(unittest.TestCase):
         self.assertEqual(result["countrySlug"], "unknown-country")
         self.assertEqual(result["subjects"][0]["slug"], "unknown-subject")
 
+    def test_ensure_step2_folder_structure_works_under_unicode_user_path(self):
+        unicode_root = os.path.join(self.temp_dir, "učiteľ-žluťoučký")
+        config.CURRICULA_ROOT = os.path.join(unicode_root, "curricula")
+        config.AMENDMENTS_ROOT = os.path.join(unicode_root, "amendments")
+
+        result = step2_service.ensure_step2_folder_structure("Česká republika", ["Fyzika"])
+
+        self.assertTrue(os.path.isdir(result["subjects"][0]["curriculum"]))
+        self.assertTrue(os.path.isdir(result["subjects"][0]["amendments"]))
+        self.assertEqual(result["countrySlug"], "ceska-republika")
+
 
 class MistralServiceTests(unittest.TestCase):
+    def test_analysis_prompt_contains_computational_thinking_contract(self):
+        prompt = (SERVER_ROOT / "prompts" / "analysis_system_prompt.txt").read_text(encoding="utf-8")
+
+        for practice in mistral_service.COMPUTATIONAL_THINKING_PRACTICES:
+            self.assertIn(practice, prompt)
+        for status in ("Present", "Opportunity", "Not identified"):
+            self.assertIn(status, prompt)
+        for field in ("activity", "evidence", "limitation", "refinement"):
+            self.assertIn(field, prompt)
+        self.assertIn("learners perform", prompt)
+        self.assertIn("keywords", prompt)
+        self.assertIn("technology", prompt)
+        self.assertIn("exactly six", prompt)
+
+        discussion_prompt = (SERVER_ROOT / "prompts" / "analysis_discussion_system_prompt.txt").read_text(encoding="utf-8")
+        self.assertIn("Discuss exactly one analysis point at a time", discussion_prompt)
+        self.assertIn("include_in_download", discussion_prompt)
+        self.assertIn("latest teacher message", discussion_prompt)
+        self.assertIn("concrete adaptation proposal", discussion_prompt)
+        self.assertIn("target grade lies within the document's grade range", prompt)
+        self.assertIn("Do not judge a cross-curricular lesson as weakly aligned", prompt)
+        self.assertIn("No explicit curriculum reference was found", prompt)
+        self.assertIn("Never use generic refinements", prompt)
+        self.assertIn("If the lesson plan contains a related learner activity", prompt)
+        self.assertIn("recommended_timing", prompt)
+        self.assertIn("timing_breakdown", prompt)
+        self.assertIn("selected UI grade/age", prompt)
+        self.assertIn("Every analysis_focus entry must include a concrete suggestion string", prompt)
+        self.assertIn("patterns_across_lesson", prompt)
+        self.assertIn("at least two distinct lesson activities", prompt)
+
+    def test_analysis_prompt_prioritizes_selected_tutor_language(self):
+        prompt = (SERVER_ROOT / "prompts" / "analysis_system_prompt.txt").read_text(encoding="utf-8")
+
+        self.assertIn("selected preferred tutor language", prompt)
+        self.assertIn("uploaded document", prompt)
+        self.assertIn("human-readable value", prompt)
+        self.assertIn("positive_note", prompt)
+        self.assertIn("Evaluate target-group fit and subject fit as separate dimensions", prompt)
+        self.assertIn("No explicit curriculum reference is not the same as curriculum misalignment", prompt)
+        self.assertIn("If status is Opportunity, activity, evidence, limitation, and refinement are required", prompt)
+        self.assertIn("Do not lower target-group scores when the selected grade is within the document's grade range", prompt)
+        self.assertIn("exactly six", prompt)
+
+    def test_normalize_computational_thinking_returns_all_practices_in_order(self):
+        raw = [
+            {
+                "practice": "Algorithmic thinking",
+                "status": "Present",
+                "activity": "Activity 3",
+                "evidence": "Learners write and compare step sequences.",
+                "limitation": "",
+                "refinement": "",
+            },
+            {
+                "practice": "Decomposition",
+                "status": "Opportunity",
+                "activity": "Activity 2",
+                "evidence": "Learners work on one complete design task.",
+                "limitation": "The task is not split into smaller constraints.",
+                "refinement": "Ask learners to divide the design into smaller constraints.",
+                "positive_note": "Learners already plan the overall design before building it.",
+            },
+            {
+                "practice": "Data / representation",
+                "status": "Not identified",
+                "activity": "",
+                "evidence": "No learner data representation is described.",
+            },
+            {"practice": "Unknown practice", "status": "Present"},
+        ]
+
+        result = mistral_service.normalize_computational_thinking(raw)
+
+        self.assertEqual(
+            [item["practice"] for item in result],
+            [
+                "Decomposition",
+                "Pattern recognition / generalisation",
+                "Abstraction",
+                "Algorithmic thinking",
+                "Testing / debugging / evaluation",
+                "Data / representation",
+            ],
+        )
+        self.assertEqual(result[0]["status"], "Opportunity")
+        self.assertEqual(result[0]["refinement"], "Ask learners to divide the design into smaller constraints.")
+        self.assertEqual(result[0]["positive_note"], "Learners already plan the overall design before building it.")
+        self.assertEqual(result[3]["evidence"], "Learners write and compare step sequences.")
+        self.assertEqual(result[1]["status"], "Not identified")
+        self.assertEqual(result[2]["activity"], "")
+
+    def test_normalize_computational_thinking_defaults_malformed_values(self):
+        result = mistral_service.normalize_computational_thinking(
+            [{"practice": "Abstraction", "status": "Maybe", "evidence": 123}, "not an object"]
+        )
+
+        abstraction = result[2]
+        self.assertEqual(abstraction["status"], "Not identified")
+        self.assertEqual(abstraction["evidence"], "123")
+        self.assertEqual(abstraction["activity"], "")
+        self.assertEqual(result[0]["status"], "Not identified")
+
+    def test_normalize_patterns_across_lesson_keeps_only_cross_lesson_patterns(self):
+        result = mistral_service.normalize_patterns_across_lesson([
+            {
+                "id": "repeat-cycle",
+                "title": "Repeated compare-evaluate cycle",
+                "locations": ["Activity 2", "Activity 4"],
+                "related_item_ids": ["goals:item-1", "steps:item-2"],
+                "explanation": "Learners compare outcomes twice.",
+                "relevance": "The reasoning structure recurs.",
+                "evidence": ["Activity 2 evidence"],
+                "ct_practices": ["Pattern recognition / generalisation", "Unknown"],
+                "refinement_candidate": True,
+            },
+            {"title": "Isolated finding", "locations": ["Activity 1"]},
+        ])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["id"], "repeat-cycle")
+        self.assertEqual(result[0]["ct_practices"], ["Pattern recognition / generalisation"])
+
+    def test_call_mistral_analysis_normalizes_computational_thinking_response(self):
+        original_key = config.MISTRAL_API_KEY
+        config.MISTRAL_API_KEY = "test-key"
+        response = {
+            "choices": [{
+                "message": {
+                    "content": '{"lesson_plan_summary": {}, "computational_thinking": [{"practice": "Abstraction", "status": "Present", "activity": "Activity 1", "evidence": "Learners remove irrelevant details."}]}'
+                }
+            }]
+        }
+        try:
+            with patch.object(mistral_service, "post_mistral_chat_completion", return_value=response):
+                result = mistral_service.call_mistral_analysis({"documentText": "lesson"})
+
+            self.assertEqual(len(result["computational_thinking"]), 6)
+            self.assertEqual(result["computational_thinking"][2]["status"], "Present")
+            self.assertEqual(result["computational_thinking"][2]["activity"], "Activity 1")
+            self.assertEqual(result["computational_thinking"][0]["status"], "Not identified")
+        finally:
+            config.MISTRAL_API_KEY = original_key
+
+    def test_call_mistral_analysis_discussion_returns_structured_result(self):
+        original_key = config.MISTRAL_API_KEY
+        config.MISTRAL_API_KEY = "test-key"
+        response = {
+            "choices": [{
+                "message": {
+                    "content": '{"assistant_message": "The evidence supports keeping this point.", "decision": "Keep as is", "summary": "The teacher confirmed the timing is intentional.", "adaptation_proposal": "Keep the activity unchanged and document the timing rationale.", "include_in_download": true}'
+                }
+            }]
+        }
+        try:
+            with patch.object(mistral_service, "post_mistral_chat_completion", return_value=response):
+                result = mistral_service.call_mistral_analysis_discussion({
+                    "point": {"title": "Timing"},
+                    "user_message": "The timing is intentional."
+                })
+
+            self.assertEqual(result["decision"], "Keep as is")
+            self.assertEqual(result["summary"], "The teacher confirmed the timing is intentional.")
+            self.assertEqual(result["adaptation_proposal"], "Keep the activity unchanged and document the timing rationale.")
+            self.assertTrue(result["include_in_download"])
+        finally:
+            config.MISTRAL_API_KEY = original_key
+
     def test_parse_json_response_block_repairs_common_model_mistakes(self):
         raw = """```json
         {summary: "ok", "done": True, "items": ["a",],}
@@ -179,6 +450,46 @@ class EmailServiceTests(unittest.TestCase):
         self.assertIn("Goals are measurable.", pros)
         self.assertIn("1. Tight timing", cons)
         self.assertIn("Transitions need more time.", cons)
+
+
+class ExportServiceTests(unittest.TestCase):
+    def test_build_analysis_docx_contains_structured_sections(self):
+        output_path = os.path.join(tempfile.gettempdir(), "steaimct-analysis-test.docx")
+        try:
+            export_service.build_analysis_docx(
+                {
+                    "lesson_plan_summary": {
+                        "short_summary": "Learners make and compare dough recipes.",
+                        "detected_subjects": ["Chemistry"],
+                    },
+                    "analysis_focus": {
+                        "curriculum_alignment": {"status": "plausible", "match_score": 6, "note": "No explicit reference."}
+                    },
+                    "patterns_across_lesson": [{
+                        "title": "Repeated compare-evaluate cycle",
+                        "locations": ["Activity 2", "Activity 4"],
+                        "explanation": "Learners compare outcomes in both activities.",
+                        "relevance": "The reasoning structure recurs.",
+                        "evidence": ["Activity 2 evidence"],
+                    }],
+                    "computational_thinking": [],
+                    "categories": [],
+                },
+                {"filename": "lesson.docx", "country": "Austria", "subjects": ["Chemistry"], "gradeFrom": "2", "ageFrom": "7"},
+                {},
+                [],
+                output_path,
+            )
+            with zipfile.ZipFile(output_path) as document:
+                xml = document.read("word/document.xml").decode("utf-8")
+            self.assertIn("Uploaded document", xml)
+            self.assertIn("lesson.docx", xml)
+            self.assertIn("Learners make and compare dough recipes", xml)
+            self.assertIn("Curriculum alignment", xml)
+            self.assertIn("Repeated compare-evaluate cycle", xml)
+        finally:
+            if os.path.exists(output_path):
+                os.remove(output_path)
 
 
 class SettingsServiceTests(unittest.TestCase):

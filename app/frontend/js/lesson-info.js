@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", function () {
+  function tr(text) {
+    return window.tutorTranslate ? window.tutorTranslate(text, text) : text;
+  }
+
   var countrySelect = document.getElementById("country");
   var countryOtherInput = document.getElementById("countryOther");
   var addCountryButton = document.getElementById("addCountryButton");
@@ -15,6 +19,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
   var currentSubjects = [];
   var currentCountries = [];
+
+  function clearLessonSessionState() {
+    ["step2Analysis", "step2UploadMeta", "step2Selections", "step2Preparation", "step2PointDiscussions", "step2AdditionalUploadMeta", "step2PrivacyWarning", "step2PatternFocus", "step3Draft", "step3Conversation", "step3Progress", "step3Session"].forEach(function (key) {
+      window.localStorage.removeItem(key);
+    });
+  }
 
   function setAnalyzingState(active) {
     if (!continueButton) {
@@ -43,7 +53,23 @@ document.addEventListener("DOMContentLoaded", function () {
   function setError(id, message) {
     var element = document.getElementById(id);
     if (element) {
-      element.textContent = message;
+      element.textContent = window.tutorTranslate ? window.tutorTranslate(message, message) : message;
+    }
+    var headingSelectors = {
+      countryError: ".country-inline-row label",
+      subjectsError: ".subject-field .field-label-row label",
+      gradeError: "#gradeFrom",
+      ageError: "#ageFrom",
+      fileError: ".upload-field > label"
+    };
+    var headingSelector = headingSelectors[id];
+    var target = headingSelector ? document.querySelector(headingSelector) : null;
+    if (target && (id === "gradeError" || id === "ageError")) {
+      target = target.closest(".form-field");
+      target = target ? target.querySelector("label") : null;
+    }
+    if (target) {
+      target.classList.toggle("validation-heading-error", Boolean(message));
     }
   }
 
@@ -158,17 +184,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function populateSelect(options) {
     currentCountries = options.slice();
-    countrySelect.innerHTML = "<option value=\"\">Select country</option>";
+    countrySelect.innerHTML = "";
+    var placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = tr("Select country");
+    countrySelect.appendChild(placeholder);
     options.forEach(function (country) {
       var option = document.createElement("option");
       option.value = country;
-      option.textContent = country;
+      option.textContent = tr(country);
       countrySelect.appendChild(option);
     });
     if (options.indexOf("Other") === -1) {
       var otherOption = document.createElement("option");
       otherOption.value = "Other";
-      otherOption.textContent = "Other";
+      otherOption.textContent = tr("Other");
       countrySelect.appendChild(otherOption);
     }
     toggleCountryOther();
@@ -183,7 +213,7 @@ document.addEventListener("DOMContentLoaded", function () {
       input.type = "checkbox";
       input.name = "subjects";
       input.value = subject;
-      label.appendChild(document.createTextNode(" " + subject));
+      label.appendChild(document.createTextNode(" " + tr(subject)));
       label.appendChild(input);
       subjectCheckboxes.appendChild(label);
     });
@@ -194,7 +224,7 @@ document.addEventListener("DOMContentLoaded", function () {
     otherInput.name = "subjects";
     otherInput.value = "Other";
     otherInput.id = "subjectOtherCheckbox";
-    otherLabel.appendChild(document.createTextNode(" Other"));
+    otherLabel.appendChild(document.createTextNode(" " + tr("Other")));
     otherLabel.appendChild(otherInput);
     subjectCheckboxes.appendChild(otherLabel);
 
@@ -222,6 +252,15 @@ document.addEventListener("DOMContentLoaded", function () {
         populateSubjects(["Mathematics", "Informatics / CS", "Biology", "Physics", "Chemistry"]);
       });
   }
+
+  window.addEventListener("languagechange", function () {
+    if (currentCountries.length) {
+      populateSelect(currentCountries);
+    }
+    if (currentSubjects.length) {
+      populateSubjects(currentSubjects);
+    }
+  });
 
   function saveCustomSubject(subject) {
     return fetch("/config", {
@@ -373,6 +412,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function uploadForm() {
+    // Every uploaded lesson plan gets an isolated analysis and conversation.
+    clearLessonSessionState();
     var subjects = getSelectedSubjects();
     var customSubject = document.getElementById("subjectOtherCheckbox") && document.getElementById("subjectOtherCheckbox").checked ? subjectOtherInput.value.trim() : "";
     var country = countrySelect.value;
@@ -436,6 +477,8 @@ document.addEventListener("DOMContentLoaded", function () {
       formData.append("gradeFrom", document.getElementById("gradeFrom").value);
       formData.append("gradeTo", document.getElementById("gradeTo").value);
       formData.append("specifics", document.getElementById("specifics").value.trim());
+      formData.append("language", window.localStorage.getItem("preferredLanguage") || "English");
+      formData.append("languageCountry", window.localStorage.getItem("preferredLanguageCountry") || "");
       formData.append("lessonPlan", fileInput.files[0]);
 
       sendClientLog("Analysis started for " + (fileInput.files[0] ? fileInput.files[0].name : "unknown file"));
@@ -503,6 +546,8 @@ document.addEventListener("DOMContentLoaded", function () {
               ageFrom: formData.get("ageFrom"),
               ageTo: formData.get("ageTo"),
               specifics: formData.get("specifics"),
+              language: formData.get("language"),
+              languageCountry: formData.get("languageCountry"),
               filename: fileInput.files[0] ? fileInput.files[0].name : "",
               sourceDocument: analysis && (analysis.sourceDocument || analysis.source_document) ? (analysis.sourceDocument || analysis.source_document) : null
             }));

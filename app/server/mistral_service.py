@@ -11,6 +11,74 @@ from prompts import load_prompt_file
 from text_utils import build_conversation_text, parse_subjects_value
 
 
+COMPUTATIONAL_THINKING_PRACTICES = (
+    "Decomposition",
+    "Pattern recognition / generalisation",
+    "Abstraction",
+    "Algorithmic thinking",
+    "Testing / debugging / evaluation",
+    "Data / representation",
+)
+COMPUTATIONAL_THINKING_STATUSES = {"Present", "Opportunity", "Not identified"}
+CT_PRACTICE_LABELS = set(COMPUTATIONAL_THINKING_PRACTICES)
+
+
+def normalize_patterns_across_lesson(value):
+    """Keep only a small, evidence-bearing set of cross-lesson patterns."""
+    entries = value if isinstance(value, list) else []
+    normalized = []
+    for index, entry in enumerate(entries[:4], start=1):
+        if not isinstance(entry, dict):
+            continue
+        locations = entry.get("locations") if isinstance(entry.get("locations"), list) else []
+        related_item_ids = entry.get("related_item_ids") if isinstance(entry.get("related_item_ids"), list) else []
+        locations = [str(item).strip() for item in locations if str(item).strip()]
+        related_item_ids = [str(item).strip() for item in related_item_ids if str(item).strip()]
+        if len(locations) < 2 and len(related_item_ids) < 2:
+            continue
+        evidence = entry.get("evidence") if isinstance(entry.get("evidence"), list) else []
+        ct_practices = entry.get("ct_practices") if isinstance(entry.get("ct_practices"), list) else []
+        normalized.append({
+            "id": str(entry.get("id") or f"pattern-{index}").strip(),
+            "title": str(entry.get("title") or "Cross-lesson pattern").strip(),
+            "locations": locations,
+            "related_item_ids": related_item_ids,
+            "explanation": str(entry.get("explanation") or "").strip(),
+            "relevance": str(entry.get("relevance") or "").strip(),
+            "evidence": [str(item).strip() for item in evidence if str(item).strip()],
+            "ct_practices": [str(item).strip() for item in ct_practices if str(item).strip() in CT_PRACTICE_LABELS],
+            "refinement_candidate": bool(entry.get("refinement_candidate")),
+        })
+    return normalized
+
+
+def normalize_computational_thinking(value):
+    """Return a stable, safe CT analysis shape for the Step 2 UI."""
+    entries = value if isinstance(value, list) else []
+    by_practice = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        practice = str(entry.get("practice", "")).strip()
+        if practice in COMPUTATIONAL_THINKING_PRACTICES and practice not in by_practice:
+            by_practice[practice] = entry
+
+    normalized = []
+    for practice in COMPUTATIONAL_THINKING_PRACTICES:
+        entry = by_practice.get(practice, {})
+        status = str(entry.get("status", "")).strip()
+        normalized.append({
+            "practice": practice,
+            "status": status if status in COMPUTATIONAL_THINKING_STATUSES else "Not identified",
+            "activity": str(entry.get("activity", "") or "").strip(),
+            "evidence": str(entry.get("evidence", "") or "").strip(),
+            "limitation": str(entry.get("limitation", "") or "").strip(),
+            "refinement": str(entry.get("refinement", "") or "").strip(),
+            "positive_note": str(entry.get("positive_note", "") or "").strip(),
+        })
+    return normalized
+
+
 def get_step3_focus_label(payload):
     current_node = payload.get("currentNode") if isinstance(payload.get("currentNode"), dict) else {}
     focus_title = str(current_node.get("pointTitle", "")).strip()
@@ -320,6 +388,8 @@ def build_ui_target_context(metadata):
             "display": format_context_range(metadata.get("ageFrom", ""), metadata.get("ageTo", "")),
         },
         "specifics": str(metadata.get("specifics", "")).strip(),
+        "language": str(metadata.get("language", "")).strip() or "English",
+        "languageCountry": str(metadata.get("languageCountry", "")).strip(),
         "priority": "Use this teacher-entered UI context as the intended lesson context. Check the uploaded document against it.",
     }
 
@@ -329,7 +399,11 @@ def build_analysis_context_summary(payload):
     subjects = context.get("subjects") if isinstance(context.get("subjects"), list) else []
     grade_range = context.get("gradeRange") if isinstance(context.get("gradeRange"), dict) else {}
     age_range = context.get("ageRange") if isinstance(context.get("ageRange"), dict) else {}
-    language = context.get("language") if isinstance(context.get("language"), dict) else "English"
+    language_value = context.get("language")
+    if isinstance(language_value, dict):
+        language = language_value.get("name") or language_value.get("language") or "English"
+    else:
+        language = str(language_value or "English")
     lines = [
         "Teacher-entered UI target context (read this first):",
         f"- Country: {context.get('country') or 'not provided'}",
@@ -337,12 +411,13 @@ def build_analysis_context_summary(payload):
         f"- Intended grade range: {grade_range.get('display') or 'not provided'}",
         f"- Intended age range: {age_range.get('display') or 'not provided'}",
         f"- Specific teacher notes: {context.get('specifics') or 'none'}",
+        f"- Preferred tutor language: {language}",
         "",
         "Analysis instruction:",
         "Use the UI target context as the teacher's intended use case. Extract what the document says, then check whether the lesson plan fits this UI context based on the actual tasks and activity load. If the document claims a different grade or age than the UI context, report the mismatch clearly.",
         "Subject focus instruction:",
         "Treat the selected subject(s) as the primary lens for feedback. If the document is stronger in other subjects than in the selected subject(s), say that clearly and suggest what would be needed to make it fit the selected subject(s).",
-        f"Conduct the analysis strictly in the {language} language.",
+        f"LANGUAGE REQUIREMENT: Write every human-readable analysis value strictly in {language}. The uploaded document language must not override this requirement. JSON keys and controlled enum values may remain in their required English form, but all summaries, notes, titles, explanations, evidence, suggestions, and warnings must be in {language}.",
     ]
     return "\n".join(lines)
 
@@ -385,11 +460,55 @@ def call_mistral_analysis(payload):
     try:
         content = response_data["choices"][0]["message"]["content"]
         log_message(f"[mistral] Raw content preview: {content[:500]}")
-        return parse_mistral_json_content(content, "mistral", config.MISTRAL_TEST_TIMEOUT)
+        parsed = parse_mistral_json_content(content, "mistral", config.MISTRAL_TEST_TIMEOUT)
+        if isinstance(parsed, dict) and "error" not in parsed:
+            parsed["computational_thinking"] = normalize_computational_thinking(
+                parsed.get("computational_thinking")
+            )
+            parsed["patterns_across_lesson"] = normalize_patterns_across_lesson(
+                parsed.get("patterns_across_lesson")
+            )
+        return parsed
     except Exception as error:
         log_message(f"[mistral] Could not parse response: {error}")
         log_message(traceback.format_exc())
         return {"error": f"Could not parse Mistral response as JSON: {error}", "raw": response_data}
+
+
+def call_mistral_analysis_discussion(payload):
+    if not config.MISTRAL_API_KEY:
+        log_message("[mistral-analysis-discussion] Missing MISTRAL_API_KEY")
+        return {
+            "error": "MISTRAL_API_KEY is not configured in app/server/.env"
+        }
+
+    system_prompt = load_prompt_file("analysis_discussion_system_prompt.txt")
+    user_prompt = json.dumps(payload if isinstance(payload, dict) else {}, ensure_ascii=False, indent=2)
+    request_body = build_mistral_request_body(system_prompt, user_prompt)
+    log_mistral_prompt("analysis-discussion", system_prompt, user_prompt, request_body)
+
+    try:
+        response_data = post_mistral_chat_completion(request_body, config.MISTRAL_ANALYSIS_TIMEOUT)
+        log_message(f"[mistral-analysis-discussion] Response received, model={config.MISTRAL_MODEL}")
+        content = response_data["choices"][0]["message"]["content"]
+        parsed = parse_mistral_json_content(content, "mistral-analysis-discussion", config.MISTRAL_TEST_TIMEOUT)
+        if not isinstance(parsed, dict):
+            return {"error": "Analysis discussion returned an invalid response."}
+        return {
+            "assistant_message": str(parsed.get("assistant_message", "")).strip(),
+            "decision": str(parsed.get("decision", "")).strip(),
+            "summary": str(parsed.get("summary", "")).strip(),
+            "adaptation_proposal": str(parsed.get("adaptation_proposal", "")).strip(),
+            "include_in_download": bool(parsed.get("include_in_download", True)),
+        }
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="ignore")
+        log_message(f"[mistral-analysis-discussion] HTTPError {error.code}: {detail}")
+        return {"error": f"Mistral analysis discussion failed with HTTP {error.code}", "detail": detail}
+    except Exception as error:
+        log_message(f"[mistral-analysis-discussion] Request failed: {error}")
+        log_message(traceback.format_exc())
+        return {"error": f"Mistral analysis discussion failed: {error}"}
 
 
 def call_mistral_refinement(payload):
