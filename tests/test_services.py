@@ -107,6 +107,19 @@ class ConfigTests(unittest.TestCase):
 
 
 class TextUtilsTests(unittest.TestCase):
+    def test_logging_handles_unicode_on_legacy_console_encoding(self):
+        output = io.BytesIO()
+        stream = type("LegacyConsole", (), {})()
+        stream.encoding = "cp1252"
+        stream.buffer = output
+        stream.write = lambda value: output.write(value.encode("cp1252"))
+        stream.flush = lambda: None
+
+        with patch.object(logging_utils.sys, "stdout", stream):
+            logging_utils.log_message("Unicode test: ň")
+
+        self.assertIn("Unicode test", output.getvalue().decode("cp1252"))
+
     def test_logging_redacts_api_keys_and_bearer_tokens(self):
         original_key = config.MISTRAL_API_KEY
         config.MISTRAL_API_KEY = "test-secret-api-key-123"
@@ -163,6 +176,17 @@ class Step2ServiceTests(unittest.TestCase):
         self.assertEqual(result["countrySlug"], "unknown-country")
         self.assertEqual(result["subjects"][0]["slug"], "unknown-subject")
 
+    def test_ensure_step2_folder_structure_works_under_unicode_user_path(self):
+        unicode_root = os.path.join(self.temp_dir, "učiteľ-žluťoučký")
+        config.CURRICULA_ROOT = os.path.join(unicode_root, "curricula")
+        config.AMENDMENTS_ROOT = os.path.join(unicode_root, "amendments")
+
+        result = step2_service.ensure_step2_folder_structure("Česká republika", ["Fyzika"])
+
+        self.assertTrue(os.path.isdir(result["subjects"][0]["curriculum"]))
+        self.assertTrue(os.path.isdir(result["subjects"][0]["amendments"]))
+        self.assertEqual(result["countrySlug"], "ceska-republika")
+
 
 class MistralServiceTests(unittest.TestCase):
     def test_analysis_prompt_contains_computational_thinking_contract(self):
@@ -189,6 +213,13 @@ class MistralServiceTests(unittest.TestCase):
         self.assertIn("No explicit curriculum reference was found", prompt)
         self.assertIn("Never use generic refinements", prompt)
         self.assertIn("If the lesson plan contains a related learner activity", prompt)
+
+    def test_analysis_prompt_prioritizes_selected_tutor_language(self):
+        prompt = (SERVER_ROOT / "prompts" / "analysis_system_prompt.txt").read_text(encoding="utf-8")
+
+        self.assertIn("selected preferred tutor language", prompt)
+        self.assertIn("uploaded document", prompt)
+        self.assertIn("human-readable value", prompt)
         self.assertIn("positive_note", prompt)
         self.assertIn("Evaluate target-group fit and subject fit as separate dimensions", prompt)
         self.assertIn("No explicit curriculum reference is not the same as curriculum misalignment", prompt)
