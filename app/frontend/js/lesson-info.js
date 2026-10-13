@@ -99,16 +99,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  function updateAddSubjectButton() {
-    var otherCheckbox = document.getElementById("subjectOtherCheckbox");
-    var customText = subjectOtherInput.value.trim();
-    if (otherCheckbox && otherCheckbox.checked && customText) {
-      addSubjectButton.style.display = "inline-flex";
-    } else {
-      addSubjectButton.style.display = "none";
-    }
-  }
-
   function getSelectedSubjects() {
     var subjects = Array.from(document.querySelectorAll("input[name='subjects']:checked")).map(function (input) {
       return input.value;
@@ -127,7 +117,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function normalizeNumericText(value) {
     if (!value) {
-      return null;
+      return "";    // NOTE: Changed this from null to fix UI bug. Change back if anything broken.
     }
     var digits = value.match(/\d+/g);
     return digits ? digits.join("") : null;
