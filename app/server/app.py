@@ -6,10 +6,10 @@ import cgi
 import json
 import uuid
 import webbrowser
-import mimetypes
 import tempfile
 import traceback
 from http import HTTPStatus
+
 import config
 from config import (
     APP_ROOT,
@@ -32,6 +32,7 @@ from logging_utils import log_message
 from text_utils import parse_subjects_value
 
 
+### CONFIG ###
 config.load_env_file()
 
 if not config.MISTRAL_API_KEY:
@@ -65,7 +66,7 @@ if not os.path.exists(CONFIG_FILE):
         json.dump(default_config, config_file, indent=2)
 
 
-###  ####
+### TUTOR-APP HANDLER ###
 class TutorHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         route = urllib.parse.urlparse(self.path).path
@@ -92,6 +93,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         route = urllib.parse.urlparse(self.path).path
+
         if route == "/upload":
             self.handle_upload()
         elif route == "/analyze":
@@ -117,32 +119,61 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
-    def handle_upload(self):
+    def _fetch_form_data(self) -> cgi.FieldStorage:
+        """
+        Fetch a freshly- or previously-uploaded form.
+
+        :return: Container of the uploaded form-data.
+        """
         content_type = self.headers.get("Content-Type", "")
         if not content_type.startswith("multipart/form-data"):
             self.send_error(HTTPStatus.BAD_REQUEST, "Expected multipart/form-data")
-            return
+            raise TypeError('Expected multipart/form-data"')
+        else:
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={
+                    "REQUEST_METHOD": "POST",
+                    "CONTENT_TYPE": content_type,
+                },
+            )
+            return form
 
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": content_type,
-            },
-        )
+    def _load_lesson_plan(self, form: cgi.FieldStorage):
+        """
+        Loads lesson plan/file from form
 
+        :param form: form-data container
+        :return: file item, file name
+        """
         if "lessonPlan" not in form and "file" not in form:
             self.send_error(HTTPStatus.BAD_REQUEST, "No file field provided")
-            return
+            raise ValueError("No file field provided")
+        pass
 
         file_item = form["lessonPlan"] if "lessonPlan" in form else form["file"]
         filename = os.path.basename(file_item.filename or "")
-
-        if not filename:
+        if not filename:    #TODO: Clarify: is this supposed to be looking for filename None or "" specifically?
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid filename")
+            raise ValueError("Invalid filename")
+
+        return file_item, filename
+
+    def handle_upload(self):
+        # Fetch form
+        try:
+            form = self._fetch_form_data()
+        except TypeError:
             return
 
+        # Load lesson plan
+        try:
+            file_item, filename = self._load_lesson_plan(form)
+        except ValueError:
+            return
+
+        # Save lesson plan to output folder
         target_path = os.path.join(LESSONPLANS_ROOT, filename)
         try:
             with open(target_path, "wb") as output_file:
@@ -150,9 +181,10 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         except OSError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to save file")
             return
+        response_body = {"saved": filename}
 
+        # Save lesson plan specifics
         specifics = form.getvalue("specifics", "").strip()
-        specifics_filename = None
         if specifics:
             specifics_filename = f"specifics-{uuid.uuid4().hex[:8]}.txt"
             specifics_path = os.path.join(DATA_ROOT, "outputs", specifics_filename)
@@ -162,39 +194,25 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             except OSError:
                 self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to save specifics")
                 return
-
-        response_body = {"saved": filename}
-        if specifics_filename:
             response_body["specificsSaved"] = specifics_filename
 
+        # HTTP housekeeping
         self.send_response(HTTPStatus.CREATED)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(response_body).encode("utf-8"))
 
     def handle_analyze(self):
-        content_type = self.headers.get("Content-Type", "")
-        if not content_type.startswith("multipart/form-data"):
-            self.send_error(HTTPStatus.BAD_REQUEST, "Expected multipart/form-data")
+        # Fetch form
+        try:
+            form = self._fetch_form_data()
+        except TypeError:
             return
 
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": content_type,
-            },
-        )
-
-        if "lessonPlan" not in form and "file" not in form:
-            self.send_error(HTTPStatus.BAD_REQUEST, "No file field provided")
-            return
-
-        file_item = form["lessonPlan"] if "lessonPlan" in form else form["file"]
-        filename = os.path.basename(file_item.filename or "")
-        if not filename:
-            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid filename")
+        # Load lesson plan
+        try:
+            file_item, filename = self._load_lesson_plan(form)
+        except ValueError:
             return
 
         log_message(f"[analyze] Received file={filename}")
@@ -205,7 +223,10 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             temp_file.write(file_bytes)
             temp_path = temp_file.name
 
+        # Extract lesson plan text body
+        extracted_text = ""
         try:
+        # TODO: Can this even break? How do we handle if it does?
             extracted_text = extract_text_from_file(temp_path)
         finally:
                 try:
@@ -223,9 +244,9 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         except OSError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to save uploaded lesson plan")
             return
-
         log_message(f"[analyze] Extracted chars={len(extracted_text)}")
 
+        # Extract specifics
         specifics = form.getvalue("specifics", "").strip()
         subjects_value = []
         if "subjects[]" in form:
@@ -235,7 +256,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             else:
                 subjects_value = [subjects_field.value]
         elif "subjects" in form:
-            subjects_value = parse_subjects_value(form.getvalue("subjects", ""))
+            subjects_value = parse_subjects_value(form.getvalue("subjects", ""))    #TODO: Do we really need to pre-parse here?
         subject_other = form.getvalue("subjectOther", "").strip()
         if subject_other:
             subjects_value.append(subject_other)
@@ -267,6 +288,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
                 a2=metadata["ageTo"],
             )
         )
+
         if not extracted_text.strip():
             log_message("[analyze] Warning: extracted text is empty")
             if temp_suffix.lower() == ".pdf":
@@ -280,12 +302,15 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(analysis).encode("utf-8"))
                 return
 
+        # Build Analysis Request
         analysis_request_metadata = dict(metadata)
         analysis_request_metadata.pop("sourceDocument", None)
         analysis_request_metadata["ui_target_context"] = mistral_service.build_ui_target_context(metadata)
+        # Fetch Analysis
         analysis = mistral_service.call_mistral_analysis(analysis_request_metadata)
         if isinstance(analysis, dict):
             analysis["sourceDocument"] = metadata["sourceDocument"]
+        # HTTP housekeeping
         if "error" in analysis:
             log_message(f"[analyze] Failed: {analysis.get('error')}")
             self.send_response(HTTPStatus.BAD_GATEWAY)
@@ -297,19 +322,11 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(analysis, ensure_ascii=False).encode("utf-8"))
 
     def handle_step2_prepare(self):
-        content_type = self.headers.get("Content-Type", "")
-        if not content_type.startswith("multipart/form-data"):
-            self.send_error(HTTPStatus.BAD_REQUEST, "Expected multipart/form-data")
+        # Fetch form
+        try:
+            form = self._fetch_form_data()
+        except TypeError:
             return
-
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": content_type,
-            },
-        )
 
         country = form.getvalue("country", "").strip()
         if not country:
@@ -343,7 +360,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         if raw_source_document:
             try:
                 source_document = export_service.normalize_source_document(json.loads(raw_source_document))
-            except Exception:
+            except:
                 source_document = export_service.normalize_source_document(raw_source_document)
 
         saved_files = []
@@ -406,7 +423,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             data = json.loads(body.decode("utf-8"))
-        except Exception:
+        except:
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
             return
 
@@ -416,7 +433,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             export_path = bundle["docxPath"]
             with open(export_path, "rb") as export_file:
                 docx_bytes = export_file.read()
-        except Exception:
+        except:
             log_message("[export] DOCX generation failed")
             log_message(traceback.format_exc())
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to generate DOCX")
@@ -435,7 +452,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             data = json.loads(body.decode("utf-8"))
-        except Exception:
+        except:
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
             return
 
@@ -445,7 +462,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             export_path = bundle["pdfPath"]
             with open(export_path, "rb") as export_file:
                 pdf_bytes = export_file.read()
-        except Exception:
+        except:
             log_message("[export] PDF generation failed")
             log_message(traceback.format_exc())
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to generate PDF")
@@ -464,7 +481,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             payload = json.loads(body.decode("utf-8"))
-        except Exception:
+        except:
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
             return
 
@@ -520,7 +537,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             query = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(query)
             session_id = str(params.get("sessionId", [""])[0]).strip()
-        except Exception:
+        except:
             session_id = ""
 
         if not session_id:
@@ -544,7 +561,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             payload = json.loads(body.decode("utf-8"))
-        except Exception:
+        except:
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
             return
 
@@ -581,7 +598,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             data = json.loads(body.decode("utf-8"))
-        except Exception:
+        except:
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
             return
 
@@ -625,7 +642,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             data = json.loads(body.decode("utf-8"))
-        except Exception:
+        except:
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
             return
 
@@ -644,7 +661,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             data = json.loads(body.decode("utf-8"))
-        except Exception:
+        except:
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
             return
 
@@ -669,7 +686,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
-        except Exception:
+        except:
             config = {"countries": [], "subjects": []}
 
         saved_item = None
