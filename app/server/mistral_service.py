@@ -1,5 +1,4 @@
 import json
-import json
 import re
 import traceback
 import urllib.error
@@ -11,6 +10,10 @@ from prompts import load_prompt_file
 from text_utils import build_conversation_text, parse_subjects_value
 
 
+LLM_SYSTEM_PROMPTS = {"analysis": "analysis_system_prompt.txt",
+                      "analysis-discussion": "analysis_discussion_system_prompt.txt",
+                      "refinement": "refinement_system_prompt.txt",
+                      "test": "mistral_test_system_prompt.txt",}
 COMPUTATIONAL_THINKING_PRACTICES = (
     "Decomposition",
     "Pattern recognition / generalisation",
@@ -92,15 +95,16 @@ def summarize_step3_changes(draft):
     draft = draft if isinstance(draft, dict) else {}
     changes = draft.get("changes") if isinstance(draft.get("changes"), list) else []
     lines = []
-    for index, change in enumerate(changes[-8:], start=1):
+    for index, change in enumerate(changes[-8:], start=1):  #TODO: Why are only the last 8 changes considered?
         change = change if isinstance(change, dict) else {}
         title = str(change.get("title") or change.get("kind") or "Change").strip()
         reason = str(change.get("reason", "")).strip()
         before_value = str(change.get("beforeValue", "")).strip()
         after_value = str(change.get("afterValue", "")).strip()
-        before_after = ""
-        if before_value or after_value:
+        if before_value != "" or after_value != "":
             before_after = f" ({before_value or '?'} -> {after_value or '?'})"
+        else:
+            before_after = ""
         line = f"{index}. {title}{before_after}"
         if reason:
             line += f": {reason}"
@@ -108,7 +112,7 @@ def summarize_step3_changes(draft):
     return lines
 
 
-def build_step3_memory_summary(payload, conversation=None, draft=None):
+def build_step3_memory_summary(payload, conversation=None, draft=None, context_length=10):
     payload = payload if isinstance(payload, dict) else {}
     draft = draft if isinstance(draft, dict) else payload.get("draft")
     draft = draft if isinstance(draft, dict) else {}
@@ -121,7 +125,7 @@ def build_step3_memory_summary(payload, conversation=None, draft=None):
     latest_teacher_reply = str(payload.get("userMessage", "")).strip()
     current_focus = get_step3_focus_label(payload)
     changes = summarize_step3_changes(draft)
-    recent_conversation = build_conversation_text(conversation[-10:])
+    recent_conversation = build_conversation_text(conversation[-context_length:])
 
     lines = [
         "Step 3 local memory summary",
@@ -147,17 +151,19 @@ def build_step3_memory_summary(payload, conversation=None, draft=None):
 
 
 def extract_json_block(text):
+    text = text.strip()
+
     if not text:
         return ""
 
-    cleaned = text.strip()
-    if cleaned.startswith("```"):
-        lines = cleaned.splitlines()
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip().startswith("```"):
-            lines = lines[:-1]
-        cleaned = "\n".join(lines).strip()
+    lines = text.splitlines()
+    if not lines:
+        return ""
+    if lines[0].startswith("```"):
+        lines = lines[1:]
+    if lines[-1].strip().startswith("```"):
+        lines = lines[:-1]
+    cleaned = "\n".join(lines).strip()
 
     start = cleaned.find("{")
     if start == -1:
@@ -166,10 +172,9 @@ def extract_json_block(text):
     in_string = False
     escape = False
     depth = 0
-    end = None
+    end = len(cleaned)
 
-    for index in range(start, len(cleaned)):
-        char = cleaned[index]
+    for idx, char in enumerate(cleaned[start:]):
         if escape:
             escape = False
             continue
@@ -186,15 +191,14 @@ def extract_json_block(text):
         elif char == "}":
             depth -= 1
             if depth == 0:
-                end = index + 1
+                end = start + idx + 1
                 break
 
-    if end is None:
-        return cleaned[start:].strip()
     return cleaned[start:end].strip()
 
 
 def repair_json_quotes(text):
+    #TODO: What does this do? There's some sus stuff in here. (E.g. the inner loop via next_index skips ahead, but then the outer loop will continue on at the same spot anyway?)
     if not text:
         return text
 
@@ -273,7 +277,7 @@ def parse_json_response_block(text):
                 first_error = error
             continue
 
-    if first_error:
+    if first_error is not None:
         position = first_error.pos
         start = max(0, position - 220)
         end = min(len(raw_block), position + 220)
@@ -282,19 +286,20 @@ def parse_json_response_block(text):
     raise ValueError("Unable to parse JSON response")
 
 
-def build_mistral_request_body(system_prompt, user_prompt):
+def build_mistral_request_body(system_prompt, user_prompt, temperature=0.2):
     return {
         "model": config.MISTRAL_MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "temperature": 0.2,
+        "temperature": temperature,
         "response_format": {"type": "json_object"},
     }
 
 
 def post_mistral_chat_completion(request_body, timeout):
+    #TODO: Maybe rename this function. It could be more self-explanatory.
     request = urllib.request.Request(
         config.MISTRAL_API_URL,
         data=json.dumps(request_body).encode("utf-8"),
@@ -309,12 +314,15 @@ def post_mistral_chat_completion(request_body, timeout):
 
 
 def repair_mistral_json_with_model(content, label, timeout):
+    if not content:
+        return content
+
     repair_system_prompt = (
         "You repair invalid JSON. Return only one valid raw JSON object. "
         "Do not add markdown, explanations, comments, or code fences. "
         "Preserve all keys and values when possible."
     )
-    repair_user_prompt = "Repair this invalid JSON into valid JSON:\n" + str(content or "")
+    repair_user_prompt = "Repair this invalid JSON into valid JSON:\n" + str(content)
     request_body = build_mistral_request_body(repair_system_prompt, repair_user_prompt)
     log_mistral_prompt(f"{label}-json-repair", repair_system_prompt, repair_user_prompt, request_body)
 
@@ -348,6 +356,7 @@ def parse_mistral_json_content(content, label, timeout):
 
 
 def maybe_retry_without_response_format(request_body, timeout, label):
+    #TODO: Why does function name contain "maybe"?
     response_format = request_body.pop("response_format", None)
     if response_format is None:
         return post_mistral_chat_completion(request_body, timeout)
@@ -363,9 +372,9 @@ def format_context_range(from_value, to_value, unknown_label="not provided"):
     end = str(to_value or "").strip()
     if start and end:
         return f"{start} to {end}"
-    if start:
+    elif start:
         return f"{start} to ?"
-    if end:
+    elif end:
         return f"? to {end}"
     return unknown_label
 
@@ -423,13 +432,17 @@ def build_analysis_context_summary(payload):
 
 
 def call_mistral_analysis(payload):
+    # We need this later if we want to make calls modular
+    label = "mistral-analysis"
+    timeout = config.MISTRAL_ANALYSIS_TIMEOUT
+
     if not config.MISTRAL_API_KEY:
-        log_message("[mistral] Missing MISTRAL_API_KEY")
+        log_message(f"[{label}] Missing MISTRAL_API_KEY")
         return {
             "error": "MISTRAL_API_KEY is not configured in app/server/.env"
         }
 
-    system_prompt = load_prompt_file("analysis_system_prompt.txt")
+    system_prompt = load_prompt_file(LLM_SYSTEM_PROMPTS.get("analysis"))
 
     context_summary = build_analysis_context_summary(payload)
     user_prompt = context_summary + "\n\nFull uploaded lesson payload:\n" + json.dumps(payload, ensure_ascii=False, indent=2)
@@ -437,29 +450,29 @@ def call_mistral_analysis(payload):
     log_mistral_prompt("analysis", system_prompt, user_prompt, request_body)
 
     try:
-        response_data = post_mistral_chat_completion(request_body, config.MISTRAL_ANALYSIS_TIMEOUT)
-        log_message(f"[mistral] Response received, model={config.MISTRAL_MODEL}")
+        response_data = post_mistral_chat_completion(request_body, timeout)
+        log_message(f"[{label}]] Response received, model={config.MISTRAL_MODEL}")
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="ignore")
-        log_message(f"[mistral] HTTPError {error.code}: {detail}")
+        log_message(f"[{label}] HTTPError {error.code}: {detail}")
         if error.code == 400 and "response_format" in detail:
             try:
-                response_data = maybe_retry_without_response_format(request_body, config.MISTRAL_ANALYSIS_TIMEOUT, "mistral")
-                log_message(f"[mistral] Response received after fallback, model={config.MISTRAL_MODEL}")
+                response_data = maybe_retry_without_response_format(request_body, timeout, label)
+                log_message(f"[{label}] Response received after fallback, model={config.MISTRAL_MODEL}")
             except Exception as retry_error:
-                log_message(f"[mistral] Fallback request failed: {retry_error}")
+                log_message(f"[{label}] Fallback request failed: {retry_error}")
                 log_message(traceback.format_exc())
                 return {"error": f"Mistral request failed with HTTP {error.code}", "detail": detail}
         else:
             return {"error": f"Mistral request failed with HTTP {error.code}", "detail": detail}
     except Exception as error:
-        log_message(f"[mistral] Request failed: {error}")
+        log_message(f"[{label}] Request failed: {error}")
         log_message(traceback.format_exc())
         return {"error": f"Mistral request failed: {error}"}
 
     try:
         content = response_data["choices"][0]["message"]["content"]
-        log_message(f"[mistral] Raw content preview: {content[:500]}")
+        log_message(f"[{label}] Raw content preview: {content[:500]}")
         parsed = parse_mistral_json_content(content, "mistral", config.MISTRAL_TEST_TIMEOUT)
         if isinstance(parsed, dict) and "error" not in parsed:
             parsed["computational_thinking"] = normalize_computational_thinking(
@@ -470,28 +483,32 @@ def call_mistral_analysis(payload):
             )
         return parsed
     except Exception as error:
-        log_message(f"[mistral] Could not parse response: {error}")
+        log_message(f"[{label}] Could not parse response: {error}")
         log_message(traceback.format_exc())
         return {"error": f"Could not parse Mistral response as JSON: {error}", "raw": response_data}
 
 
 def call_mistral_analysis_discussion(payload):
+    # We need this later if we want to make calls modular
+    label = "mistral-analysis-discussion"
+    timeout = config.MISTRAL_ANALYSIS_TIMEOUT
+
     if not config.MISTRAL_API_KEY:
-        log_message("[mistral-analysis-discussion] Missing MISTRAL_API_KEY")
+        log_message(f"[{label}] Missing MISTRAL_API_KEY")
         return {
             "error": "MISTRAL_API_KEY is not configured in app/server/.env"
         }
 
-    system_prompt = load_prompt_file("analysis_discussion_system_prompt.txt")
+    system_prompt = load_prompt_file(LLM_SYSTEM_PROMPTS.get("analysis-discussion"))
     user_prompt = json.dumps(payload if isinstance(payload, dict) else {}, ensure_ascii=False, indent=2)
     request_body = build_mistral_request_body(system_prompt, user_prompt)
     log_mistral_prompt("analysis-discussion", system_prompt, user_prompt, request_body)
 
     try:
-        response_data = post_mistral_chat_completion(request_body, config.MISTRAL_ANALYSIS_TIMEOUT)
-        log_message(f"[mistral-analysis-discussion] Response received, model={config.MISTRAL_MODEL}")
+        response_data = post_mistral_chat_completion(request_body, timeout)
+        log_message(f"[{label}] Response received, model={config.MISTRAL_MODEL}")
         content = response_data["choices"][0]["message"]["content"]
-        parsed = parse_mistral_json_content(content, "mistral-analysis-discussion", config.MISTRAL_TEST_TIMEOUT)
+        parsed = parse_mistral_json_content(content, label, config.MISTRAL_TEST_TIMEOUT)
         if not isinstance(parsed, dict):
             return {"error": "Analysis discussion returned an invalid response."}
         return {
@@ -503,22 +520,26 @@ def call_mistral_analysis_discussion(payload):
         }
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="ignore")
-        log_message(f"[mistral-analysis-discussion] HTTPError {error.code}: {detail}")
+        log_message(f"[{label}] HTTPError {error.code}: {detail}")
         return {"error": f"Mistral analysis discussion failed with HTTP {error.code}", "detail": detail}
     except Exception as error:
-        log_message(f"[mistral-analysis-discussion] Request failed: {error}")
+        log_message(f"[{label}] Request failed: {error}")
         log_message(traceback.format_exc())
         return {"error": f"Mistral analysis discussion failed: {error}"}
 
 
 def call_mistral_refinement(payload):
+    # We need this later if we want to make calls modular
+    label = "mistral-refinement"
+    timeout = config.MISTRAL_ANALYSIS_TIMEOUT
+
     if not config.MISTRAL_API_KEY:
-        log_message("[mistral-step3] Missing MISTRAL_API_KEY")
+        log_message("[{label] Missing MISTRAL_API_KEY")
         return {
             "error": "MISTRAL_API_KEY is not configured in app/server/.env"
         }
 
-    system_prompt = load_prompt_file("refinement_system_prompt.txt")
+    system_prompt = load_prompt_file(LLM_SYSTEM_PROMPTS.get("refinement"))
 
     memory_summary = build_step3_memory_summary(payload)
     raw_payload = json.dumps(payload, ensure_ascii=False, indent=2)
@@ -535,32 +556,32 @@ def call_mistral_refinement(payload):
     log_mistral_prompt("refinement", system_prompt, user_prompt, request_body)
 
     try:
-        response_data = post_mistral_chat_completion(request_body, config.MISTRAL_REFINEMENT_TIMEOUT)
-        log_message(f"[mistral-step3] Response received, model={config.MISTRAL_MODEL}")
+        response_data = post_mistral_chat_completion(request_body, timeout)
+        log_message(f"[{label}] Response received, model={config.MISTRAL_MODEL}")
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="ignore")
-        log_message(f"[mistral-step3] HTTPError {error.code}: {detail}")
+        log_message(f"[{label}] HTTPError {error.code}: {detail}")
         if error.code == 400 and "response_format" in detail:
             try:
-                response_data = maybe_retry_without_response_format(request_body, config.MISTRAL_REFINEMENT_TIMEOUT, "mistral-step3")
-                log_message(f"[mistral-step3] Response received after fallback, model={config.MISTRAL_MODEL}")
+                response_data = maybe_retry_without_response_format(request_body, timeout, label)
+                log_message(f"[{label}] Response received after fallback, model={config.MISTRAL_MODEL}")
             except Exception as retry_error:
-                log_message(f"[mistral-step3] Fallback request failed: {retry_error}")
+                log_message(f"[{label}] Fallback request failed: {retry_error}")
                 log_message(traceback.format_exc())
                 return {"error": f"Mistral refinement failed with HTTP {error.code}", "detail": detail}
         else:
             return {"error": f"Mistral refinement failed with HTTP {error.code}", "detail": detail}
     except Exception as error:
-        log_message(f"[mistral-step3] Request failed: {error}")
+        log_message(f"[{label}] Request failed: {error}")
         log_message(traceback.format_exc())
         return {"error": f"Mistral refinement failed: {error}"}
 
     try:
         content = response_data["choices"][0]["message"]["content"]
-        log_message(f"[mistral-step3] Raw content preview: {content[:500]}")
-        return parse_mistral_json_content(content, "mistral-step3", config.MISTRAL_TEST_TIMEOUT)
+        log_message(f"[{label}] Raw content preview: {content[:500]}")
+        return parse_mistral_json_content(content, "label", config.MISTRAL_TEST_TIMEOUT)
     except Exception as error:
-        log_message(f"[mistral-step3] Could not parse response: {error}")
+        log_message(f"[{label}] Could not parse response: {error}")
         log_message(traceback.format_exc())
         return {"error": f"Could not parse Mistral step 3 response as JSON: {error}", "raw": response_data}
 
@@ -570,7 +591,8 @@ def call_mistral_hello():
         log_message("[mistral-test] Missing MISTRAL_API_KEY")
         return {"error": "MISTRAL_API_KEY is not configured in app/server/.env"}
 
-    system_prompt = load_prompt_file("mistral_test_system_prompt.txt")
+    system_prompt = load_prompt_file(LLM_SYSTEM_PROMPTS.get("test"))
+
     request_body = {
         "model": config.MISTRAL_MODEL,
         "messages": [
