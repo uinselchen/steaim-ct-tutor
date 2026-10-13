@@ -20,6 +20,9 @@ from config import (
     LESSONPLANS_ROOT,
     PORT,
 )
+# Optional backend endpoint for local email exports. The frontend controls are
+# currently hidden; restore a POST /send-email client action if email delivery
+# is needed again and configure the SMTP values in app/server/.env.
 import email_service
 import mistral_service
 import settings_service
@@ -42,6 +45,7 @@ if not config.MISTRAL_API_KEY:
 
 #TODO: Shouldn't we only use partner countries as default?
 if not os.path.exists(CONFIG_FILE):
+    # TODO: Yes, use only the project's partner countries. Please ask questions in the chat instead of using TODO comments as messages.
     default_config = {
         "countries": [
             "Austria",
@@ -74,7 +78,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             self.serve_file(os.path.join(FRONTEND_ROOT, "start.html"), "text/html")
         elif route == "/ping":
             self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
         elif route == "/step3-state":
@@ -98,8 +102,13 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             self.handle_analyze()
         elif route == "/step2-prepare":
             self.handle_step2_prepare()
+        elif route == "/analysis-discuss":
+            self.handle_analysis_discuss()
+        elif route == "/export-analysis-docx":
+            self.handle_export_analysis_docx()
         elif route == "/step3-refine":
             self.handle_step3_refine()
+        # Kept for optional local email integrations; no current UI calls it.
         elif route == "/send-email":
             self.handle_send_email()
         elif route == "/export-docx":
@@ -168,7 +177,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             response_body["specificsSaved"] = specifics_filename
 
         self.send_response(HTTPStatus.CREATED)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps(response_body).encode("utf-8"))
 
@@ -249,6 +258,8 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             "ageFrom": form.getvalue("ageFrom", "").strip(),
             "ageTo": form.getvalue("ageTo", "").strip(),
             "specifics": specifics,
+            "language": form.getvalue("language", "").strip() or "English",
+            "languageCountry": form.getvalue("languageCountry", "").strip(),
             "documentText": extracted_text[:30000],
             "sourceDocument": {
                 "filename": filename,
@@ -275,7 +286,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
                     "sourceDocument": metadata["sourceDocument"],
                 }
                 self.send_response(HTTPStatus.UNPROCESSABLE_ENTITY)
-                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.end_headers()
                 self.wfile.write(json.dumps(analysis).encode("utf-8"))
                 return
@@ -292,7 +303,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         else:
             log_message("[analyze] Success")
             self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps(analysis, ensure_ascii=False).encode("utf-8"))
 
@@ -397,7 +408,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         }
 
         self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps(response_body, ensure_ascii=False).encode("utf-8"))
 
@@ -459,6 +470,72 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(pdf_bytes)
 
+    def handle_analysis_discuss(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            payload = json.loads(body.decode("utf-8"))
+        except Exception:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+            return
+
+        if not isinstance(payload, dict):
+            self.send_error(HTTPStatus.BAD_REQUEST, "Missing payload")
+            return
+
+        point = payload.get("point") if isinstance(payload.get("point"), dict) else {}
+        point_title = str(point.get("title", "")).strip() or "analysis point"
+        log_message(f"[mistral-analysis-discussion] Point discussion: {point_title}")
+        result = mistral_service.call_mistral_analysis_discussion(payload)
+        if "error" in result:
+            log_message(f"[mistral-analysis-discussion] Failed: {result.get('error')}")
+            self.send_response(HTTPStatus.BAD_GATEWAY)
+        else:
+            log_message("[mistral-analysis-discussion] Success")
+            self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
+
+    def handle_export_analysis_docx(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            data = json.loads(body.decode("utf-8"))
+        except Exception:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+            return
+
+        try:
+            analysis = data.get("analysis") if isinstance(data, dict) else {}
+            meta = data.get("meta") if isinstance(data, dict) else {}
+            session_id = str(data.get("sessionId", "analysis")) if isinstance(data, dict) else "analysis"
+            export_folder = export_service.ensure_export_folder(session_id)
+            source_name = str(meta.get("filename", "lesson-plan")) if isinstance(meta, dict) else "lesson-plan"
+            export_slug = export_service.normalize_filename_piece(source_name, default="lesson-plan")
+            export_path = os.path.join(export_folder, f"{export_slug}-analysis.docx")
+            export_service.build_analysis_docx(
+                analysis,
+                meta,
+                data.get("discussions", {}) if isinstance(data, dict) else {},
+                data.get("clarifications", []) if isinstance(data, dict) else [],
+                export_path,
+            )
+            with open(export_path, "rb") as export_file:
+                docx_bytes = export_file.read()
+        except Exception:
+            log_message("[export-analysis] DOCX generation failed")
+            log_message(traceback.format_exc())
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Unable to generate analysis DOCX")
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        self.send_header("Content-Disposition", f'attachment; filename="{os.path.basename(export_path)}"')
+        self.send_header("Content-Length", str(len(docx_bytes)))
+        self.end_headers()
+        self.wfile.write(docx_bytes)
+
     def handle_step3_refine(self):
         try:
             length = int(self.headers.get("Content-Length", 0))
@@ -510,7 +587,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         else:
             log_message("[mistral-step3] Success")
             self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
 
@@ -534,12 +611,13 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
 
         body = json.dumps(state, ensure_ascii=False).encode("utf-8")
         self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def handle_send_email(self):
+        """Send the optional change-summary email through local SMTP setup."""
         try:
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
@@ -559,7 +637,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         else:
             log_message(f"[mail] Sent to {', '.join(result.get('recipient', []))}")
             self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
 
@@ -572,7 +650,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         else:
             log_message("[mistral-test] Success")
             self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
 
@@ -595,7 +673,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
 
         log_message(f"[client] {message}")
         self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps({"saved": True}).encode("utf-8"))
 
@@ -604,7 +682,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 content = f.read()
             self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content.encode("utf-8"))
@@ -615,7 +693,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         status = settings_service.build_settings_status()
         content = json.dumps(status, ensure_ascii=False).encode("utf-8")
         self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
@@ -635,7 +713,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
         else:
             log_message(f"[settings] Updated {', '.join(result.get('updated', []))}")
             self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
 
@@ -687,7 +765,7 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
                 json.dump(config, f, indent=2)
 
         self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps({"saved": saved_item}).encode("utf-8"))
 
@@ -721,13 +799,13 @@ class TutorHandler(http.server.BaseHTTPRequestHandler):
 
     def guess_type(self, path):
         if path.endswith(".html"):
-            return "text/html"
+            return "text/html; charset=utf-8"
         if path.endswith(".css"):
-            return "text/css"
+            return "text/css; charset=utf-8"
         if path.endswith(".js"):
-            return "application/javascript"
+            return "application/javascript; charset=utf-8"
         if path.endswith(".json"):
-            return "application/json"
+            return "application/json; charset=utf-8"
         if path.endswith(".png"):
             return "image/png"
         if path.endswith(".jpg") or path.endswith(".jpeg"):

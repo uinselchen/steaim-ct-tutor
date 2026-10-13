@@ -82,6 +82,8 @@ def build_settings_status():
             "exists": os.path.exists(absolute_path),
         })
 
+    # Retained for API compatibility with local integrations. The admin UI no
+    # longer displays this status; configure the SMTP values in .env to use it.
     email_configured = bool(config.SMTP_HOST and config.SMTP_USERNAME and config.SMTP_PASSWORD and config.MAIL_TO_ADDRESS)
     required_modules = ("docx", "pypdf", "reportlab")
     missing_modules = [name for name in required_modules if importlib.util.find_spec(name) is None]

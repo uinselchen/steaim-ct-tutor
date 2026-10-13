@@ -1,0 +1,296 @@
+STEaiM-CT TUTOR – FUNKTIONALITÄT UND FEATURES
+Stand: 02.10.2026
+
+Grundlage: Quellcode des Hauptprojekts unter app/ und die aktuelle Diskussion.
+Die separate Kopie tutor1.1/ wurde nicht als Grundlage verwendet.
+Diese Bestandsaufnahme beschreibt sichtbare Funktionen und implementierte
+Verhaltensregeln. Sie ersetzt keinen vollständigen Laufzeittest. Bei KI-Regeln
+ist zwischen dem vorgesehenen Verhalten und einer garantierten Ausgabe zu
+unterscheiden.
+
+STATUS
+BESTAND: Im aktuellen Code vorhanden.
+ZIEL: Von der Lehrkraft beschriebenes Produktziel.
+VORSCHLAG: Besprochene oder daraus abgeleitete Erweiterung; nicht als bereits
+implementiert zu verstehen.
+
+1. ZWECK UND GRUNDPRINZIP
+
+[BESTAND] Der Tutor richtet sich an Lehrkräfte, die einen bestehenden
+Unterrichtsplan analysieren, reflektieren und gezielt verbessern möchten.
+[BESTAND] Der Ablauf umfasst vier Schritte: Unterrichtskontext angeben,
+Analyse prüfen, Plan im Dialog verfeinern und Ergebnis herunterladen.
+[ZIEL] Der Tutor soll so wenig wie möglich selbst erstellen. Die Lehrkraft
+bleibt für Unterrichtsideen und didaktische Entscheidungen verantwortlich.
+[ZIEL] Der Tutor unterstützt durch Analyse, Reflexion und gezielte Fragen.
+Konkrete Inhalte und Formulierungen können auf Wunsch im Refinement entstehen.
+[BESTAND] Der aktuelle Refinement-Prompt erlaubt bereits direkte Änderungen
+am Entwurf und konkrete Formulierungsvorschläge. Das Ziel einer zurückhaltenden
+Erstellung ist deshalb noch gesondert mit dem tatsächlichen Verhalten abzugleichen.
+
+2. START, NAVIGATION UND INFORMATION
+
+[BESTAND] Startseite mit Einstieg in den Tutor.
+[BESTAND] Auswahl der Tutorsprache auf der Startseite.
+[BESTAND] Mehrsprachige Oberfläche: Englisch, Deutsch, Slowakisch, Spanisch,
+Tschechisch, Polnisch, Portugiesisch und Italienisch.
+[BESTAND] Informationsseite mit Einrichtungshinweisen und Ablaufbeschreibung.
+[BESTAND] Projektinformationsseite zu STEaiM-CT.
+[BESTAND] Zugang zu den Admin-Einstellungen.
+[BESTAND] Hinweis zur Einrichtung eines fehlenden KI-API-Schlüssels.
+[BESTAND] Schrittanzeige und Hilfelinks im Arbeitsablauf.
+
+3. SCHRITT 1 – UNTERRICHTSKONTEXT UND UPLOAD
+
+[BESTAND] Auswahl des Landes als Unterrichtskontext.
+[BESTAND] Auswahl eines oder mehrerer Unterrichtsfächer.
+[BESTAND] Ergänzung neuer Länder und Fächer zur gespeicherten Auswahl.
+[BESTAND] Angabe eines Schulstufenbereichs.
+[BESTAND] Optionale Angabe eines Altersbereichs.
+[BESTAND] Freitext für Besonderheiten, Rahmenbedingungen und zusätzliche Hinweise.
+[BESTAND] Upload eines bestehenden Unterrichtsplans.
+[BESTAND] Die Upload-Oberfläche bietet PDF, DOCX und TXT an.
+[BESTAND] Prüfung notwendiger Angaben vor dem nächsten Schritt.
+[BESTAND] Extraktion des lesbaren Textes aus dem Dokument.
+[BESTAND] Speicherung des hochgeladenen Originals für den weiteren Ablauf.
+[BESTAND] Übertragung des Unterrichtskontexts an die KI-Analyse.
+
+4. SCHRITT 2 – ERSTE ANALYSE
+
+[BESTAND] Zusammenfassung des hochgeladenen Unterrichtsplans.
+[BESTAND] Erkennung von Fächern, Schulstufen und Altersbereich aus dem Dokument.
+[BESTAND] Anzeige von Einschätzungssicherheit und Hinweisen zur Zusammenfassung.
+[BESTAND] Vergleich zwischen Lehrkraftangaben, Dokumentangaben und der
+tatsächlichen Komplexität der beschriebenen Aktivitäten.
+[BESTAND] Die Angaben der Lehrkraft bestimmen den beabsichtigten Einsatzkontext.
+[BESTAND] Fachliche Passung und Passung zur Zielgruppe werden getrennt betrachtet.
+[BESTAND] Berücksichtigung fächerübergreifender Aktivitäten.
+
+Sechs zentrale Analyseperspektiven:
+- Zeitrahmen: Aufwand, Aufbau, Übergänge, Durchführung und Abschluss.
+- Ziele und Kompetenzen: Klarheit und fachliche Passung.
+- Anpassbarkeit: unterschiedliche Lerngeschwindigkeiten und Kompetenzstände.
+- Detailgrad: ausreichende Anleitung und Handlungsspielraum.
+- Zielgruppe: Schulstufe, Alter und Schwierigkeit.
+- Lehrplanbezug: Passung zum ausgewählten Land, Fach und Schulniveau.
+
+[BESTAND] Statusanzeige und Match-Wert von 1 bis 10 für die zentralen Perspektiven.
+[BESTAND] Farblich differenzierte Einschätzungen.
+[BESTAND] Detaillierte Analysepunkte mit Titel, Erklärung und Bedeutung.
+[BESTAND] Begründung anhand einer Aktivität oder Dokumentpassage.
+[BESTAND] Konkrete Verbesserungsmöglichkeit oder Hinweis auf eine vorhandene Stärke.
+[BESTAND] Vorschau von Belegstellen, sofern entsprechende Angaben vorliegen.
+[BESTAND] Auswahl von Analysepunkten für die weitere Bearbeitung.
+[BESTAND] Diskussion einzelner Analysepunkte mit dem Tutor.
+[BESTAND] Berücksichtigung von Korrekturen und zusätzlichem Kontext der Lehrkraft.
+[BESTAND] Dokumentation von Entscheidungen wie Beibehalten, Ändern,
+Präzisieren, Nicht zutreffend oder Weitere Informationen nötig.
+[BESTAND] Nützliche Diskussionsergebnisse können in den Analysedownload einfließen.
+[BESTAND] Zusätzliche Dateien können vor dem Refinement hochgeladen werden.
+[BESTAND] Download der ersten Analyse als DOCX.
+
+5. VORHANDENE COMPUTATIONAL-THINKING-ANALYSE
+
+[BESTAND] Eigener CT-Bereich in der ersten Analyse.
+[BESTAND] Betrachtung von sechs Denkpraktiken:
+- Zerlegung eines Problems (Decomposition).
+- Mustererkennung und Verallgemeinerung.
+- Abstraktion.
+- Algorithmisches Denken.
+- Testen, Fehlersuche und Bewertung.
+- Daten und Repräsentation.
+
+[BESTAND] Pro Denkpraktik ein Status: Present, Opportunity oder Not identified.
+[BESTAND] Zuordnung zu einer Unterrichtsaktivität oder einem Abschnitt.
+[BESTAND] Beschreibung der beobachtbaren Denkhandlung der Lernenden.
+[BESTAND] Erläuterung von Einschränkungen, wenn eine Denkpraktik schwach vertreten ist.
+[BESTAND] Kleine, zu den bestehenden Lernzielen passende Verbesserungsvorschläge.
+[BESTAND] Positive Hinweise, sofern in den Daten enthalten.
+[BESTAND] Tabellenübersicht mit aufklappbaren Details.
+[BESTAND] Anzeige auch dann, wenn keine der Denkpraktiken identifiziert wurde.
+[BESTAND] Möglichkeit, einen CT-Punkt zu kommentieren bzw. zu klären.
+[BESTAND] Nicht leere CT-Kommentare werden als Fokusinformationen an den nächsten
+Schritt übergeben. Eine neue Verbindung zwischen Analyse und Refinement muss
+deshalb auf dieser vorhandenen Übergabe aufbauen.
+[BESTAND] Aufnahme von CT-Ergebnissen in den Analysedownload.
+[BESTAND] Normalisierung unvollständiger oder fehlerhafter CT-Antworten.
+
+Vorgegebene Qualitätsregeln der CT-Analyse:
+- CT anhand tatsächlicher Denkhandlungen der Lernenden beurteilen.
+- Technologieeinsatz oder Programmierbegriffe allein reichen als Beleg nicht aus.
+- Handlungen der Lehrkraft nicht als Denkhandlungen der Lernenden ausweisen.
+- Fehlende Beschreibung nicht automatisch mit fehlender Unterrichtspraxis gleichsetzen.
+- Verbesserungsvorschläge an vorhandene Aktivitäten und Lernziele anschließen.
+
+6. SCHRITT 3 – REFINEMENT
+
+[BESTAND] Dialog zur gezielten Überarbeitung des vorhandenen Plans.
+[BESTAND] Ausgewählte Punkte aus der Analyse werden bevorzugt behandelt.
+[BESTAND] Übersicht der Refinement-Themen und des Bearbeitungsfortschritts.
+[BESTAND] Auswahl eines aktiven Themas.
+[BESTAND] Freie Texteingabe für Antworten und Änderungswünsche.
+[BESTAND] Kurze Antwortoptionen bzw. Quick Replies.
+[BESTAND] Gezielte Rückfragen, wenn entscheidende Angaben fehlen.
+[BESTAND] Möglichkeit, einen Punkt beizubehalten und weiterzugehen.
+[BESTAND] Konkrete Formulierungsvorschläge auf Anfrage, etwa über Suggest wording.
+[BESTAND] Bearbeitung auch freier Refinement-Anliegen ohne ausgewählten Fokus.
+[BESTAND] Fortführung des Dialogs bei weiteren Kommentaren der Lehrkraft.
+[BESTAND] Gesprächsverlauf mit thematischer Gruppierung.
+[BESTAND] Funktion zum Leeren des Gesprächs.
+[BESTAND] Parallele Vorschau des aktuellen Unterrichtsentwurfs.
+[BESTAND] Aktualisierung des Entwurfs auf Basis der Dialogergebnisse.
+[BESTAND] Anzeige und Download des Zwischenstands.
+[BESTAND] Änderungsverlauf mit Begründung und betroffener Stelle.
+[BESTAND] Speicherung von Entwurf, Gespräch und Fortschritt im Browser.
+[BESTAND] Zusätzlich serverseitige Speicherung des Refinement-Zustands.
+
+Struktur des bearbeiteten Entwurfs:
+- Titel und Zusammenfassung.
+- Land, Fächer, Schulstufen, Altersbereich und Fokus.
+- Lernziele und Kompetenzen.
+- Unterrichtsschritte mit Titel, Dauer, Beschreibung, Status und Notiz.
+- Materialien.
+- Beurteilung bzw. Lernstandsüberprüfung.
+- Reflexion.
+- Dokumentierte Änderungen.
+
+Vorgegebene Verhaltensregeln:
+- Den bestehenden Entwurf als Ausgangspunkt verwenden.
+- Änderungen auf den aktiven Fokus und das Anliegen der Lehrkraft begrenzen.
+- Bereits getroffene Entscheidungen und Ablehnungen berücksichtigen.
+- Entschiedene Fragen nicht ohne Anlass erneut öffnen.
+- Antwortoptionen mit den bisherigen Entscheidungen vereinbar halten.
+- Bei reiner Zeitplanung keine fachlichen Inhalte ungefragt umschreiben.
+- Bei engem Zeitrahmen nicht durch Kürzung von Aktivitäten Zeitprobleme verdecken.
+- Zeitberechnungen und Aufteilung auf Unterrichtseinheiten konsistent halten.
+- Bei fachlichen oder curricularen Problemen konkrete, kontextbezogene Anpassungen nennen.
+- Keine Lehrplancodes oder Dokumentbelege erfinden.
+- Im Dialog die Sprache der aktuellen Lehrkraftnachricht verwenden.
+
+7. SCHRITT 4 – ERGEBNIS UND EXPORT
+
+[BESTAND] Vorschau des abschließenden Unterrichtsplans.
+[BESTAND] Kopieren des Ergebnisses in die Zwischenablage.
+[BESTAND] Drucken über die Vorschau.
+[BESTAND] Download als DOCX.
+[BESTAND] Download als PDF.
+[BESTAND] Übersicht der Änderungen aus dem Dialog.
+[BESTAND] Anzeige der zunächst identifizierten Stärken.
+[BESTAND] Erweiterte Ansicht des Änderungsverlaufs.
+[BESTAND] Abschluss des Arbeitsablaufs und Bereinigung ausgewählter
+Refinement-Daten im Browser.
+[BESTAND] Lokale Speicherung erzeugter Exportdateien pro Sitzung.
+[BESTAND] DOCX-Export kann das ursprüngliche DOCX als Vorlage verwenden und
+auffindbare Änderungen direkt darin ersetzen.
+[BESTAND] Fallback auf ein textbasiertes DOCX, wenn die Vorlagenverarbeitung scheitert.
+[BESTAND] PDF-Export auf Grundlage der zusammengestellten Ergebnisinhalte.
+[BESTAND] Prüfung, ob Exportdateien erstellt wurden und nicht leer sind.
+
+8. EINSTELLUNGEN UND TECHNISCHE FUNKTIONEN
+
+[BESTAND] Lokale Webanwendung mit Python-Server und Browseroberfläche.
+[BESTAND] Startskripte für Windows, macOS und Shell-Umgebungen.
+[BESTAND] KI-Anbindung über eine konfigurierbare Mistral-API.
+[BESTAND] Einstellung von API-Adresse, Modell und API-Schlüssel.
+[BESTAND] Lokale Speicherung des API-Schlüssels.
+[BESTAND] Statusanzeige zur KI-Konfiguration.
+[BESTAND] KI-Verbindungstest über einen Backend-Endpunkt.
+[BESTAND] Systemprüfung für Python, Export-Abhängigkeiten und benötigte Ordner.
+[BESTAND] Anzeige lokaler Pfade für Lehrpläne und Logs.
+[BESTAND] Anzeige von Prompt-Dateien und deren Verfügbarkeit.
+[BESTAND] Separate Prompt-Dateien für Analyse, Analysegespräch, Refinement und KI-Test.
+[BESTAND] Ablage von Zusatzdateien nach Land und Fach.
+[BESTAND] Sitzungsbezogene Ablage und Protokollierung von Bearbeitungsdaten.
+[BESTAND] Client- und Server-Logging für Diagnosezwecke.
+[BESTAND] Backend-Fehlerantworten bei ungültigen Anfragen und fehlgeschlagenen KI-Aufrufen.
+
+9. DATENHINWEISE UND GRENZEN
+
+[BESTAND] KI-Prüfung auf erkennbare personenbezogene Daten im Unterrichtsdokument.
+[BESTAND] Hinweisfenster bei erkannten personenbezogenen Angaben.
+[BESTAND] Unterscheidung zwischen konkreten Daten und allgemeinen Platzhaltern
+ist als Prompt-Regel vorgesehen.
+[BESTAND] Hinweis kann als vorrangiger Refinement-Punkt weitergegeben werden.
+[BESTAND] Im Hinweisfenster gibt es eine Fortsetzung für bestätigte Beispieldaten.
+
+Grenzen des aktuellen Funktionsumfangs:
+- Der Tutor läuft lokal, die KI-Verarbeitung benötigt eine externe API-Verbindung.
+- Die PDF-Textextraktion enthält keine OCR für reine Bild- oder Scan-PDFs.
+- DOCX-Layouttreue hängt davon ab, ob Änderungen im Original sicher zugeordnet
+werden können; sie ist nicht für jeden Export garantiert.
+- Ein Lehrplanbezug wird nicht allein durch eine Landesauswahl nachgewiesen.
+- Upload und lokale Ablage von Zusatzdateien sind vorhanden. Daraus lässt sich
+keine vollständige automatische Recherche in Lehrplänen ableiten.
+- Die Warnung vor personenbezogenen Daten ist keine automatische Anonymisierung.
+- Die KI kann trotz Prompt-Regeln unzutreffende Einschätzungen liefern.
+- Ein optionaler E-Mail-Endpunkt ist vorhanden; die E-Mail-Steuerung ist in der
+aktuellen Oberfläche ausgeblendet und zählt nicht zum aktiven Nutzerablauf.
+- Der Text-Extractor unterstützt intern auch MD und CSV; die Upload-Oberfläche
+bietet regulär PDF, DOCX und TXT an.
+
+10. VORGESCHLAGENE CT-UNTERSTÜTZUNG IM REFINEMENT
+
+[ZIEL] CT stärker unterstützen, ohne den Tutor zum automatischen Ersteller
+ganzer Unterrichtspläne oder Lernmaterialien zu machen.
+[VORSCHLAG] Vorhandene CT-Kommentare und ausgewählte CT-Punkte im Refinement
+didaktisch gezielter behandeln.
+[VORSCHLAG] Denkpraktik, zugehörige Aktivität, Beleg und Einschränkung als
+Kontext für den aktiven Refinement-Fokus bereitstellen.
+[VORSCHLAG] Zunächst die Überlegung der Lehrkraft durch eine passende Frage
+anregen, sofern diese noch keine konkrete Entscheidung genannt hat.
+[VORSCHLAG] Eigene Ideen der Lehrkraft auf CT-Potenzial prüfen und erklären,
+welche Denkhandlung sie ermöglichen.
+[VORSCHLAG] Auf ausdrücklichen Wunsch eine kleine, konkrete Ergänzung oder
+Formulierung anbieten, die zur bestehenden Aktivität passt.
+[VORSCHLAG] Vorschläge nicht automatisch in den Plan übernehmen. Eine klare
+Anweisung zum Einfügen oder Ändern kann direkt umgesetzt werden.
+[VORSCHLAG] Entscheidungen wie Beibehalten, Vorschlag anfordern, eigene Idee
+einbringen und Änderung übernehmen unterstützen, soweit noch nicht abgedeckt.
+[VORSCHLAG] Die getroffene CT-Entscheidung im Änderungsverlauf nachvollziehbar machen.
+[VORSCHLAG] Nach einer Änderung prüfen, ob die beabsichtigte Denkhandlung nun
+in der Aktivitätsbeschreibung erkennbar ist; daraus keinen Lernerfolg behaupten.
+
+Mögliche Fragen des Tutors, passend zum ausgewählten CT-Fokus:
+- Zerlegung: Welche Teilprobleme sollen die Lernenden selbst identifizieren?
+- Muster: Welche Fälle vergleichen sie, und welche Regel leiten sie daraus ab?
+- Abstraktion: Welche Merkmale sind für ihre Lösung relevant, welche lassen sie weg?
+- Algorithmisches Denken: Wie entwickeln und erklären sie einen eindeutigen Ablauf?
+- Testen und Fehlersuche: Wie prüfen sie ihre Lösung und begründen eine Verbesserung?
+- Daten und Repräsentation: Wie erfassen, ordnen und nutzen sie Informationen?
+
+Beispielablauf:
+1. Analyse: Bei einer Brückenbau-Aktivität ist Testen erkennbar; systematisches
+   Vergleichen von Änderungen ist noch nicht beschrieben.
+2. Refinement: Der Tutor fragt, wie die Lernenden herausfinden sollen, welche
+   Konstruktionsänderung die Tragfähigkeit verbessert.
+3. Die Lehrkraft beschreibt ihre Idee oder fordert einen Vorschlag an.
+4. Der Tutor gibt kurzes CT-bezogenes Feedback oder eine passende kleine Ergänzung.
+5. Eine ausdrücklich gewünschte Änderung wird auf die betroffene Aktivität begrenzt.
+
+11. ERFOLGSKRITERIEN FÜR DIE VORGESCHLAGENE ERWEITERUNG
+
+[VORSCHLAG] CT-Unterstützung an konkreten Lernhandlungen statt an Schlagwörtern bewerten.
+[VORSCHLAG] Die Lehrkraft behält die Entscheidung über Änderungen und Umfang.
+[VORSCHLAG] Keine wiederholten Fragen nach bereits geklärten Entscheidungen.
+[VORSCHLAG] Keine ungefragte Erstellung zusätzlicher Aufgaben oder Materialien.
+[VORSCHLAG] Änderungen bleiben fachlich, altersbezogen und zeitlich passend.
+[VORSCHLAG] Nicht jede Stunde muss alle sechs CT-Denkpraktiken abdecken.
+[VORSCHLAG] Ein gezielter Schwerpunkt mit nachvollziehbarer Lernhandlung ist
+wertvoller als eine bloße Liste von CT-Begriffen.
+
+12. QUELLCODE-GRUNDLAGE DER BESTANDSAUFNAHME
+
+- app/frontend/start.html und app/frontend/js/i18n.js
+- app/frontend/lesson-info.html und app/frontend/js/lesson-info.js
+- app/frontend/first-analysis-and-suggestions.html
+- app/frontend/refining-and-improving.html
+- app/frontend/download-result.html
+- app/frontend/settings.html, info.html und project-info.html
+- app/server/app.py
+- app/server/mistral_service.py und prompts/*.txt
+- app/server/step2_service.py und step3_service.py
+- app/server/export_service.py und file_extractors.py
+- app/server/settings_service.py
+
+Die vorgeschlagenen CT-Erweiterungen in Abschnitt 10 und 11 wurden durch diese
+Dokumentation nicht implementiert.

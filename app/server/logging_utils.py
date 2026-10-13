@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 from datetime import datetime
 
 import config
@@ -28,17 +29,30 @@ def ensure_log_files():
             with open(path, "a", encoding="utf-8"):
                 pass
         except OSError as error:
-            print(f"[logging] Unable to open log file {path}: {error}")
+            _console_message(f"[logging] Unable to open log file {path}: {error}")
+
+
+def _console_message(message):
+    """Keep diagnostics visible on legacy Windows consoles without losing UTF-8 logs."""
+    text = str(message or "")
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    safe_text = text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+    try:
+        print(safe_text)
+    except UnicodeEncodeError:
+        # A redirected or unusual console stream may still reject its declared encoding.
+        sys.stdout.buffer.write((text.encode("utf-8", errors="replace") + b"\n"))
+        sys.stdout.buffer.flush()
 
 
 def log_message(message):
     line = redact_secrets(message).rstrip("\n")
-    print(line)
+    _console_message(line)
     try:
         with open(config.ANALYSIS_LOG_FILE, "a", encoding="utf-8") as log_file:
             log_file.write(line + "\n")
     except OSError as error:
-        print(f"[logging] Unable to write analysis log: {error}")
+        _console_message(f"[logging] Unable to write analysis log: {error}")
 
 
 def log_mistral_prompt(label, system_prompt, user_prompt, request_body=None):
@@ -65,7 +79,7 @@ def log_mistral_prompt(label, system_prompt, user_prompt, request_body=None):
         with open(config.MISTRAL_PROMPT_LOG_FILE, "a", encoding="utf-8") as log_file:
             log_file.write("\n".join(entry_lines) + "\n")
     except OSError as error:
-        print(f"[logging] Unable to write prompt log: {error}")
+        _console_message(f"[logging] Unable to write prompt log: {error}")
 
 
 ensure_log_files()

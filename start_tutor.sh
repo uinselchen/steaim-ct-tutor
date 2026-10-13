@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
+
 # Set root directory to the script's directory
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APP="$ROOT/app"
@@ -8,6 +11,7 @@ LOGFILE="$APP/data/outputs/server.log"
 REQUIREMENTS="$APP/server/requirements.txt"
 REQUIREMENTS_STAMP="$VENV/.requirements-installed"
 KEY_FILE="$APP/server/mistral_api_key.txt"
+TUTOR_URL="http://localhost:8000"
 
 # List of directories to create
 DIRS=(
@@ -35,8 +39,20 @@ done
 if [ ! -f "$VENV/bin/python" ]; then
     if ! command -v python3 >/dev/null 2>&1; then
         echo "Python 3 is required to start the tutor."
-        echo "Install Python 3.11 or newer from https://www.python.org/downloads/"
-        echo "Then run this launcher again."
+        if [ "$(uname -s)" = "Darwin" ]; then
+            echo "Install Python 3.12 from https://www.python.org/downloads/macos/"
+            echo "On macOS, download the macOS 64-bit universal installer."
+            echo "Then run start_tutor.command again."
+            if command -v open >/dev/null 2>&1; then
+                open "https://www.python.org/downloads/macos/"
+            fi
+        else
+            echo "Install Python 3.11 or newer from https://www.python.org/downloads/"
+            echo "Then run this launcher again."
+            if command -v xdg-open >/dev/null 2>&1; then
+                xdg-open "https://www.python.org/downloads/" >/dev/null 2>&1 &
+            fi
+        fi
         read -r -p "Press [Enter] to continue..."
         exit 1
     fi
@@ -75,13 +91,30 @@ fi
 echo "Starting local tutor..."
 echo "Logging server output to $LOGFILE"
 
+open_tutor_browser() {
+    (
+        for _ in $(seq 1 30); do
+            if command -v curl >/dev/null 2>&1 && curl -fsS "$TUTOR_URL" >/dev/null 2>&1; then
+                if [ "$(uname -s)" = "Darwin" ] && command -v open >/dev/null 2>&1; then
+                    open "$TUTOR_URL"
+                elif command -v xdg-open >/dev/null 2>&1; then
+                    xdg-open "$TUTOR_URL" >/dev/null 2>&1
+                fi
+                exit 0
+            fi
+            sleep 1
+        done
+    ) &
+}
+
 # Activate the virtual environment
 source "$VENV/bin/activate"
 
 # Change to the server directory and run the app
 cd "$APP/server" || exit 1
 echo "==== $(date) ====" > "$LOGFILE"
-python app.py >> "$LOGFILE" 2>&1
+open_tutor_browser
+python -X utf8 app.py >> "$LOGFILE" 2>&1
 EXIT_CODE=$?
 
 # Return to the original directory

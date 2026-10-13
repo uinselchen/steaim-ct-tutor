@@ -5,8 +5,242 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>First Analysis and Suggestions</title>
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .ct-analysis-panel {
+      margin: 28px 0;
+      padding: 24px;
+      border: 1px solid #dfe3f4;
+      border-radius: 18px;
+      background: #fff;
+    }
+
+    .ct-analysis-intro {
+      margin: 6px 0 18px;
+      color: #68718b;
+      line-height: 1.5;
+    }
+
+    .ct-analysis-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .ct-analysis-table th,
+    .ct-analysis-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #edf0f8;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .ct-analysis-table th {
+      color: #68718b;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .ct-analysis-table th:nth-child(1) { width: 27%; }
+    .ct-analysis-table th:nth-child(2) { width: 16%; }
+    .ct-analysis-table th:nth-child(3) { width: 32%; }
+    .ct-analysis-table th:nth-child(4) { width: 25%; }
+
+    .ct-analysis-row:last-child td { border-bottom: 0; }
+
+    .ct-analysis-details {
+      width: 100%;
+      grid-column: 1 / span 3;
+    }
+
+    .ct-row-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr) minmax(190px, 0.9fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .ct-analysis-details summary {
+      cursor: pointer;
+      list-style-position: outside;
+    }
+
+    .ct-analysis-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.35fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .ct-practice-name {
+      color: #202840;
+      font-weight: 700;
+    }
+
+    .ct-status {
+      display: inline-flex;
+      width: fit-content;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .ct-status-present { color: #21734b; background: #e8f7ed; }
+    .ct-status-opportunity { color: #8a6517; background: #fff5d9; }
+    .ct-status-not-identified { color: #68718b; background: #eef0f6; }
+
+    .ct-activity {
+      color: #68718b;
+      line-height: 1.4;
+    }
+
+    .ct-analysis-detail {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0 4px 22px;
+      padding: 14px 16px;
+      border-left: 3px solid #dfe3f4;
+      color: #4f5872;
+      line-height: 1.5;
+    }
+
+    .ct-analysis-detail strong { color: #202840; }
+
+    .ct-discussion-box {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 76px;
+      padding: 10px 12px;
+      border: 1px solid #dfe3f4;
+      border-radius: 10px;
+      color: #202840;
+      font: inherit;
+      line-height: 1.4;
+      resize: vertical;
+    }
+
+    .point-discussion {
+      min-width: 220px;
+      padding: 10px;
+      border: 2px solid #cfd4ee;
+      border-radius: 14px;
+      background: #fbfbff;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+    }
+
+    .point-discussion-messages {
+      display: grid;
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+      margin-bottom: 8px;
+      padding-right: 8px;
+      scrollbar-width: auto;
+      scrollbar-color: #7a73e8 #e9eafa;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-track {
+      background: #e9eafa;
+      border-radius: 999px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-thumb {
+      background: #7068df;
+      border: 2px solid #e9eafa;
+      border-radius: 999px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-thumb:hover {
+      background: #5148c4;
+    }
+
+    .point-discussion-message {
+      padding: 7px 9px;
+      border-radius: 9px;
+      background: #f4f5fb;
+      color: #4f5872;
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+
+    .point-discussion-message.teacher {
+      background: #eeeaff;
+      color: #3e367f;
+    }
+
+    .point-discussion-compose {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+    }
+
+    .point-discussion-input {
+      width: 100%;
+      min-height: 54px;
+      padding: 8px;
+      border: 1px solid #dfe3f4;
+      border-radius: 8px;
+      resize: vertical;
+      font: inherit;
+    }
+
+    .point-discussion-send {
+      align-self: end;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 8px;
+      background: #5950f5;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .point-discussion-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 7px;
+      color: #68718b;
+      font-size: 0.78rem;
+    }
+
+    .point-discussion-meta select {
+      max-width: 150px;
+      padding: 4px;
+      border: 1px solid #dfe3f4;
+      border-radius: 6px;
+      background: #fff;
+      color: #4f5872;
+    }
+
+    .ct-discussion-box:focus {
+      outline: 2px solid #635bff;
+      outline-offset: 1px;
+    }
+
+    @media (max-width: 760px) {
+      .ct-analysis-panel { padding: 16px; }
+      .ct-analysis-table, .ct-analysis-table thead, .ct-analysis-table tbody,
+      .ct-analysis-table tr, .ct-analysis-table th, .ct-analysis-table td {
+        display: block;
+      }
+      .ct-analysis-table thead { display: none; }
+      .ct-analysis-table td { border-bottom: 0; padding: 5px 0; }
+      .ct-analysis-row { padding: 12px 0; border-bottom: 1px solid #edf0f8; }
+      .ct-analysis-summary { grid-template-columns: 1fr; gap: 7px; }
+      .ct-row-layout { grid-template-columns: 1fr; gap: 12px; }
+      .ct-analysis-details { grid-column: 1; }
+      .ct-analysis-detail { margin-left: 0; }
+    }
+  </style>
 </head>
-<body class="analysis-page">
+<body class="analysis-page tutor-1-1">
   <div class="page-shell">
     <header class="page-header">
       <div class="header-left">
@@ -16,7 +250,7 @@
         </div>
         <div>
           <p class="header-subtitle">AI Tutor for Lesson Plans</p>
-          <p class="header-note">Prototype 1.0</p>
+          <p class="header-note">Prototype 1.1</p>
         </div>
       </div>
       <button class="header-button secondary-button" id="moreInfoButton" type="button">Need more information?</button>
@@ -91,7 +325,36 @@
           <p id="analysisTeacherNote" class="analysis-summary-text"></p>
         </section>
 
+        <section id="patternsAcrossLessonPanel" class="patterns-analysis-panel" hidden>
+          <div class="patterns-analysis-header">
+            <div>
+              <h2>Patterns across the lesson</h2>
+              <p class="patterns-analysis-intro">Cross-cutting relationships between activities, sections, and learner actions.</p>
+            </div>
+            <span class="patterns-analysis-badge">Cross-lesson overview</span>
+          </div>
+          <div id="patternsAcrossLessonList" class="patterns-analysis-list"></div>
+        </section>
+
         <div id="analysisSections"></div>
+
+        <section id="computationalThinkingPanel" class="ct-analysis-panel" hidden>
+          <h2>Computational Thinking</h2>
+          <p class="ct-analysis-intro">
+            Evidence-based feedback on computational thinking practices performed by learners in the lesson plan.
+          </p>
+          <table class="ct-analysis-table">
+            <thead>
+              <tr>
+                <th scope="col">CT practice</th>
+                <th scope="col">Status</th>
+                <th scope="col">Associated activity</th>
+                <th scope="col">Discussion / clarification</th>
+              </tr>
+            </thead>
+            <tbody id="computationalThinkingRows"></tbody>
+          </table>
+        </section>
 
         <section class="analysis-bottom">
           <div class="analysis-bottom-grid">
@@ -110,6 +373,10 @@
 
           <div class="analysis-actions">
             <a href="lesson-info.html" class="action-link secondary-button">Back</a>
+            <button id="downloadAnalysisButton" class="action-button secondary-button" type="button">
+              <span class="button-text">Download analysis (DOCX)</span>
+              <span class="button-arrow">↓</span>
+            </button>
             <a id="continueButton" class="action-button primary-button" href="refining-and-improving.html">
               <span class="button-text">Continue</span>
               <span class="button-arrow">→</span>
@@ -146,6 +413,10 @@
   </div>
 
   <script>
+    function uiText(text) {
+      return window.tutorTranslate ? window.tutorTranslate(text, text) : text;
+    }
+
     function normalizeItems(value) {
       if (!value) {
         return [];
@@ -176,11 +447,11 @@
 
     function formatRange(range) {
       if (!range) {
-        return "? to ?";
+      return "? " + uiText("to") + " ?";
       }
       var fromValue = range.from === 0 || range.from ? String(range.from) : "?";
       var toValue = range.to === 0 || range.to ? String(range.to) : "?";
-      return fromValue + " to " + toValue;
+      return fromValue + " " + uiText("to") + " " + toValue;
     }
 
     function renderAnalysisError(message, rawText) {
@@ -197,7 +468,7 @@
         raw.style.marginTop = "12px";
         raw.style.whiteSpace = "pre-wrap";
         raw.style.wordBreak = "break-word";
-        raw.textContent = "Raw response:\n" + rawText;
+        raw.textContent = uiText("Raw response:") + "\n" + rawText;
         errorBox.appendChild(raw);
       }
     }
@@ -313,6 +584,191 @@
       return mapped;
     }
 
+    var pointDiscussionsStorageKey = "step2PointDiscussions";
+
+    function loadPointDiscussions() {
+      try {
+        var raw = window.localStorage.getItem(pointDiscussionsStorageKey);
+        var parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function savePointDiscussions(value) {
+      window.localStorage.setItem(pointDiscussionsStorageKey, JSON.stringify(value || {}));
+    }
+
+    function getPointDiscussionKey(categoryId, itemId) {
+      return String(categoryId || "category") + ":" + String(itemId || "point");
+    }
+
+    function renderPointDiscussionMessages(container, discussion) {
+      container.innerHTML = "";
+      (discussion.messages || []).forEach(function (message) {
+        var bubble = document.createElement("div");
+        bubble.className = "point-discussion-message " + (message.role === "teacher" ? "teacher" : "tutor");
+        bubble.textContent = (message.role === "teacher" ? uiText("You: ") : uiText("Tutor: ")) + (message.text || "");
+        container.appendChild(bubble);
+      });
+    }
+
+    function createPointDiscussion(item, category, row) {
+      var key = getPointDiscussionKey(category.id, item.id);
+      var allDiscussions = loadPointDiscussions();
+      var discussion = allDiscussions[key] || { messages: [], decision: "", summary: "", adaptationProposal: "", includeInDownload: true };
+      discussion.categoryTitle = category.title || "Category";
+      discussion.pointTitle = item.title || "Identified point";
+      allDiscussions[key] = discussion;
+      savePointDiscussions(allDiscussions);
+
+      var wrapper = document.createElement("div");
+      wrapper.className = "point-discussion";
+      var messages = document.createElement("div");
+      messages.className = "point-discussion-messages";
+      renderPointDiscussionMessages(messages, discussion);
+
+      var compose = document.createElement("div");
+      compose.className = "point-discussion-compose";
+      var input = document.createElement("textarea");
+      input.className = "point-discussion-input";
+      input.placeholder = uiText("Discuss this point...");
+      var send = document.createElement("button");
+      send.type = "button";
+      send.className = "point-discussion-send";
+      send.textContent = uiText("Send");
+
+      var metaRow = document.createElement("div");
+      metaRow.className = "point-discussion-meta";
+      var decisionLabel = document.createElement("span");
+      decisionLabel.textContent = uiText("Decision:");
+      var decision = document.createElement("select");
+      ["", "Keep as is", "Change", "Add clarification", "Not applicable", "Needs more information"].forEach(function (value) {
+        var option = document.createElement("option");
+        option.value = value;
+        option.textContent = uiText(value || "Open");
+        decision.appendChild(option);
+      });
+      decision.value = discussion.decision || "";
+      decision.addEventListener("change", function () {
+        var current = loadPointDiscussions();
+        current[key] = current[key] || { messages: [] };
+        current[key].decision = decision.value;
+        current[key].includeInDownload = includeCheckbox.checked;
+        savePointDiscussions(current);
+      });
+
+      var includeLabel = document.createElement("label");
+      var includeCheckbox = document.createElement("input");
+      includeCheckbox.type = "checkbox";
+      includeCheckbox.checked = discussion.includeInDownload !== false;
+      includeCheckbox.addEventListener("change", function () {
+        var current = loadPointDiscussions();
+        current[key] = current[key] || { messages: [] };
+        current[key].includeInDownload = includeCheckbox.checked;
+        savePointDiscussions(current);
+      });
+      includeLabel.appendChild(includeCheckbox);
+      includeLabel.appendChild(document.createTextNode(" " + uiText("Include in download")));
+      metaRow.appendChild(decisionLabel);
+      metaRow.appendChild(decision);
+      metaRow.appendChild(includeLabel);
+
+      function sendMessage() {
+        var text = input.value.trim();
+        if (!text || send.disabled) {
+          return;
+        }
+        send.disabled = true;
+        var current = loadPointDiscussions();
+        var state = current[key] || { messages: [] };
+        state.messages = Array.isArray(state.messages) ? state.messages : [];
+        state.messages.push({ role: "teacher", text: text });
+        current[key] = state;
+        savePointDiscussions(current);
+        renderPointDiscussionMessages(messages, state);
+        input.value = "";
+        fetch("/analysis-discuss", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            point: {
+              category: category.title,
+              category_id: category.id,
+              item_id: item.id,
+              title: item.title,
+              explanation: item.short_explanation,
+              why_it_matters: item.why_it_matters,
+              evidence: item.evidence || (item.citation && item.citation.cited_text) || "",
+              suggested_next_action: item.suggested_next_action || "",
+              positive_note: item.positive_note || ""
+            },
+            lesson_context: meta || {},
+            analysis_summary: analysis && analysis.lesson_plan_summary ? analysis.lesson_plan_summary : {},
+            analysis_focus: analysis && analysis.analysis_focus ? analysis.analysis_focus : {},
+            conversation: state.messages,
+            user_message: text
+          })
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) {
+              throw new Error(data && data.error ? data.error : "Unable to discuss this point.");
+            }
+            return data;
+          });
+        }).then(function (data) {
+          var updated = loadPointDiscussions();
+          var next = updated[key] || { messages: [] };
+          next.messages = Array.isArray(next.messages) ? next.messages : [];
+          if (data.assistant_message) {
+            next.messages.push({ role: "tutor", text: data.assistant_message });
+          }
+          next.decision = data.decision || next.decision || "";
+          next.summary = data.summary || next.summary || "";
+          next.adaptationProposal = data.adaptation_proposal || next.adaptationProposal || "";
+          next.includeInDownload = data.include_in_download !== false;
+          updated[key] = next;
+          savePointDiscussions(updated);
+          decision.value = next.decision;
+          includeCheckbox.checked = next.includeInDownload;
+          renderPointDiscussionMessages(messages, next);
+          if (next.adaptationProposal) {
+            var proposalMessage = "Suggested adaptation: " + next.adaptationProposal;
+            var lastMessage = next.messages[next.messages.length - 1];
+            if (!lastMessage || lastMessage.text !== proposalMessage) {
+              next.messages.push({ role: "tutor", text: proposalMessage });
+              savePointDiscussions(updated);
+              renderPointDiscussionMessages(messages, next);
+            }
+          }
+        }).catch(function (error) {
+          var updated = loadPointDiscussions();
+          var next = updated[key] || { messages: [] };
+          next.messages.push({ role: "tutor", text: "Error: " + (error.message || "Unable to discuss this point.") });
+          updated[key] = next;
+          savePointDiscussions(updated);
+          renderPointDiscussionMessages(messages, next);
+        }).finally(function () {
+          send.disabled = false;
+        });
+      }
+
+      send.addEventListener("click", sendMessage);
+      input.addEventListener("keydown", function (event) {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+      compose.appendChild(input);
+      compose.appendChild(send);
+      wrapper.appendChild(messages);
+      wrapper.appendChild(compose);
+      wrapper.appendChild(metaRow);
+      return wrapper;
+    }
+
     function renderCategory(container, category) {
       var card = document.createElement("section");
       card.className = "category-card";
@@ -352,7 +808,7 @@
       table.appendChild(colgroup);
 
       var thead = document.createElement("thead");
-      thead.innerHTML = "<tr><th>Focus on this?</th><th>Identified point</th><th>Why we mentioned this</th><th>Citation from your text</th><th>Confidence</th><th>Anything to add or clarify?</th></tr>";
+      thead.innerHTML = "<tr><th>" + uiText("Focus on this?") + "</th><th>" + uiText("Identified point") + "</th><th>" + uiText("Why we mentioned this") + "</th><th>" + uiText("Citation from your text") + "</th><th>" + uiText("Confidence") + "</th><th>" + uiText("Discussion") + "</th></tr>";
       table.appendChild(thead);
 
       var tbody = document.createElement("tbody");
@@ -369,6 +825,7 @@
           var tr = document.createElement("tr");
           tr.dataset.categoryId = category.id || "";
           tr.dataset.itemId = item.id || "";
+          tr.id = "analysis-point-" + (category.id || "category") + "-" + (item.id || "item");
           var score = normalizeMatchScore(item.match_score);
           var itemWordClass = getWordScoreClass([item.title, item.short_explanation, item.why_it_matters].join(" "));
           if (score) {
@@ -410,7 +867,7 @@
           var citeButton = document.createElement("button");
           citeButton.type = "button";
           citeButton.className = "citation-button";
-          citeButton.textContent = item.citation && item.citation.label ? item.citation.label : "No citation";
+          citeButton.textContent = item.citation && item.citation.label ? item.citation.label : uiText("No citation");
           citeButton.addEventListener("click", function () {
             openCitationModal(item.citation || {});
           });
@@ -423,10 +880,7 @@
           confidenceTd.appendChild(confidence);
 
           var noteTd = document.createElement("td");
-          var note = document.createElement("textarea");
-          note.className = "comment-box";
-          note.placeholder = item.teacher_comment_placeholder || "Add more details...";
-          noteTd.appendChild(note);
+          noteTd.appendChild(createPointDiscussion(item, category, tr));
 
           tr.appendChild(focusTd);
           tr.appendChild(pointTd);
@@ -448,15 +902,26 @@
 
     function collectSelections() {
       var selections = [];
+      var discussions = loadPointDiscussions();
       document.querySelectorAll(".item-table tbody tr").forEach(function (row) {
         var checkbox = row.querySelector("input[type='checkbox']");
-        var note = row.querySelector("textarea");
-        if (checkbox && checkbox.checked) {
+        var key = getPointDiscussionKey(row.dataset.categoryId, row.dataset.itemId);
+        var discussion = discussions[key] || {};
+        var messages = Array.isArray(discussion.messages) ? discussion.messages : [];
+        var hasDiscussion = messages.length > 0;
+        var lastTeacherMessage = messages.slice().reverse().find(function (message) {
+          return message && message.role === "teacher";
+        });
+        var discussionComment = discussion.summary || (lastTeacherMessage && lastTeacherMessage.text) || "";
+        if (discussion.decision) {
+          discussionComment = "Decision: " + discussion.decision + (discussionComment ? "\n" + discussionComment : "");
+        }
+        if (checkbox && (checkbox.checked || hasDiscussion)) {
           selections.push({
             category_id: row.dataset.categoryId || "",
             item_id: row.dataset.itemId || "",
             title: (row.querySelector(".point-title") || {}).textContent || "",
-            teacher_comment: note ? note.value.trim() : ""
+            teacher_comment: discussionComment
           });
         }
       });
@@ -700,6 +1165,51 @@
 
     function collectSelectionsForNextStep() {
       var selected = collectSelections();
+      var discussions = loadPointDiscussions();
+      Object.keys(discussions).forEach(function (key) {
+        var discussion = discussions[key] || {};
+        if (key.indexOf("computational_thinking:") !== 0 || discussion.includeInDownload === false) {
+          return;
+        }
+        var messages = Array.isArray(discussion.messages) ? discussion.messages : [];
+        var lastTeacherMessage = messages.slice().reverse().find(function (message) {
+          return message && message.role === "teacher";
+        });
+        if (!discussion.decision && !lastTeacherMessage) {
+          return;
+        }
+        selected.push({
+          category_id: "computational_thinking",
+          item_id: key.split(":").slice(1).join(":") || "ct-discussion",
+          title: discussion.pointTitle || "Computational Thinking",
+          teacher_comment: (discussion.decision ? "Decision: " + discussion.decision : "") +
+            (lastTeacherMessage ? "\n" + lastTeacherMessage.text : "")
+        });
+      });
+      var patternFocus = safeParse(window.localStorage.getItem("step2PatternFocus"));
+      if (patternFocus && patternFocus.title) {
+        var patternLines = [
+          "Pattern: " + patternFocus.title,
+          "Locations: " + (patternFocus.locations || []).join(", "),
+          "What connects them: " + (patternFocus.explanation || ""),
+          "Why it may matter: " + (patternFocus.relevance || "")
+        ];
+        if (Array.isArray(patternFocus.evidence) && patternFocus.evidence.length) {
+          patternLines.push("Evidence: " + patternFocus.evidence.join(" | "));
+        }
+        if (Array.isArray(patternFocus.ct_practices) && patternFocus.ct_practices.length) {
+          patternLines.push("Related CT practices: " + patternFocus.ct_practices.join(", "));
+        }
+        selected = selected.filter(function (item) {
+          return item.category_id !== "patterns_across_lesson";
+        });
+        selected.push({
+          category_id: "patterns_across_lesson",
+          item_id: patternFocus.id || "pattern-focus",
+          title: patternFocus.title,
+          teacher_comment: patternLines.join("\n")
+        });
+      }
       var privacyWarning = window.localStorage.getItem("step2PrivacyWarning") || "";
       if (privacyWarning) {
         selected = selected.filter(function (item) {
@@ -715,6 +1225,145 @@
       return selected;
     }
 
+    function normalizePatternsForDisplay(value) {
+      var entries = Array.isArray(value) ? value : [];
+      return entries.filter(function (entry) {
+        if (!entry || typeof entry !== "object") {
+          return false;
+        }
+        var locations = Array.isArray(entry.locations) ? entry.locations : [];
+        var relatedIds = Array.isArray(entry.related_item_ids) ? entry.related_item_ids : [];
+        return locations.length >= 2 || relatedIds.length >= 2;
+      }).slice(0, 4).map(function (entry, index) {
+        return {
+          id: String(entry.id || "pattern-" + (index + 1)),
+          title: String(entry.title || "Cross-lesson pattern"),
+          locations: Array.isArray(entry.locations) ? entry.locations.map(String) : [],
+          relatedItemIds: Array.isArray(entry.related_item_ids) ? entry.related_item_ids.map(String) : [],
+          explanation: String(entry.explanation || ""),
+          relevance: String(entry.relevance || ""),
+          evidence: Array.isArray(entry.evidence) ? entry.evidence.map(String).filter(Boolean) : [],
+          ctPractices: Array.isArray(entry.ct_practices) ? entry.ct_practices.map(String).filter(Boolean) : [],
+          refinementCandidate: entry.refinement_candidate !== false
+        };
+      });
+    }
+
+    function highlightPatternFindings(pattern) {
+      document.querySelectorAll(".pattern-highlight").forEach(function (row) {
+        row.classList.remove("pattern-highlight");
+      });
+      var rows = [];
+      (pattern.relatedItemIds || []).forEach(function (itemId) {
+        document.querySelectorAll(".item-table tbody tr").forEach(function (row) {
+          if (row.dataset.itemId === itemId || (row.dataset.categoryId + ":" + row.dataset.itemId) === itemId) {
+            rows.push(row);
+          }
+        });
+      });
+      rows.forEach(function (row) {
+        row.classList.add("pattern-highlight");
+      });
+      if (rows.length) {
+        rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+
+    function renderPatternsAcrossLesson(value) {
+      var panel = document.getElementById("patternsAcrossLessonPanel");
+      var list = document.getElementById("patternsAcrossLessonList");
+      if (!panel || !list) {
+        return;
+      }
+      var patterns = normalizePatternsForDisplay(value);
+      panel.hidden = false;
+      list.innerHTML = "";
+      var panelTitle = panel.querySelector("h2");
+      var panelIntro = panel.querySelector(".patterns-analysis-intro");
+      var panelBadge = panel.querySelector(".patterns-analysis-badge");
+      if (panelTitle) panelTitle.textContent = uiText("Patterns across the lesson");
+      if (panelIntro) panelIntro.textContent = uiText("Cross-cutting relationships between activities, sections, and learner actions.");
+      if (panelBadge) panelBadge.textContent = uiText("Cross-lesson overview");
+      if (!patterns.length) {
+        var empty = document.createElement("p");
+        empty.className = "patterns-analysis-empty";
+        empty.textContent = uiText("No meaningful cross-lesson pattern identified.");
+        list.appendChild(empty);
+        return;
+      }
+      patterns.forEach(function (pattern) {
+        var details = document.createElement("details");
+        details.className = "pattern-analysis-card";
+        var summary = document.createElement("summary");
+        var title = document.createElement("span");
+        title.className = "pattern-analysis-title";
+        title.textContent = pattern.title;
+        var locations = document.createElement("span");
+        locations.className = "pattern-analysis-locations";
+        locations.textContent = pattern.locations.join(", ");
+        summary.appendChild(title);
+        summary.appendChild(locations);
+        details.appendChild(summary);
+
+        var body = document.createElement("div");
+        body.className = "pattern-analysis-body";
+        function addPatternField(label, text) {
+          if (!text) return;
+          var line = document.createElement("p");
+          var strong = document.createElement("strong");
+          strong.textContent = label + ": ";
+          line.appendChild(strong);
+          line.appendChild(document.createTextNode(text));
+          body.appendChild(line);
+        }
+        addPatternField(uiText("Where it appears"), pattern.locations.join(", "));
+        addPatternField(uiText("What connects them"), pattern.explanation);
+        addPatternField(uiText("Why this pattern may matter"), pattern.relevance);
+        if (pattern.evidence.length) {
+          var evidenceLabel = document.createElement("strong");
+          evidenceLabel.textContent = uiText("Evidence") + ":";
+          body.appendChild(evidenceLabel);
+          var evidenceList = document.createElement("ul");
+          pattern.evidence.forEach(function (text) {
+            var item = document.createElement("li");
+            item.textContent = text;
+            evidenceList.appendChild(item);
+          });
+          body.appendChild(evidenceList);
+        }
+        if (pattern.ctPractices.length) {
+          addPatternField(uiText("Related CT practices"), pattern.ctPractices.join(", "));
+        }
+        var actions = document.createElement("div");
+        actions.className = "pattern-analysis-actions";
+        if (pattern.relatedItemIds.length) {
+          var inspect = document.createElement("button");
+          inspect.type = "button";
+          inspect.className = "pattern-analysis-link";
+          inspect.textContent = uiText("View related findings");
+          inspect.addEventListener("click", function () {
+            highlightPatternFindings(pattern);
+          });
+          actions.appendChild(inspect);
+        }
+        if (pattern.refinementCandidate) {
+          var explore = document.createElement("button");
+          explore.type = "button";
+          explore.className = "pattern-analysis-button";
+          explore.textContent = uiText("Explore this pattern");
+          explore.addEventListener("click", function () {
+            window.localStorage.setItem("step2PatternFocus", JSON.stringify(pattern));
+            explore.textContent = uiText("Selected for Step 3");
+            explore.classList.add("is-selected");
+          });
+          actions.appendChild(explore);
+        }
+        body.appendChild(actions);
+        details.appendChild(body);
+        list.appendChild(details);
+      });
+    }
+
     function renderSummary(summary, analysis) {
       setText("analysisSummary", summary.short_summary || "No summary returned.");
       setText("analysisSubjects", normalizeItems(summary.detected_subjects).join(", ") || "Not detected");
@@ -728,7 +1377,7 @@
       var summaryScore = normalizeMatchScore(summary.match_score);
       var confidenceElement = document.getElementById("analysisSummaryConfidence");
       if (confidenceElement) {
-        confidenceElement.textContent = (summaryScore ? "Match: " + summaryScore + "/10 · " : "") + "Confidence: " + confidenceText;
+        confidenceElement.textContent = (summaryScore ? uiText("Match:") + " " + summaryScore + "/10 · " : "") + uiText("Confidence:") + " " + uiText(confidenceText);
         confidenceElement.className = "analysis-summary-confidence";
         if (summaryScore) {
           confidenceElement.classList.add(getScoreClass(summaryScore));
@@ -769,8 +1418,9 @@
 
       labels.forEach(function (entry) {
         var node = focus[entry.key] || {};
-        var chip = document.createElement("div");
+        var chip = document.createElement("details");
         chip.className = "summary-chip";
+        chip.open = false;
         var score = normalizeMatchScore(node.match_score);
         var statusWordClass = getWordScoreClass(node.status);
         var noteWordClass = getWordScoreClass(node.note);
@@ -785,11 +1435,11 @@
         var label = document.createElement("span");
         label.className = "summary-chip-label";
         var confidence = node.confidence || "unclear";
-        label.textContent = entry.label + (score ? " (Match: " + score + "/10, Confidence: " + confidence + ")" : " (Confidence: " + confidence + ")");
+        label.textContent = uiText(entry.label) + (score ? " (" + uiText("Match:") + " " + score + "/10, " + uiText("Confidence:") + " " + uiText(confidence) + ")" : " (" + uiText("Confidence:") + " " + uiText(confidence) + ")");
 
         var status = document.createElement("div");
         status.style.fontWeight = "700";
-        status.textContent = formatStatusLabel(node.status);
+        status.textContent = uiText(formatStatusLabel(node.status));
         if (score) {
           status.className = getScoreClass(score) + "-text";
         } else if (statusWordClass) {
@@ -808,25 +1458,180 @@
           note.style.color = "#5f667a";
         }
 
-        chip.appendChild(label);
-        chip.appendChild(status);
+        var chipSummary = document.createElement("summary");
+        chipSummary.className = "summary-chip-summary";
+        chipSummary.appendChild(label);
+        chipSummary.appendChild(status);
+        chip.appendChild(chipSummary);
+        var chipBody = document.createElement("div");
+        chipBody.className = "summary-chip-body";
         if (node.note) {
-          chip.appendChild(note);
+          chipBody.appendChild(note);
+        }
+        if (node.suggestion) {
+          var suggestion = document.createElement("div");
+          suggestion.className = "summary-chip-suggestion";
+          suggestion.textContent = uiText("Suggested next step") + ": " + node.suggestion;
+          chipBody.appendChild(suggestion);
+        }
+        if (entry.key === "time_scope" && node.recommended_timing) {
+          var timing = document.createElement("div");
+          timing.className = "summary-chip-timing";
+          timing.textContent = uiText("Suggested timing") + ": " + node.recommended_timing;
+          chipBody.appendChild(timing);
+        }
+        if (entry.key === "time_scope" && Array.isArray(node.timing_breakdown) && node.timing_breakdown.length) {
+          var breakdown = document.createElement("ul");
+          breakdown.className = "summary-chip-breakdown";
+          node.timing_breakdown.forEach(function (part) {
+            if (!part || !part.activity || !part.minutes) {
+              return;
+            }
+            var item = document.createElement("li");
+            item.textContent = part.activity + " - " + part.minutes + " min" + (part.rationale ? ": " + part.rationale : "");
+            breakdown.appendChild(item);
+          });
+          if (breakdown.children.length) {
+            chipBody.appendChild(breakdown);
+          }
+        }
+        if (chipBody.children.length) {
+          chip.appendChild(chipBody);
         }
         grid.appendChild(chip);
       });
+    }
+
+    var COMPUTATIONAL_THINKING_PRACTICES = [
+      "Decomposition",
+      "Pattern recognition / generalisation",
+      "Abstraction",
+      "Algorithmic thinking",
+      "Testing / debugging / evaluation",
+      "Data / representation"
+    ];
+
+    function normalizeComputationalThinkingForDisplay(value) {
+      var entries = Array.isArray(value) ? value : [];
+      var byPractice = {};
+      entries.forEach(function (entry) {
+        if (!entry || typeof entry !== "object") {
+          return;
+        }
+        var practice = String(entry.practice || "").trim();
+        if (COMPUTATIONAL_THINKING_PRACTICES.indexOf(practice) !== -1 && !byPractice[practice]) {
+          byPractice[practice] = entry;
+        }
+      });
+      return COMPUTATIONAL_THINKING_PRACTICES.map(function (practice) {
+        var entry = byPractice[practice] || {};
+        var status = String(entry.status || "Not identified").trim();
+        if (["Present", "Opportunity", "Not identified"].indexOf(status) === -1) {
+          status = "Not identified";
+        }
+        return {
+          practice: practice,
+          status: status,
+          activity: String(entry.activity || "").trim(),
+          evidence: String(entry.evidence || "").trim(),
+          limitation: String(entry.limitation || "").trim(),
+          refinement: String(entry.refinement || "").trim(),
+          positiveNote: String(entry.positive_note || "").trim()
+        };
+      });
+    }
+
+    function appendCtDetail(container, label, value) {
+      var line = document.createElement("div");
+      var strong = document.createElement("strong");
+      strong.textContent = label + ": ";
+      line.appendChild(strong);
+      var text = document.createTextNode(value);
+      line.appendChild(text);
+      container.appendChild(line);
+    }
+
+    function renderComputationalThinking(value) {
+      var panel = document.getElementById("computationalThinkingPanel");
+      var rows = document.getElementById("computationalThinkingRows");
+      if (!panel || !rows) {
+        return;
+      }
+      rows.textContent = "";
+      normalizeComputationalThinkingForDisplay(value).forEach(function (item) {
+        var row = document.createElement("tr");
+        row.className = "ct-analysis-row";
+        var cell = document.createElement("td");
+        cell.colSpan = 4;
+
+        var rowLayout = document.createElement("span");
+        rowLayout.className = "ct-row-layout";
+
+        var details = document.createElement("details");
+        details.className = "ct-analysis-details";
+        var summary = document.createElement("summary");
+        var summaryGrid = document.createElement("span");
+        summaryGrid.className = "ct-analysis-summary";
+
+        var practice = document.createElement("span");
+        practice.className = "ct-practice-name";
+        practice.textContent = item.practice;
+        var status = document.createElement("span");
+        status.className = "ct-status ct-status-" + item.status.toLowerCase().replace(/[^a-z]+/g, "-");
+        status.textContent = item.status;
+        var activity = document.createElement("span");
+        activity.className = "ct-activity";
+        activity.textContent = item.activity || "No associated activity identified";
+
+        summaryGrid.appendChild(practice);
+        summaryGrid.appendChild(status);
+        summaryGrid.appendChild(activity);
+        summary.appendChild(summaryGrid);
+        details.appendChild(summary);
+
+        var detail = document.createElement("div");
+        detail.className = "ct-analysis-detail";
+        appendCtDetail(detail, "Evidence", item.evidence || "No sufficient learner evidence identified.");
+        if (item.limitation) {
+          appendCtDetail(detail, "Limitation", item.limitation);
+        }
+        if (item.refinement) {
+          appendCtDetail(detail, "Possible refinement", item.refinement);
+        } else if (item.positiveNote) {
+          appendCtDetail(detail, "Positive note", item.positiveNote);
+        }
+        details.appendChild(detail);
+        rowLayout.appendChild(details);
+        if (item.status === "Not identified") {
+          var ctDiscussionItem = {
+            id: "ct-" + item.practice.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            title: item.practice,
+            short_explanation: item.limitation || "",
+            why_it_matters: "Clarify whether learners perform this computational thinking practice.",
+            evidence: item.evidence || "",
+            suggested_next_action: item.refinement || "",
+            positive_note: item.positiveNote || ""
+          };
+          var ctCategory = { id: "computational_thinking", title: "Computational Thinking" };
+          rowLayout.appendChild(createPointDiscussion(ctDiscussionItem, ctCategory, row));
+        }
+        cell.appendChild(rowLayout);
+        row.appendChild(cell);
+        rows.appendChild(row);
+      });
+      panel.hidden = false;
     }
 
     function renderMeta(meta) {
       var metaBox = document.getElementById("analysisMeta");
       var lines = [];
       if (meta) {
-        if (meta.filename) lines.push("File: " + meta.filename);
-        if (meta.country) lines.push("Country: " + meta.country);
-        if (meta.subjects && meta.subjects.length) lines.push("Subjects: " + meta.subjects.join(", "));
-        if (meta.gradeFrom || meta.gradeTo) lines.push("Grades: " + (meta.gradeFrom || "?") + " to " + (meta.gradeTo || "?"));
-        if (meta.ageFrom || meta.ageTo) lines.push("Age: " + (meta.ageFrom || "?") + " to " + (meta.ageTo || "?"));
-        if (meta.specifics) lines.push("Specifics: " + meta.specifics);
+        if (meta.filename) lines.push(uiText("File:") + " " + meta.filename);
+        if (meta.country) lines.push(uiText("Country:") + " " + meta.country);
+        if (meta.subjects && meta.subjects.length) lines.push(uiText("Subjects:") + " " + meta.subjects.join(", "));
+        if (meta.gradeFrom || meta.gradeTo) lines.push(uiText("Grades:") + " " + (meta.gradeFrom || "?") + " " + uiText("to") + " " + (meta.gradeTo || "?"));
+        if (meta.ageFrom || meta.ageTo) lines.push(uiText("Age:") + " " + (meta.ageFrom || "?") + " " + uiText("to") + " " + (meta.ageTo || "?"));
+        if (meta.specifics) lines.push(uiText("Specifics:") + " " + meta.specifics);
       }
       metaBox.innerHTML = "";
       lines.forEach(function (line) {
@@ -835,8 +1640,228 @@
         metaBox.appendChild(div);
       });
       if (!lines.length) {
-        metaBox.textContent = "No metadata available.";
+        metaBox.textContent = uiText("No metadata available.");
       }
+    }
+
+    function buildAnalysisDownloadText(analysis) {
+      var summary = analysis.lesson_plan_summary || {};
+      var lines = [
+        "STEaiM-CT Tutor - First analysis",
+        "================================",
+        "",
+        "LESSON PLAN SUMMARY",
+        summary.short_summary || "No summary returned.",
+        "Detected subjects: " + (normalizeItems(summary.detected_subjects).join(", ") || "Not detected"),
+        "Detected grade range: " + formatRange(summary.detected_grade_range),
+        "Detected age range: " + formatRange(summary.detected_age_range),
+        ""
+      ];
+
+      if (summary.notes_for_teacher) {
+        lines.push("Note for teacher: " + summary.notes_for_teacher, "");
+      }
+
+      lines.push("ANALYSIS FOCUS");
+      var focus = analysis.analysis_focus && typeof analysis.analysis_focus === "object" ? analysis.analysis_focus : {};
+      [
+        ["Time scope", "time_scope"],
+        ["Goals / competencies", "goals_competencies"],
+        ["Adaptability", "adaptability"],
+        ["Detail level", "detail_level"],
+        ["Target group", "target_group"],
+        ["Curriculum alignment", "curriculum_alignment"]
+      ].forEach(function (entry) {
+        var item = focus[entry[1]] || {};
+        lines.push(
+          entry[0] + ": " + formatStatusLabel(item.status) +
+          (item.match_score ? " (Match: " + item.match_score + "/10)" : "")
+        );
+        if (item.note) {
+          lines.push("  " + item.note);
+        }
+        if (item.suggestion) {
+          lines.push("  Suggested next step: " + item.suggestion);
+        }
+        if (entry[1] === "time_scope" && item.recommended_timing) {
+          lines.push("  Suggested timing: " + item.recommended_timing);
+        }
+        if (entry[1] === "time_scope" && Array.isArray(item.timing_breakdown)) {
+          item.timing_breakdown.forEach(function (part) {
+            if (part && part.activity && part.minutes) {
+              lines.push("  Timing: " + part.activity + " - " + part.minutes + " min" + (part.rationale ? " (" + part.rationale + ")" : ""));
+            }
+          });
+        }
+      });
+      lines.push("");
+
+      lines.push("PATTERNS ACROSS THE LESSON");
+      normalizePatternsForDisplay(analysis.patterns_across_lesson).forEach(function (pattern) {
+        lines.push(pattern.title);
+        if (pattern.locations.length) {
+          lines.push("  Where it appears: " + pattern.locations.join(", "));
+        }
+        if (pattern.explanation) {
+          lines.push("  What connects them: " + pattern.explanation);
+        }
+        if (pattern.relevance) {
+          lines.push("  Why this pattern may matter: " + pattern.relevance);
+        }
+        pattern.evidence.forEach(function (evidence) {
+          lines.push("  Evidence: " + evidence);
+        });
+        if (pattern.ctPractices.length) {
+          lines.push("  Related CT practices: " + pattern.ctPractices.join(", "));
+        }
+      });
+      if (!normalizePatternsForDisplay(analysis.patterns_across_lesson).length) {
+        lines.push("No meaningful cross-lesson pattern was identified.");
+      }
+      lines.push("");
+
+      lines.push("COMPUTATIONAL THINKING");
+      normalizeComputationalThinkingForDisplay(analysis.computational_thinking).forEach(function (item) {
+        lines.push(item.practice + " - " + item.status);
+        lines.push("  Activity: " + (item.activity || "No associated activity identified"));
+        lines.push("  Evidence: " + (item.evidence || "No sufficient learner evidence identified."));
+        if (item.limitation) {
+          lines.push("  Limitation: " + item.limitation);
+        }
+        if (item.refinement) {
+          lines.push("  Possible refinement: " + item.refinement);
+        } else if (item.positiveNote) {
+          lines.push("  Positive note: " + item.positiveNote);
+        }
+        lines.push("");
+      });
+
+      lines.push("DETAILED ANALYSIS");
+      var categories = Array.isArray(analysis.categories) ? analysis.categories : [];
+      categories.forEach(function (category) {
+        lines.push("\n" + (category.title || "Category"));
+        (Array.isArray(category.items) ? category.items : []).forEach(function (item) {
+          lines.push("- " + (item.title || "Identified point"));
+          if (item.short_explanation) lines.push("  " + item.short_explanation);
+          if (item.why_it_matters) lines.push("  Why it matters: " + item.why_it_matters);
+          if (item.evidence) {
+            lines.push("  Evidence / basis: " + item.evidence);
+          } else if (item.citation && item.citation.cited_text) {
+            lines.push("  Evidence / basis: " + item.citation.cited_text);
+          } else if (item.short_explanation || item.why_it_matters) {
+            lines.push("  Evidence / basis: The point is based on the lesson-plan activity described above.");
+          } else {
+            lines.push("  Evidence / basis: No detailed evidence sentence was returned for this point.");
+          }
+          if (item.suggested_next_action) {
+            lines.push("  Suggested improvement: " + item.suggested_next_action);
+          } else if (item.positive_note) {
+            lines.push("  Positive note: " + item.positive_note);
+          } else if (normalizeMatchScore(item.match_score) >= 7) {
+            lines.push("  Positive note: This point is assessed as a strong fit in the lesson plan.");
+          } else {
+            lines.push("  Suggested improvement: The analysis returned no concrete next action; use the evidence above to define one activity-level adjustment.");
+          }
+        });
+      });
+
+      var clarifications = [];
+      var pointDiscussions = loadPointDiscussions();
+      Object.keys(pointDiscussions).forEach(function (key) {
+        var discussion = pointDiscussions[key] || {};
+        if (discussion.includeInDownload === false || (!discussion.summary && !(discussion.messages || []).length)) {
+          return;
+        }
+        lines.push("\nDISCUSSION: " + (discussion.categoryTitle || "Category") + " - " + (discussion.pointTitle || "Identified point"));
+        if (discussion.decision) {
+          lines.push("  Decision: " + discussion.decision);
+        }
+        if (discussion.summary) {
+          lines.push("  Discussion summary: " + discussion.summary);
+        }
+        if (discussion.adaptationProposal) {
+          lines.push("  Suggested adaptation: " + discussion.adaptationProposal);
+        }
+        (discussion.messages || []).forEach(function (message) {
+          if (message && message.text) {
+            lines.push("  " + (message.role === "teacher" ? "Teacher" : "Tutor") + ": " + message.text);
+          }
+        });
+      });
+
+      Object.keys(pointDiscussions).forEach(function (key) {
+        if (key.indexOf("computational_thinking:") !== 0) {
+          return;
+        }
+        var discussion = pointDiscussions[key] || {};
+        if (discussion.includeInDownload === false) {
+          return;
+        }
+        var teacherMessages = (discussion.messages || []).filter(function (message) {
+          return message && message.role === "teacher" && message.text;
+        });
+        teacherMessages.forEach(function (message) {
+          clarifications.push((discussion.pointTitle || "CT practice") + ": " + message.text);
+        });
+      });
+      if (clarifications.length) {
+        lines.push("\nTEACHER CLARIFICATIONS");
+        clarifications.forEach(function (clarification) {
+          lines.push("- " + clarification);
+        });
+      }
+      return lines.join("\n").trim() + "\n";
+    }
+
+    function downloadAnalysisDocx(analysis, meta) {
+      var filename = (meta && meta.filename ? meta.filename : "lesson-plan")
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-z0-9_-]+/gi, "-")
+        .replace(/^-+|-+$/g, "") || "lesson-plan";
+      var clarifications = [];
+      var pointDiscussions = loadPointDiscussions();
+      Object.keys(pointDiscussions).forEach(function (key) {
+        if (key.indexOf("computational_thinking:") !== 0) {
+          return;
+        }
+        var discussion = pointDiscussions[key] || {};
+        if (discussion.includeInDownload === false) {
+          return;
+        }
+        var teacherMessages = (discussion.messages || []).filter(function (message) {
+          return message && message.role === "teacher" && message.text;
+        });
+        teacherMessages.forEach(function (message) {
+          clarifications.push((discussion.pointTitle || "CT practice") + ": " + message.text);
+        });
+      });
+      fetch("/export-analysis-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis: analysis,
+          meta: meta || {},
+          discussions: loadPointDiscussions(),
+          clarifications: clarifications,
+          sessionId: window.localStorage.getItem("step2SessionId") || "analysis"
+        })
+      }).then(function (response) {
+        if (!response.ok) {
+          throw new Error("Unable to generate the analysis document.");
+        }
+        return response.blob();
+      }).then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = filename + "-analysis.docx";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }).catch(function (error) {
+        window.alert(error.message || "Unable to generate the analysis document.");
+      });
     }
 
       function getAdditionalUploadState() {
@@ -899,6 +1924,8 @@
       var summary = analysis.lesson_plan_summary || {};
       renderSummary(summary, analysis);
       renderAnalysisFocus(analysis.analysis_focus);
+      renderPatternsAcrossLesson(analysis.patterns_across_lesson);
+      renderComputationalThinking(analysis.computational_thinking);
       var privacyWarning = getPrivacyWarningText(summary, analysis);
       if (privacyWarning) {
         privacyWarningActive = true;
@@ -921,6 +1948,13 @@
 
       setText("analysisNextStep", "Select the points you want to refine, add clarifications if needed, and continue to the dialogue.");
       renderMeta(meta);
+    }
+
+    var downloadAnalysisButton = document.getElementById("downloadAnalysisButton");
+    if (downloadAnalysisButton && analysis && !analysis.error) {
+      downloadAnalysisButton.addEventListener("click", function () {
+        downloadAnalysisDocx(analysis, meta);
+      });
     }
 
     renderAdditionalUploadList(getAdditionalUploadState());
@@ -1059,5 +2093,6 @@
       }
     });
   </script>
+  <script src="js/i18n.js"></script>
 </body>
 </html>

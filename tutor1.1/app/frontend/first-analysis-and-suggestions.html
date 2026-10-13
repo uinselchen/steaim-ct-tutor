@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>First Analysis and Suggestions</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .ct-analysis-panel {
+      margin: 28px 0;
+      padding: 24px;
+      border: 1px solid #dfe3f4;
+      border-radius: 18px;
+      background: #fff;
+    }
+
+    .ct-analysis-intro {
+      margin: 6px 0 18px;
+      color: #68718b;
+      line-height: 1.5;
+    }
+
+    .ct-analysis-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .ct-analysis-table th,
+    .ct-analysis-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #edf0f8;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .ct-analysis-table th {
+      color: #68718b;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .ct-analysis-table th:nth-child(1) { width: 27%; }
+    .ct-analysis-table th:nth-child(2) { width: 16%; }
+    .ct-analysis-table th:nth-child(3) { width: 32%; }
+    .ct-analysis-table th:nth-child(4) { width: 25%; }
+
+    .ct-analysis-row:last-child td { border-bottom: 0; }
+
+    .ct-analysis-details {
+      width: 100%;
+      grid-column: 1 / span 3;
+    }
+
+    .ct-row-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr) minmax(190px, 0.9fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .ct-analysis-details summary {
+      cursor: pointer;
+      list-style-position: outside;
+    }
+
+    .ct-analysis-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.35fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .ct-practice-name {
+      color: #202840;
+      font-weight: 700;
+    }
+
+    .ct-status {
+      display: inline-flex;
+      width: fit-content;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .ct-status-present { color: #21734b; background: #e8f7ed; }
+    .ct-status-opportunity { color: #8a6517; background: #fff5d9; }
+    .ct-status-not-identified { color: #68718b; background: #eef0f6; }
+
+    .ct-activity {
+      color: #68718b;
+      line-height: 1.4;
+    }
+
+    .ct-analysis-detail {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0 4px 22px;
+      padding: 14px 16px;
+      border-left: 3px solid #dfe3f4;
+      color: #4f5872;
+      line-height: 1.5;
+    }
+
+    .ct-analysis-detail strong { color: #202840; }
+
+    .ct-discussion-box {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 76px;
+      padding: 10px 12px;
+      border: 1px solid #dfe3f4;
+      border-radius: 10px;
+      color: #202840;
+      font: inherit;
+      line-height: 1.4;
+      resize: vertical;
+    }
+
+    .point-discussion {
+      min-width: 220px;
+      padding: 10px;
+      border: 2px solid #cfd4ee;
+      border-radius: 14px;
+      background: #fbfbff;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+    }
+
+    .point-discussion-messages {
+      display: grid;
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+      margin-bottom: 8px;
+      padding-right: 8px;
+      scrollbar-width: auto;
+      scrollbar-color: #7a73e8 #e9eafa;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-track {
+      background: #e9eafa;
+      border-radius: 999px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-thumb {
+      background: #7068df;
+      border: 2px solid #e9eafa;
+      border-radius: 999px;
+    }
+
+    .point-discussion-messages::-webkit-scrollbar-thumb:hover {
+      background: #5148c4;
+    }
+
+    .point-discussion-message {
+      padding: 7px 9px;
+      border-radius: 9px;
+      background: #f4f5fb;
+      color: #4f5872;
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+
+    .point-discussion-message.teacher {
+      background: #eeeaff;
+      color: #3e367f;
+    }
+
+    .point-discussion-compose {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+    }
+
+    .point-discussion-input {
+      width: 100%;
+      min-height: 54px;
+      padding: 8px;
+      border: 1px solid #dfe3f4;
+      border-radius: 8px;
+      resize: vertical;
+      font: inherit;
+    }
+
+    .point-discussion-send {
+      align-self: end;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 8px;
+      background: #5950f5;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .point-discussion-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 7px;
+      color: #68718b;
+      font-size: 0.78rem;
+    }
+
+    .point-discussion-meta select {
+      max-width: 150px;
+      padding: 4px;
+      border: 1px solid #dfe3f4;
+      border-radius: 6px;
+      background: #fff;
+      color: #4f5872;
+    }
+
+    .ct-discussion-box:focus {
+      outline: 2px solid #635bff;
+      outline-offset: 1px;
+    }
+
+    @media (max-width: 760px) {
+      .ct-analysis-panel { padding: 16px; }
+      .ct-analysis-table, .ct-analysis-table thead, .ct-analysis-table tbody,
+      .ct-analysis-table tr, .ct-analysis-table th, .ct-analysis-table td {
+        display: block;
+      }
+      .ct-analysis-table thead { display: none; }
+      .ct-analysis-table td { border-bottom: 0; padding: 5px 0; }
+      .ct-analysis-row { padding: 12px 0; border-bottom: 1px solid #edf0f8; }
+      .ct-analysis-summary { grid-template-columns: 1fr; gap: 7px; }
+      .ct-row-layout { grid-template-columns: 1fr; gap: 12px; }
+      .ct-analysis-details { grid-column: 1; }
+      .ct-analysis-detail { margin-left: 0; }
+    }
+  </style>
+</head>
+<body class="analysis-page tutor-1-1">
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="header-left">
+        <div class="brand-logos header-brand-logos">
+          <img class="header-logo header-logo-main" src="assets/STEaiM_Logo_lowres.png" alt="STEaiM-CT logo" />
+          <img class="header-logo header-logo-erasmus" src="assets/eu_funded_en.jpg" alt="Co-funded by the EU logo" />
+        </div>
+        <div>
+          <p class="header-subtitle">AI Tutor for Lesson Plans</p>
+          <p class="header-note">Prototype 1.1</p>
+        </div>
+      </div>
+      <button class="header-button secondary-button" id="moreInfoButton" type="button">Need more information?</button>
+    </header>
+
+    <section class="progress-bar" aria-label="Progress">
+      <div class="progress-step active">
+        <span class="step-number">1</span>
+        <span class="step-label">Tell us about your lesson idea</span>
+      </div>
+      <span class="progress-connector active"></span>
+      <div class="progress-step active">
+        <span class="step-number">2</span>
+        <span class="step-label">First analysis and suggestions</span>
+      </div>
+      <span class="progress-connector"></span>
+      <div class="progress-step inactive">
+        <span class="step-number">3</span>
+        <span class="step-label">Refining and improving</span>
+      </div>
+      <span class="progress-connector"></span>
+      <div class="progress-step inactive">
+        <span class="step-number">4</span>
+        <span class="step-label">Download result</span>
+      </div>
+    </section>
+
+    <main>
+      <section class="analysis-hero">
+        <div>
+          <h1>Here is what we found in your lesson plan</h1>
+          <p class="analysis-hero-copy">
+            Review the points below. Select what you would like us to focus on in the next step.
+            You can also add more details or clarify if needed.
+          </p>
+        </div>
+        <div class="analysis-callout">
+          <div class="analysis-callout-icon">i</div>
+          <div>
+            <p>
+              We analyzed your uploaded lesson plan and identified the points below.
+            </p>
+            <p class="analysis-callout-title">Uploaded file</p>
+            <div id="analysisMeta" class="analysis-meta-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <div id="analysisStatus" class="analysis-loading">Loading analysis...</div>
+      <div id="analysisErrorBox" class="analysis-error" hidden></div>
+
+      <div id="analysisContent" hidden>
+        <section class="analysis-summary-panel">
+          <h2>Lesson plan summary</h2>
+          <p id="analysisSummary" class="analysis-summary-text"></p>
+          <p id="analysisSummaryConfidence" class="analysis-summary-confidence"></p>
+          <div class="summary-grid">
+            <div class="summary-chip">
+              <span class="summary-chip-label">Detected subjects</span>
+              <div id="analysisSubjects"></div>
+            </div>
+            <div class="summary-chip">
+              <span class="summary-chip-label">Detected grade range</span>
+              <div id="analysisGrades"></div>
+            </div>
+            <div class="summary-chip">
+              <span class="summary-chip-label">Detected age range</span>
+              <div id="analysisAges"></div>
+            </div>
+          </div>
+          <div id="analysisFocusGrid" class="summary-grid"></div>
+          <p id="analysisTeacherNote" class="analysis-summary-text"></p>
+        </section>
+
+        <div id="analysisSections"></div>
+
+        <section id="computationalThinkingPanel" class="ct-analysis-panel" hidden>
+          <h2>Computational Thinking</h2>
+          <p class="ct-analysis-intro">
+            Evidence-based feedback on computational thinking practices performed by learners in the lesson plan.
+          </p>
+          <table class="ct-analysis-table">
+            <thead>
+              <tr>
+                <th scope="col">CT practice</th>
+                <th scope="col">Status</th>
+                <th scope="col">Associated activity</th>
+                <th scope="col">Discussion / clarification</th>
+              </tr>
+            </thead>
+            <tbody id="computationalThinkingRows"></tbody>
+          </table>
+        </section>
+
+        <section class="analysis-bottom">
+          <div class="analysis-bottom-grid">
+            <label class="analysis-upload-box" id="analysisUploadZone" for="analysisAdditionalUpload">
+              <p class="analysis-upload-title">Upload additional documents (optional)</p>
+              <p>Drag &amp; drop your file here or click to browse</p>
+              <p class="analysis-upload-hint">PDF, DOCX, TXT - max. 20 MB each</p>
+              <input id="analysisAdditionalUpload" class="analysis-upload-input" type="file" multiple accept=".pdf,.docx,.txt" />
+              <div id="analysisUploadList" class="analysis-upload-list" aria-live="polite"></div>
+            </label>
+            <div class="analysis-summary-box">
+              <h2>Next step</h2>
+              <p id="analysisNextStep"></p>
+            </div>
+          </div>
+
+          <div class="analysis-actions">
+            <a href="lesson-info.html" class="action-link secondary-button">Back</a>
+            <button id="downloadAnalysisButton" class="action-button secondary-button" type="button">
+              <span class="button-text">Download analysis (DOCX)</span>
+              <span class="button-arrow">↓</span>
+            </button>
+            <a id="continueButton" class="action-button primary-button" href="refining-and-improving.html">
+              <span class="button-text">Continue</span>
+              <span class="button-arrow">→</span>
+            </a>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="citationModalBackdrop" class="citation-modal-backdrop" aria-hidden="true">
+    <div class="citation-modal" role="dialog" aria-modal="true" aria-labelledby="citationModalTitle">
+      <h3 id="citationModalTitle">Citation preview</h3>
+      <pre id="citationModalBody"></pre>
+      <div class="citation-modal-actions">
+        <button type="button" class="action-button secondary-button" id="closeCitationModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="privacyModalBackdrop" class="citation-modal-backdrop privacy-modal-backdrop" aria-hidden="true">
+    <div class="citation-modal privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
+      <h3 id="privacyModalTitle">Personal data detected</h3>
+      <p id="privacyModalBody"></p>
+      <p class="privacy-modal-note">
+        This does not comply with the tutor's data-protection guidance if these are real personal data.
+        Only continue if the AI is mistaken and the details are fictional examples or test data.
+      </p>
+      <div class="citation-modal-actions">
+        <a class="action-button secondary-button" href="lesson-info.html">Go back and remove the data</a>
+        <button type="button" class="action-button primary-button" id="confirmPrivacyExamples">Continue - examples only</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function uiText(text) {
+      return window.tutorTranslate ? window.tutorTranslate(text, text) : text;
+    }
+
+    function normalizeItems(value) {
+      if (!value) {
+        return [];
+      }
+      if (Array.isArray(value)) {
+        return value.filter(function (item) {
+          return String(item || "").trim();
+        });
+      }
+      var text = String(value).trim();
+      return text ? [text] : [];
+    }
+
+    function safeParse(raw) {
+      try {
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function setText(id, value) {
+      var element = document.getElementById(id);
+      if (element) {
+        element.textContent = value || "";
+      }
+    }
+
+    function formatRange(range) {
+      if (!range) {
+      return "? " + uiText("to") + " ?";
+      }
+      var fromValue = range.from === 0 || range.from ? String(range.from) : "?";
+      var toValue = range.to === 0 || range.to ? String(range.to) : "?";
+      return fromValue + " " + uiText("to") + " " + toValue;
+    }
+
+    function renderAnalysisError(message, rawText) {
+      var status = document.getElementById("analysisStatus");
+      var errorBox = document.getElementById("analysisErrorBox");
+      status.hidden = true;
+      errorBox.hidden = false;
+      errorBox.innerHTML = "";
+      var msg = document.createElement("div");
+      msg.textContent = message;
+      errorBox.appendChild(msg);
+      if (rawText) {
+        var raw = document.createElement("div");
+        raw.style.marginTop = "12px";
+        raw.style.whiteSpace = "pre-wrap";
+        raw.style.wordBreak = "break-word";
+        raw.textContent = uiText("Raw response:") + "\n" + rawText;
+        errorBox.appendChild(raw);
+      }
+    }
+
+    function openCitationModal(citation) {
+      var backdrop = document.getElementById("citationModalBackdrop");
+      var body = document.getElementById("citationModalBody");
+      var lines = [];
+      if (citation.label) lines.push(citation.label);
+      if (citation.cited_text) lines.push("");
+      if (citation.cited_text) lines.push("Cited text:\n" + citation.cited_text);
+      if (citation.context_before && citation.context_before.length) {
+        lines.push("");
+        lines.push("Context before:");
+        lines = lines.concat(citation.context_before);
+      }
+      if (citation.context_after && citation.context_after.length) {
+        lines.push("");
+        lines.push("Context after:");
+        lines = lines.concat(citation.context_after);
+      }
+      body.textContent = lines.join("\n");
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function closeCitationModal() {
+      var backdrop = document.getElementById("citationModalBackdrop");
+      backdrop.classList.remove("open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    function getFallbackCategories(analysis) {
+      var fallback = [];
+      var mappings = [
+        { id: "didactical_approaches", title: "Didactical approaches", accent: "orange", items: normalizeItems(analysis.strengths) },
+        { id: "challenges", title: "Challenges (potential problems)", accent: "red", items: normalizeItems(analysis.issues) },
+        { id: "skills", title: "Skills that could/would be trained", accent: "pink", items: normalizeItems(analysis.suggestions) },
+        { id: "questions_to_clarify", title: "Questions to clarify", accent: "blue", items: normalizeItems(analysis.follow_up_questions) }
+      ];
+
+      mappings.forEach(function (mapping) {
+        fallback.push({
+          id: mapping.id,
+          title: mapping.title,
+          description: "",
+          accent: mapping.accent,
+          items: mapping.items.map(function (item, index) {
+            return {
+              id: mapping.id + "_" + String(index + 1).padStart(3, "0"),
+              title: item,
+              short_explanation: item,
+              why_it_matters: "",
+              citation: {
+                label: "Uploaded lesson plan",
+                cited_text: "",
+                context_before: [],
+                context_after: []
+              },
+              suggested_next_action: "",
+              match_score: null,
+              confidence: "medium",
+              teacher_comment_placeholder: "Add more details or correct this interpretation..."
+            };
+          })
+        });
+      });
+      return fallback;
+    }
+
+    function getCategoryDefaults(category) {
+      var id = category && category.id ? String(category.id) : "";
+      var description = category && category.description ? String(category.description) : "";
+      var key = id;
+
+      if (!key && /timing|time/i.test(description)) {
+        key = "time_scope";
+      } else if (!key && /goals|competenc/i.test(description)) {
+        key = "goals_competencies";
+      } else if (!key && /adaptable|different speeds|competence levels/i.test(description)) {
+        key = "adaptability";
+      } else if (!key && /detail level|restrictive/i.test(description)) {
+        key = "detail_level";
+      } else if (!key && /target group|UI context|grade|age/i.test(description)) {
+        key = "target_group";
+      } else if (!key && /curriculum/i.test(description)) {
+        key = "curriculum_alignment";
+      }
+
+      var defaults = {
+        time_scope: { title: "Time scope", accent: "red" },
+        goals_competencies: { title: "Goals / competencies", accent: "orange" },
+        adaptability: { title: "Adaptability", accent: "pink" },
+        detail_level: { title: "Detail level", accent: "blue" },
+        target_group: { title: "Target group", accent: "green" },
+        curriculum_alignment: { title: "Curriculum alignment", accent: "purple" },
+        didactical_approaches: { title: "Didactical approaches", accent: "orange" },
+        skills: { title: "Skills that could/would be trained", accent: "pink" },
+        curriculum_connections: { title: "Connections to the curriculum", accent: "green" },
+        challenges: { title: "Challenges (potential problems)", accent: "red" },
+        hidden_opportunities: { title: "Hidden opportunities", accent: "blue" }
+      };
+
+      return Object.assign({ id: key, title: "Category", accent: "purple" }, defaults[key] || {});
+    }
+
+    function normalizeCategory(category) {
+      var mapped = Object.assign({}, category || {});
+      var defaults = getCategoryDefaults(mapped);
+      mapped.id = mapped.id || defaults.id;
+      mapped.title = mapped.title && mapped.title !== "Category" ? mapped.title : defaults.title;
+      mapped.accent = mapped.accent || defaults.accent;
+      return mapped;
+    }
+
+    var pointDiscussionsStorageKey = "step2PointDiscussions";
+
+    function loadPointDiscussions() {
+      try {
+        var raw = window.localStorage.getItem(pointDiscussionsStorageKey);
+        var parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function savePointDiscussions(value) {
+      window.localStorage.setItem(pointDiscussionsStorageKey, JSON.stringify(value || {}));
+    }
+
+    function getPointDiscussionKey(categoryId, itemId) {
+      return String(categoryId || "category") + ":" + String(itemId || "point");
+    }
+
+    function renderPointDiscussionMessages(container, discussion) {
+      container.innerHTML = "";
+      (discussion.messages || []).forEach(function (message) {
+        var bubble = document.createElement("div");
+        bubble.className = "point-discussion-message " + (message.role === "teacher" ? "teacher" : "tutor");
+        bubble.textContent = (message.role === "teacher" ? uiText("You: ") : uiText("Tutor: ")) + (message.text || "");
+        container.appendChild(bubble);
+      });
+    }
+
+    function createPointDiscussion(item, category, row) {
+      var key = getPointDiscussionKey(category.id, item.id);
+      var allDiscussions = loadPointDiscussions();
+      var discussion = allDiscussions[key] || { messages: [], decision: "", summary: "", adaptationProposal: "", includeInDownload: true };
+      discussion.categoryTitle = category.title || "Category";
+      discussion.pointTitle = item.title || "Identified point";
+      allDiscussions[key] = discussion;
+      savePointDiscussions(allDiscussions);
+
+      var wrapper = document.createElement("div");
+      wrapper.className = "point-discussion";
+      var messages = document.createElement("div");
+      messages.className = "point-discussion-messages";
+      renderPointDiscussionMessages(messages, discussion);
+
+      var compose = document.createElement("div");
+      compose.className = "point-discussion-compose";
+      var input = document.createElement("textarea");
+      input.className = "point-discussion-input";
+      input.placeholder = "Discuss this point...";
+      var send = document.createElement("button");
+      send.type = "button";
+      send.className = "point-discussion-send";
+      send.textContent = uiText("Send");
+
+      var metaRow = document.createElement("div");
+      metaRow.className = "point-discussion-meta";
+      var decisionLabel = document.createElement("span");
+      decisionLabel.textContent = uiText("Decision:");
+      var decision = document.createElement("select");
+      ["", "Keep as is", "Change", "Add clarification", "Not applicable", "Needs more information"].forEach(function (value) {
+        var option = document.createElement("option");
+        option.value = value;
+        option.textContent = uiText(value || "Open");
+        decision.appendChild(option);
+      });
+      decision.value = discussion.decision || "";
+      decision.addEventListener("change", function () {
+        var current = loadPointDiscussions();
+        current[key] = current[key] || { messages: [] };
+        current[key].decision = decision.value;
+        current[key].includeInDownload = includeCheckbox.checked;
+        savePointDiscussions(current);
+      });
+
+      var includeLabel = document.createElement("label");
+      var includeCheckbox = document.createElement("input");
+      includeCheckbox.type = "checkbox";
+      includeCheckbox.checked = discussion.includeInDownload !== false;
+      includeCheckbox.addEventListener("change", function () {
+        var current = loadPointDiscussions();
+        current[key] = current[key] || { messages: [] };
+        current[key].includeInDownload = includeCheckbox.checked;
+        savePointDiscussions(current);
+      });
+      includeLabel.appendChild(includeCheckbox);
+      includeLabel.appendChild(document.createTextNode(" " + uiText("Include in download")));
+      metaRow.appendChild(decisionLabel);
+      metaRow.appendChild(decision);
+      metaRow.appendChild(includeLabel);
+
+      function sendMessage() {
+        var text = input.value.trim();
+        if (!text || send.disabled) {
+          return;
+        }
+        send.disabled = true;
+        var current = loadPointDiscussions();
+        var state = current[key] || { messages: [] };
+        state.messages = Array.isArray(state.messages) ? state.messages : [];
+        state.messages.push({ role: "teacher", text: text });
+        current[key] = state;
+        savePointDiscussions(current);
+        renderPointDiscussionMessages(messages, state);
+        input.value = "";
+        fetch("/analysis-discuss", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            point: {
+              category: category.title,
+              category_id: category.id,
+              item_id: item.id,
+              title: item.title,
+              explanation: item.short_explanation,
+              why_it_matters: item.why_it_matters,
+              evidence: item.evidence || (item.citation && item.citation.cited_text) || "",
+              suggested_next_action: item.suggested_next_action || "",
+              positive_note: item.positive_note || ""
+            },
+            lesson_context: meta || {},
+            analysis_summary: analysis && analysis.lesson_plan_summary ? analysis.lesson_plan_summary : {},
+            analysis_focus: analysis && analysis.analysis_focus ? analysis.analysis_focus : {},
+            conversation: state.messages,
+            user_message: text
+          })
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) {
+              throw new Error(data && data.error ? data.error : "Unable to discuss this point.");
+            }
+            return data;
+          });
+        }).then(function (data) {
+          var updated = loadPointDiscussions();
+          var next = updated[key] || { messages: [] };
+          next.messages = Array.isArray(next.messages) ? next.messages : [];
+          if (data.assistant_message) {
+            next.messages.push({ role: "tutor", text: data.assistant_message });
+          }
+          next.decision = data.decision || next.decision || "";
+          next.summary = data.summary || next.summary || "";
+          next.adaptationProposal = data.adaptation_proposal || next.adaptationProposal || "";
+          next.includeInDownload = data.include_in_download !== false;
+          updated[key] = next;
+          savePointDiscussions(updated);
+          decision.value = next.decision;
+          includeCheckbox.checked = next.includeInDownload;
+          renderPointDiscussionMessages(messages, next);
+          if (next.adaptationProposal) {
+            var proposalMessage = "Suggested adaptation: " + next.adaptationProposal;
+            var lastMessage = next.messages[next.messages.length - 1];
+            if (!lastMessage || lastMessage.text !== proposalMessage) {
+              next.messages.push({ role: "tutor", text: proposalMessage });
+              savePointDiscussions(updated);
+              renderPointDiscussionMessages(messages, next);
+            }
+          }
+        }).catch(function (error) {
+          var updated = loadPointDiscussions();
+          var next = updated[key] || { messages: [] };
+          next.messages.push({ role: "tutor", text: "Error: " + (error.message || "Unable to discuss this point.") });
+          updated[key] = next;
+          savePointDiscussions(updated);
+          renderPointDiscussionMessages(messages, next);
+        }).finally(function () {
+          send.disabled = false;
+        });
+      }
+
+      send.addEventListener("click", sendMessage);
+      input.addEventListener("keydown", function (event) {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+      compose.appendChild(input);
+      compose.appendChild(send);
+      wrapper.appendChild(messages);
+      wrapper.appendChild(compose);
+      wrapper.appendChild(metaRow);
+      return wrapper;
+    }
+
+    function renderCategory(container, category) {
+      var card = document.createElement("section");
+      card.className = "category-card";
+
+      var header = document.createElement("div");
+      header.className = "category-card-header";
+
+      var left = document.createElement("div");
+      left.className = "category-card-titlewrap";
+
+      var icon = document.createElement("div");
+      icon.className = "analysis-icon " + (category.accent || "purple");
+      icon.textContent = (category.title || "").slice(0, 1).toUpperCase() || "•";
+
+      var titleWrap = document.createElement("div");
+      var title = document.createElement("h2");
+      title.className = "analysis-section-title";
+      title.textContent = category.title || "Category";
+      var desc = document.createElement("p");
+      desc.className = "analysis-eyebrow";
+      desc.textContent = category.description || "";
+      titleWrap.appendChild(title);
+      titleWrap.appendChild(desc);
+
+      left.appendChild(icon);
+      left.appendChild(titleWrap);
+      header.appendChild(left);
+
+      var tableWrap = document.createElement("div");
+      tableWrap.className = "item-table-wrap";
+
+      var table = document.createElement("table");
+      table.className = "item-table";
+
+      var colgroup = document.createElement("colgroup");
+      colgroup.innerHTML = "<col class=\"focus-col\"><col class=\"point-col\"><col class=\"why-col\"><col class=\"citation-col\"><col class=\"confidence-col\"><col class=\"comment-col\">";
+      table.appendChild(colgroup);
+
+      var thead = document.createElement("thead");
+      thead.innerHTML = "<tr><th>" + uiText("Focus on this?") + "</th><th>" + uiText("Identified point") + "</th><th>" + uiText("Why we mentioned this") + "</th><th>" + uiText("Citation from your text") + "</th><th>" + uiText("Confidence") + "</th><th>" + uiText("Discussion") + "</th></tr>";
+      table.appendChild(thead);
+
+      var tbody = document.createElement("tbody");
+      var items = Array.isArray(category.items) ? category.items.slice(0, 8) : [];
+      if (!items.length) {
+        var empty = document.createElement("tr");
+        var td = document.createElement("td");
+        td.colSpan = 7;
+        td.textContent = "No items returned for this category.";
+        empty.appendChild(td);
+        tbody.appendChild(empty);
+      } else {
+        items.forEach(function (item) {
+          var tr = document.createElement("tr");
+          tr.dataset.categoryId = category.id || "";
+          tr.dataset.itemId = item.id || "";
+          var score = normalizeMatchScore(item.match_score);
+          var itemWordClass = getWordScoreClass([item.title, item.short_explanation, item.why_it_matters].join(" "));
+          if (score) {
+            tr.className = getScoreClass(score);
+          } else if (itemWordClass) {
+            tr.className = itemWordClass;
+          }
+
+          var focusTd = document.createElement("td");
+          var checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.setAttribute("aria-label", "Focus on " + item.title);
+          focusTd.appendChild(checkbox);
+
+          var pointTd = document.createElement("td");
+          var pointTitle = document.createElement("div");
+          pointTitle.className = "point-title";
+          pointTitle.textContent = item.title || "Untitled point";
+          var pointCopy = document.createElement("div");
+          pointCopy.className = "point-copy";
+          pointCopy.textContent = item.short_explanation || "";
+          pointTd.appendChild(pointTitle);
+          pointTd.appendChild(pointCopy);
+
+          var whyTd = document.createElement("td");
+          whyTd.className = "point-copy";
+          whyTd.textContent = item.why_it_matters || "";
+          if (score) {
+            pointTitle.classList.add(getScoreClass(score) + "-text");
+            pointCopy.classList.add(getScoreClass(score) + "-text");
+            whyTd.classList.add(getScoreClass(score) + "-text");
+          } else if (itemWordClass) {
+            pointTitle.classList.add(itemWordClass + "-text");
+            pointCopy.classList.add(itemWordClass + "-text");
+            whyTd.classList.add(itemWordClass + "-text");
+          }
+
+          var citeTd = document.createElement("td");
+          var citeButton = document.createElement("button");
+          citeButton.type = "button";
+          citeButton.className = "citation-button";
+          citeButton.textContent = item.citation && item.citation.label ? item.citation.label : uiText("No citation");
+          citeButton.addEventListener("click", function () {
+            openCitationModal(item.citation || {});
+          });
+          citeTd.appendChild(citeButton);
+
+          var confidenceTd = document.createElement("td");
+          var confidence = document.createElement("span");
+          confidence.className = "confidence-pill" + (score ? " " + getScoreClass(score) : "");
+          confidence.textContent = (score ? "Match " + score + "/10 · " : "") + (item.confidence || "medium");
+          confidenceTd.appendChild(confidence);
+
+          var noteTd = document.createElement("td");
+          noteTd.appendChild(createPointDiscussion(item, category, tr));
+
+          tr.appendChild(focusTd);
+          tr.appendChild(pointTd);
+          tr.appendChild(whyTd);
+          tr.appendChild(citeTd);
+          tr.appendChild(confidenceTd);
+          tr.appendChild(noteTd);
+          tbody.appendChild(tr);
+        });
+      }
+
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+
+      card.appendChild(header);
+      card.appendChild(tableWrap);
+      container.appendChild(card);
+    }
+
+    function collectSelections() {
+      var selections = [];
+      var discussions = loadPointDiscussions();
+      document.querySelectorAll(".item-table tbody tr").forEach(function (row) {
+        var checkbox = row.querySelector("input[type='checkbox']");
+        var key = getPointDiscussionKey(row.dataset.categoryId, row.dataset.itemId);
+        var discussion = discussions[key] || {};
+        var messages = Array.isArray(discussion.messages) ? discussion.messages : [];
+        var hasDiscussion = messages.length > 0;
+        var lastTeacherMessage = messages.slice().reverse().find(function (message) {
+          return message && message.role === "teacher";
+        });
+        var discussionComment = discussion.summary || (lastTeacherMessage && lastTeacherMessage.text) || "";
+        if (discussion.decision) {
+          discussionComment = "Decision: " + discussion.decision + (discussionComment ? "\n" + discussionComment : "");
+        }
+        if (checkbox && (checkbox.checked || hasDiscussion)) {
+          selections.push({
+            category_id: row.dataset.categoryId || "",
+            item_id: row.dataset.itemId || "",
+            title: (row.querySelector(".point-title") || {}).textContent || "",
+            teacher_comment: discussionComment
+          });
+        }
+      });
+      return selections;
+    }
+
+    var MATCH_WORDS = {
+      red: [
+        "warning",
+        "critical",
+        "irrelevant",
+        "mismatch",
+        "not_applicable",
+        "not_suitable",
+        "not_designed",
+        "not_aligned",
+        "not_primary",
+        "no_direct_lesson",
+        "too_abstract",
+        "unclear",
+        "missing",
+        "lacks",
+        "lack",
+        "low",
+        "low_for",
+        "weak",
+        "weak_for",
+        "upper_secondary",
+        "older_learners",
+        "major_redesign",
+        "major_adaptation",
+        "cannot_be_assessed",
+        "cannot_be_evaluated",
+        "impossible",
+        "inappropriate",
+        "unsuitable"
+      ],
+      yellow: [
+        "tight",
+        "too_tight",
+        "partial",
+        "partially",
+        "partially_fitting",
+        "partially_aligned",
+        "mostly_fitting",
+        "plausible",
+        "limited",
+        "mixed",
+        "medium",
+        "moderate",
+        "needs_adaptation",
+        "needs_adjustment",
+        "adaptation_needed",
+        "somewhat",
+        "sufficient",
+        "manageable",
+        "acceptable",
+        "adequate",
+        "so_lala"
+      ],
+      green: [
+        "good",
+        "strong",
+        "excellent",
+        "clear",
+        "balanced",
+        "realistic",
+        "suitable",
+        "fitting",
+        "aligned",
+        "well_aligned",
+        "appropriate",
+        "effective",
+        "robust",
+        "high",
+        "very_good"
+      ]
+    };
+
+    function normalizeMatchWords(value) {
+      return String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9äöüß]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    }
+
+    function containsMatchWord(text, marker) {
+      return ("_" + text + "_").indexOf("_" + marker + "_") !== -1 || text.indexOf(marker) !== -1;
+    }
+
+    function getWordScoreClass(value) {
+      var text = normalizeMatchWords(value);
+      if (!text) {
+        return "";
+      }
+      if (MATCH_WORDS.red.some(function (marker) { return containsMatchWord(text, marker); })) {
+        return "score-red";
+      }
+      if (MATCH_WORDS.yellow.some(function (marker) { return containsMatchWord(text, marker); })) {
+        return "score-yellow";
+      }
+      if (MATCH_WORDS.green.some(function (marker) { return containsMatchWord(text, marker); })) {
+        return "score-green";
+      }
+      return "";
+    }
+
+    function isCriticalText(value) {
+      return getWordScoreClass(value) === "score-red";
+    }
+
+    function normalizeMatchScore(value) {
+      if (value === null || typeof value === "undefined" || value === "") {
+        return null;
+      }
+      var score = Number(value);
+      if (!Number.isFinite(score)) {
+        return null;
+      }
+      score = Math.round(score);
+      if (score < 1) {
+        return 1;
+      }
+      if (score > 10) {
+        return 10;
+      }
+      return score;
+    }
+
+    function getScoreClass(score) {
+      if (!score) {
+        return "";
+      }
+      if (score <= 3) {
+        return "score-red";
+      }
+      if (score <= 6) {
+        return "score-yellow";
+      }
+      return "score-green";
+    }
+
+    function formatStatusLabel(value) {
+      return String(value || "unclear").replace(/_/g, " ");
+    }
+
+    function getPrivacyWarningText(summary, analysis) {
+      var candidates = [
+        summary && summary.notes_for_teacher,
+        analysis && analysis.next_step,
+        summary && summary.short_summary,
+        summary && summary.confidence && summary.confidence.note
+      ];
+      var text = candidates.filter(Boolean).join(" ");
+      var lower = text.toLowerCase();
+      var genericOnlyWarning = [
+        "e.g., student names",
+        "for example, student names",
+        "student names in worksheet",
+        "student names in worksheets",
+        "personal data (e.g.",
+        "personal information (e.g."
+      ].some(function (marker) {
+        return lower.indexOf(marker) !== -1;
+      });
+      var concretePrivacyMarker = [
+        "@",
+        "email address",
+        "e-mail address",
+        "phone number",
+        "telephone number",
+        "street",
+        "straße",
+        "address",
+        "birth date",
+        "date of birth",
+        "student id",
+        "student number",
+        "school identifier",
+        "school id",
+        "teacher data",
+        "school data",
+        "specific class",
+        "specific student",
+        "specific teacher",
+        "konkrete",
+        "adresse",
+        "telefonnummer",
+        "schülernummer",
+        "schuelernummer"
+      ].some(function (marker) {
+        return lower.indexOf(marker) !== -1;
+      });
+      if (genericOnlyWarning && !concretePrivacyMarker) {
+        return "";
+      }
+      var hasPrivacyWarning = [
+        "personal data",
+        "personal information",
+        "student name",
+        "student names",
+        "teacher data",
+        "school data",
+        "school identifier",
+        "school and teacher data",
+        "personenbezogene",
+        "persönliche daten"
+      ].some(function (marker) {
+        return lower.indexOf(marker) !== -1;
+      });
+      if (!hasPrivacyWarning) {
+        return "";
+      }
+      return summary && summary.notes_for_teacher
+        ? summary.notes_for_teacher
+        : "The uploaded document appears to contain personal data. These details should be removed or anonymized before productive use.";
+    }
+
+    var privacyWarningActive = false;
+    var privacyExamplesConfirmed = false;
+
+    function openPrivacyModal(message) {
+      var backdrop = document.getElementById("privacyModalBackdrop");
+      var body = document.getElementById("privacyModalBody");
+      if (!backdrop || !body || !message) {
+        return;
+      }
+      body.textContent = message;
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function closePrivacyModal(force) {
+      var backdrop = document.getElementById("privacyModalBackdrop");
+      if (!backdrop || (privacyWarningActive && !privacyExamplesConfirmed && !force)) {
+        return;
+      }
+      backdrop.classList.remove("open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    function collectSelectionsForNextStep() {
+      var selected = collectSelections();
+      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
+        var clarification = box.value.trim();
+        if (!clarification) {
+          return;
+        }
+        var practice = box.dataset.ctPractice || "Computational Thinking practice";
+        selected.push({
+          category_id: "computational_thinking",
+          item_id: "clarification-" + practice.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          title: "Clarify " + practice,
+          teacher_comment: clarification
+        });
+      });
+      var privacyWarning = window.localStorage.getItem("step2PrivacyWarning") || "";
+      if (privacyWarning) {
+        selected = selected.filter(function (item) {
+          return item.item_id !== "privacy-data-removal";
+        });
+        selected.unshift({
+          category_id: "target_group",
+          item_id: "privacy-data-removal",
+          title: "Personal data must be removed or anonymized",
+          teacher_comment: privacyWarning
+        });
+      }
+      return selected;
+    }
+
+    function renderSummary(summary, analysis) {
+      setText("analysisSummary", summary.short_summary || "No summary returned.");
+      setText("analysisSubjects", normalizeItems(summary.detected_subjects).join(", ") || "Not detected");
+      setText("analysisGrades", formatRange(summary.detected_grade_range));
+      setText("analysisAges", formatRange(summary.detected_age_range));
+      var confidence = summary.confidence || {};
+      var confidenceText = confidence.level || "unclear";
+      if (confidence.note) {
+        confidenceText += " - " + confidence.note;
+      }
+      var summaryScore = normalizeMatchScore(summary.match_score);
+      var confidenceElement = document.getElementById("analysisSummaryConfidence");
+      if (confidenceElement) {
+        confidenceElement.textContent = (summaryScore ? uiText("Match:") + " " + summaryScore + "/10 · " : "") + uiText("Confidence:") + " " + uiText(confidenceText);
+        confidenceElement.className = "analysis-summary-confidence";
+        if (summaryScore) {
+          confidenceElement.classList.add(getScoreClass(summaryScore));
+        } else {
+          var confidenceWordClass = getWordScoreClass(confidenceText);
+          if (confidenceWordClass) {
+            confidenceElement.classList.add(confidenceWordClass);
+          }
+        }
+      }
+      var teacherNote = summary.notes_for_teacher || (analysis && analysis.next_step ? analysis.next_step : "");
+      var teacherNoteElement = document.getElementById("analysisTeacherNote");
+      if (teacherNoteElement) {
+        teacherNoteElement.textContent = teacherNote;
+        var noteWordClass = getWordScoreClass(teacherNote);
+        teacherNoteElement.classList.toggle("critical-note", noteWordClass === "score-red");
+        teacherNoteElement.classList.toggle("warning-note", noteWordClass === "score-yellow");
+        teacherNoteElement.classList.toggle("positive-note", noteWordClass === "score-green");
+      }
+    }
+
+    function renderAnalysisFocus(focus) {
+      var grid = document.getElementById("analysisFocusGrid");
+      grid.innerHTML = "";
+      if (!focus || typeof focus !== "object") {
+        grid.style.display = "none";
+        return;
+      }
+      grid.style.display = "grid";
+      var labels = [
+        { key: "time_scope", label: "Time scope" },
+        { key: "goals_competencies", label: "Goals / competencies" },
+        { key: "adaptability", label: "Adaptability" },
+        { key: "detail_level", label: "Detail level" },
+        { key: "target_group", label: "Target group" },
+        { key: "curriculum_alignment", label: "Curriculum alignment" }
+      ];
+
+      labels.forEach(function (entry) {
+        var node = focus[entry.key] || {};
+        var chip = document.createElement("div");
+        chip.className = "summary-chip";
+        var score = normalizeMatchScore(node.match_score);
+        var statusWordClass = getWordScoreClass(node.status);
+        var noteWordClass = getWordScoreClass(node.note);
+        if (score) {
+          chip.className += " " + getScoreClass(score);
+        } else if (statusWordClass) {
+          chip.className += " " + statusWordClass;
+        } else if (noteWordClass) {
+          chip.className += " " + noteWordClass;
+        }
+
+        var label = document.createElement("span");
+        label.className = "summary-chip-label";
+        var confidence = node.confidence || "unclear";
+        label.textContent = uiText(entry.label) + (score ? " (" + uiText("Match:") + " " + score + "/10, " + uiText("Confidence:") + " " + uiText(confidence) + ")" : " (" + uiText("Confidence:") + " " + uiText(confidence) + ")");
+
+        var status = document.createElement("div");
+        status.style.fontWeight = "700";
+        status.textContent = uiText(formatStatusLabel(node.status));
+        if (score) {
+          status.className = getScoreClass(score) + "-text";
+        } else if (statusWordClass) {
+          status.className = statusWordClass + "-text";
+        }
+
+        var note = document.createElement("div");
+        note.style.marginTop = "6px";
+        note.style.lineHeight = "1.5";
+        note.textContent = node.note || "";
+        if (score) {
+          note.className = getScoreClass(score) + "-text";
+        } else if (noteWordClass) {
+          note.className = noteWordClass + "-text";
+        } else {
+          note.style.color = "#5f667a";
+        }
+
+        chip.appendChild(label);
+        chip.appendChild(status);
+        if (node.note) {
+          chip.appendChild(note);
+        }
+        grid.appendChild(chip);
+      });
+    }
+
+    var COMPUTATIONAL_THINKING_PRACTICES = [
+      "Decomposition",
+      "Pattern recognition / generalisation",
+      "Abstraction",
+      "Algorithmic thinking",
+      "Testing / debugging / evaluation",
+      "Data / representation"
+    ];
+
+    function normalizeComputationalThinkingForDisplay(value) {
+      var entries = Array.isArray(value) ? value : [];
+      var byPractice = {};
+      entries.forEach(function (entry) {
+        if (!entry || typeof entry !== "object") {
+          return;
+        }
+        var practice = String(entry.practice || "").trim();
+        if (COMPUTATIONAL_THINKING_PRACTICES.indexOf(practice) !== -1 && !byPractice[practice]) {
+          byPractice[practice] = entry;
+        }
+      });
+      return COMPUTATIONAL_THINKING_PRACTICES.map(function (practice) {
+        var entry = byPractice[practice] || {};
+        var status = String(entry.status || "Not identified").trim();
+        if (["Present", "Opportunity", "Not identified"].indexOf(status) === -1) {
+          status = "Not identified";
+        }
+        return {
+          practice: practice,
+          status: status,
+          activity: String(entry.activity || "").trim(),
+          evidence: String(entry.evidence || "").trim(),
+          limitation: String(entry.limitation || "").trim(),
+          refinement: String(entry.refinement || "").trim(),
+          positiveNote: String(entry.positive_note || "").trim()
+        };
+      });
+    }
+
+    function appendCtDetail(container, label, value) {
+      var line = document.createElement("div");
+      var strong = document.createElement("strong");
+      strong.textContent = label + ": ";
+      line.appendChild(strong);
+      var text = document.createTextNode(value);
+      line.appendChild(text);
+      container.appendChild(line);
+    }
+
+    function renderComputationalThinking(value) {
+      var panel = document.getElementById("computationalThinkingPanel");
+      var rows = document.getElementById("computationalThinkingRows");
+      if (!panel || !rows) {
+        return;
+      }
+      rows.textContent = "";
+      normalizeComputationalThinkingForDisplay(value).forEach(function (item) {
+        var row = document.createElement("tr");
+        row.className = "ct-analysis-row";
+        var cell = document.createElement("td");
+        cell.colSpan = 4;
+
+        var rowLayout = document.createElement("span");
+        rowLayout.className = "ct-row-layout";
+
+        var details = document.createElement("details");
+        details.className = "ct-analysis-details";
+        var summary = document.createElement("summary");
+        var summaryGrid = document.createElement("span");
+        summaryGrid.className = "ct-analysis-summary";
+
+        var practice = document.createElement("span");
+        practice.className = "ct-practice-name";
+        practice.textContent = item.practice;
+        var status = document.createElement("span");
+        status.className = "ct-status ct-status-" + item.status.toLowerCase().replace(/[^a-z]+/g, "-");
+        status.textContent = item.status;
+        var activity = document.createElement("span");
+        activity.className = "ct-activity";
+        activity.textContent = item.activity || "No associated activity identified";
+
+        summaryGrid.appendChild(practice);
+        summaryGrid.appendChild(status);
+        summaryGrid.appendChild(activity);
+        summary.appendChild(summaryGrid);
+        details.appendChild(summary);
+
+        var detail = document.createElement("div");
+        detail.className = "ct-analysis-detail";
+        appendCtDetail(detail, "Evidence", item.evidence || "No sufficient learner evidence identified.");
+        if (item.limitation) {
+          appendCtDetail(detail, "Limitation", item.limitation);
+        }
+        if (item.refinement) {
+          appendCtDetail(detail, "Possible refinement", item.refinement);
+        } else if (item.positiveNote) {
+          appendCtDetail(detail, "Positive note", item.positiveNote);
+        }
+        details.appendChild(detail);
+        rowLayout.appendChild(details);
+        if (item.status === "Not identified") {
+          var discussion = document.createElement("textarea");
+          discussion.className = "ct-discussion-box";
+          discussion.dataset.ctPractice = item.practice;
+          discussion.setAttribute("aria-label", "Discussion or clarification for " + item.practice);
+          discussion.placeholder = uiText("Add clarification...");
+          rowLayout.appendChild(discussion);
+        }
+        cell.appendChild(rowLayout);
+        row.appendChild(cell);
+        rows.appendChild(row);
+      });
+      panel.hidden = false;
+    }
+
+    function renderMeta(meta) {
+      var metaBox = document.getElementById("analysisMeta");
+      var lines = [];
+      if (meta) {
+        if (meta.filename) lines.push(uiText("File:") + " " + meta.filename);
+        if (meta.country) lines.push(uiText("Country:") + " " + meta.country);
+        if (meta.subjects && meta.subjects.length) lines.push(uiText("Subjects:") + " " + meta.subjects.join(", "));
+        if (meta.gradeFrom || meta.gradeTo) lines.push(uiText("Grades:") + " " + (meta.gradeFrom || "?") + " " + uiText("to") + " " + (meta.gradeTo || "?"));
+        if (meta.ageFrom || meta.ageTo) lines.push(uiText("Age:") + " " + (meta.ageFrom || "?") + " " + uiText("to") + " " + (meta.ageTo || "?"));
+        if (meta.specifics) lines.push(uiText("Specifics:") + " " + meta.specifics);
+      }
+      metaBox.innerHTML = "";
+      lines.forEach(function (line) {
+        var div = document.createElement("div");
+        div.textContent = line;
+        metaBox.appendChild(div);
+      });
+      if (!lines.length) {
+        metaBox.textContent = uiText("No metadata available.");
+      }
+    }
+
+    function buildAnalysisDownloadText(analysis) {
+      var summary = analysis.lesson_plan_summary || {};
+      var lines = [
+        "STEaiM-CT Tutor - First analysis",
+        "================================",
+        "",
+        "LESSON PLAN SUMMARY",
+        summary.short_summary || "No summary returned.",
+        "Detected subjects: " + (normalizeItems(summary.detected_subjects).join(", ") || "Not detected"),
+        "Detected grade range: " + formatRange(summary.detected_grade_range),
+        "Detected age range: " + formatRange(summary.detected_age_range),
+        ""
+      ];
+
+      if (summary.notes_for_teacher) {
+        lines.push("Note for teacher: " + summary.notes_for_teacher, "");
+      }
+
+      lines.push("ANALYSIS FOCUS");
+      var focus = analysis.analysis_focus && typeof analysis.analysis_focus === "object" ? analysis.analysis_focus : {};
+      [
+        ["Time scope", "time_scope"],
+        ["Goals / competencies", "goals_competencies"],
+        ["Adaptability", "adaptability"],
+        ["Detail level", "detail_level"],
+        ["Target group", "target_group"],
+        ["Curriculum alignment", "curriculum_alignment"]
+      ].forEach(function (entry) {
+        var item = focus[entry[1]] || {};
+        lines.push(
+          entry[0] + ": " + formatStatusLabel(item.status) +
+          (item.match_score ? " (Match: " + item.match_score + "/10)" : "")
+        );
+        if (item.note) {
+          lines.push("  " + item.note);
+        }
+      });
+      lines.push("");
+
+      lines.push("COMPUTATIONAL THINKING");
+      normalizeComputationalThinkingForDisplay(analysis.computational_thinking).forEach(function (item) {
+        lines.push(item.practice + " - " + item.status);
+        lines.push("  Activity: " + (item.activity || "No associated activity identified"));
+        lines.push("  Evidence: " + (item.evidence || "No sufficient learner evidence identified."));
+        if (item.limitation) {
+          lines.push("  Limitation: " + item.limitation);
+        }
+        if (item.refinement) {
+          lines.push("  Possible refinement: " + item.refinement);
+        } else if (item.positiveNote) {
+          lines.push("  Positive note: " + item.positiveNote);
+        }
+        lines.push("");
+      });
+
+      lines.push("DETAILED ANALYSIS");
+      var categories = Array.isArray(analysis.categories) ? analysis.categories : [];
+      categories.forEach(function (category) {
+        lines.push("\n" + (category.title || "Category"));
+        (Array.isArray(category.items) ? category.items : []).forEach(function (item) {
+          lines.push("- " + (item.title || "Identified point"));
+          if (item.short_explanation) lines.push("  " + item.short_explanation);
+          if (item.why_it_matters) lines.push("  Why it matters: " + item.why_it_matters);
+          if (item.evidence) {
+            lines.push("  Evidence / basis: " + item.evidence);
+          } else if (item.citation && item.citation.cited_text) {
+            lines.push("  Evidence / basis: " + item.citation.cited_text);
+          } else if (item.short_explanation || item.why_it_matters) {
+            lines.push("  Evidence / basis: The point is based on the lesson-plan activity described above.");
+          } else {
+            lines.push("  Evidence / basis: No detailed evidence sentence was returned for this point.");
+          }
+          if (item.suggested_next_action) {
+            lines.push("  Suggested improvement: " + item.suggested_next_action);
+          } else if (item.positive_note) {
+            lines.push("  Positive note: " + item.positive_note);
+          } else if (normalizeMatchScore(item.match_score) >= 7) {
+            lines.push("  Positive note: This point is assessed as a strong fit in the lesson plan.");
+          } else {
+            lines.push("  Suggested improvement: The analysis returned no concrete next action; use the evidence above to define one activity-level adjustment.");
+          }
+        });
+      });
+
+      var clarifications = [];
+      var pointDiscussions = loadPointDiscussions();
+      Object.keys(pointDiscussions).forEach(function (key) {
+        var discussion = pointDiscussions[key] || {};
+        if (discussion.includeInDownload === false || (!discussion.summary && !(discussion.messages || []).length)) {
+          return;
+        }
+        lines.push("\nDISCUSSION: " + (discussion.categoryTitle || "Category") + " - " + (discussion.pointTitle || "Identified point"));
+        if (discussion.decision) {
+          lines.push("  Decision: " + discussion.decision);
+        }
+        if (discussion.summary) {
+          lines.push("  Discussion summary: " + discussion.summary);
+        }
+        if (discussion.adaptationProposal) {
+          lines.push("  Suggested adaptation: " + discussion.adaptationProposal);
+        }
+        (discussion.messages || []).forEach(function (message) {
+          if (message && message.text) {
+            lines.push("  " + (message.role === "teacher" ? "Teacher" : "Tutor") + ": " + message.text);
+          }
+        });
+      });
+
+      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
+        if (box.value.trim()) {
+          clarifications.push((box.dataset.ctPractice || "CT practice") + ": " + box.value.trim());
+        }
+      });
+      if (clarifications.length) {
+        lines.push("\nTEACHER CLARIFICATIONS");
+        clarifications.forEach(function (clarification) {
+          lines.push("- " + clarification);
+        });
+      }
+      return lines.join("\n").trim() + "\n";
+    }
+
+    function downloadAnalysisDocx(analysis, meta) {
+      var filename = (meta && meta.filename ? meta.filename : "lesson-plan")
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-z0-9_-]+/gi, "-")
+        .replace(/^-+|-+$/g, "") || "lesson-plan";
+      var clarifications = [];
+      document.querySelectorAll(".ct-discussion-box").forEach(function (box) {
+        if (box.value.trim()) {
+          clarifications.push((box.dataset.ctPractice || "CT practice") + ": " + box.value.trim());
+        }
+      });
+      fetch("/export-analysis-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis: analysis,
+          meta: meta || {},
+          discussions: loadPointDiscussions(),
+          clarifications: clarifications,
+          sessionId: window.localStorage.getItem("step2SessionId") || "analysis"
+        })
+      }).then(function (response) {
+        if (!response.ok) {
+          throw new Error("Unable to generate the analysis document.");
+        }
+        return response.blob();
+      }).then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = filename + "-analysis.docx";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }).catch(function (error) {
+        window.alert(error.message || "Unable to generate the analysis document.");
+      });
+    }
+
+      function getAdditionalUploadState() {
+        var raw = window.localStorage.getItem("step2AdditionalUploadMeta");
+        try {
+          return raw ? JSON.parse(raw) : [];
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function setAdditionalUploadState(files) {
+        window.localStorage.setItem("step2AdditionalUploadMeta", JSON.stringify(files));
+      }
+
+      var additionalUploadFiles = [];
+
+    function renderAdditionalUploadList(files) {
+      var list = document.getElementById("analysisUploadList");
+      list.innerHTML = "";
+      if (!files.length) {
+        list.textContent = "No additional documents selected yet.";
+        return;
+      }
+      files.forEach(function (file) {
+        var row = document.createElement("div");
+        row.className = "analysis-upload-file";
+        row.textContent = file.name + " (" + Math.round(file.size / 1024) + " KB)";
+        list.appendChild(row);
+      });
+    }
+
+      function updateAdditionalUploadFromInput(fileList) {
+        additionalUploadFiles = Array.from(fileList || []);
+        var files = additionalUploadFiles.map(function (file) {
+          return {
+            name: file.name,
+            size: file.size,
+            type: file.type
+          };
+      });
+      setAdditionalUploadState(files);
+      renderAdditionalUploadList(files);
+    }
+
+    var analysisRaw = window.localStorage.getItem("step2Analysis");
+    var metaRaw = window.localStorage.getItem("step2UploadMeta");
+    var analysis = safeParse(analysisRaw);
+    var meta = safeParse(metaRaw);
+    var additionalUploadInput = document.getElementById("analysisAdditionalUpload");
+
+    if (!analysis) {
+      renderAnalysisError("No analysis data found yet. Please go back and upload a lesson plan first.");
+    } else if (analysis.error) {
+      renderAnalysisError(analysis.error + (analysis.detail ? ": " + analysis.detail : ""), analysis.raw ? JSON.stringify(analysis.raw, null, 2) : "");
+    } else {
+      document.getElementById("analysisStatus").hidden = true;
+      document.getElementById("analysisContent").hidden = false;
+
+      var summary = analysis.lesson_plan_summary || {};
+      renderSummary(summary, analysis);
+      renderAnalysisFocus(analysis.analysis_focus);
+      renderComputationalThinking(analysis.computational_thinking);
+      var privacyWarning = getPrivacyWarningText(summary, analysis);
+      if (privacyWarning) {
+        privacyWarningActive = true;
+        window.localStorage.setItem("step2PrivacyWarning", privacyWarning);
+        setTimeout(function () {
+          openPrivacyModal(privacyWarning);
+        }, 250);
+      } else {
+        privacyWarningActive = false;
+        window.localStorage.removeItem("step2PrivacyWarning");
+      }
+
+      var categories = Array.isArray(analysis.categories) && analysis.categories.length ? analysis.categories : getFallbackCategories(analysis);
+      var sectionsRoot = document.getElementById("analysisSections");
+      sectionsRoot.innerHTML = "";
+      categories.forEach(function (category) {
+        var mapped = normalizeCategory(category);
+        renderCategory(sectionsRoot, mapped);
+      });
+
+      setText("analysisNextStep", "Select the points you want to refine, add clarifications if needed, and continue to the dialogue.");
+      renderMeta(meta);
+    }
+
+    var downloadAnalysisButton = document.getElementById("downloadAnalysisButton");
+    if (downloadAnalysisButton && analysis && !analysis.error) {
+      downloadAnalysisButton.addEventListener("click", function () {
+        downloadAnalysisDocx(analysis, meta);
+      });
+    }
+
+    renderAdditionalUploadList(getAdditionalUploadState());
+    if (additionalUploadInput) {
+      additionalUploadInput.addEventListener("change", function () {
+        updateAdditionalUploadFromInput(additionalUploadInput.files);
+      });
+    }
+
+    var uploadZone = document.getElementById("analysisUploadZone");
+    if (uploadZone) {
+      uploadZone.addEventListener("dragover", function (event) {
+        event.preventDefault();
+        uploadZone.classList.add("drag-over");
+      });
+      uploadZone.addEventListener("dragleave", function () {
+        uploadZone.classList.remove("drag-over");
+      });
+      uploadZone.addEventListener("drop", function (event) {
+        event.preventDefault();
+        uploadZone.classList.remove("drag-over");
+        if (event.dataTransfer && event.dataTransfer.files) {
+          updateAdditionalUploadFromInput(event.dataTransfer.files);
+        }
+      });
+    }
+
+    document.getElementById("moreInfoButton").addEventListener("click", function () {
+      window.location.href = "info.html";
+    });
+
+      document.getElementById("continueButton").addEventListener("click", function (event) {
+        if (privacyWarningActive && !privacyExamplesConfirmed) {
+          event.preventDefault();
+          openPrivacyModal("The uploaded document appears to contain personal data. Please remove or anonymize real personal data before continuing.");
+          return;
+        }
+        event.preventDefault();
+        var continueLink = document.getElementById("continueButton");
+        var originalLabel = continueLink.querySelector(".button-text") ? continueLink.querySelector(".button-text").textContent : "Continue";
+        var selectedFiles = additionalUploadFiles.length ? additionalUploadFiles : Array.from(additionalUploadInput && additionalUploadInput.files ? additionalUploadInput.files : []);
+        var step2Meta = meta || {};
+        var subjects = normalizeItems(step2Meta.subjects);
+        var formData = new FormData();
+
+        formData.append("country", step2Meta.country || "");
+        formData.append("subjects", JSON.stringify(subjects));
+        subjects.forEach(function (subject) {
+          formData.append("subjects[]", subject);
+        });
+        formData.append("gradeFrom", step2Meta.gradeFrom || "");
+        formData.append("gradeTo", step2Meta.gradeTo || "");
+        formData.append("ageFrom", step2Meta.ageFrom || "");
+        formData.append("ageTo", step2Meta.ageTo || "");
+        formData.append("specifics", step2Meta.specifics || "");
+        formData.append("filename", step2Meta.filename || "");
+        formData.append("selections", JSON.stringify(collectSelectionsForNextStep()));
+        if (step2Meta.sourceDocument) {
+          formData.append("sourceDocument", JSON.stringify(step2Meta.sourceDocument));
+        }
+        selectedFiles.forEach(function (file) {
+          formData.append("additionalFiles", file, file.name);
+        });
+
+        window.localStorage.setItem("step2Selections", JSON.stringify(collectSelectionsForNextStep()));
+        continueLink.classList.add("is-loading");
+        continueLink.setAttribute("aria-disabled", "true");
+        continueLink.style.pointerEvents = "none";
+        if (continueLink.querySelector(".button-text")) {
+          continueLink.querySelector(".button-text").textContent = "Saving...";
+        } else {
+          continueLink.textContent = "Saving...";
+        }
+
+        fetch("/step2-prepare", {
+          method: "POST",
+          body: formData
+        })
+          .then(function (response) {
+            return response.text().then(function (text) {
+              var data = null;
+              try {
+                data = text ? JSON.parse(text) : null;
+              } catch (error) {
+                data = null;
+              }
+              if (!response.ok) {
+                var message = (data && data.error) ? data.error : "Unable to prepare step 2 folders.";
+                throw new Error(message);
+              }
+              return data || {};
+            });
+          })
+          .then(function (data) {
+            window.localStorage.setItem("step2Preparation", JSON.stringify(data));
+            window.location.href = "refining-and-improving.html";
+          })
+          .catch(function (error) {
+            var nextStep = document.getElementById("analysisNextStep");
+            if (nextStep) {
+              nextStep.textContent = error && error.message ? error.message : "Unable to prepare the next step.";
+            }
+            window.alert(error && error.message ? error.message : "Unable to prepare the next step.");
+          })
+          .finally(function () {
+            continueLink.classList.remove("is-loading");
+            continueLink.removeAttribute("aria-disabled");
+            continueLink.style.pointerEvents = "";
+            if (continueLink.querySelector(".button-text")) {
+              continueLink.querySelector(".button-text").textContent = originalLabel;
+            } else {
+              continueLink.textContent = originalLabel;
+            }
+          });
+      });
+
+    document.getElementById("closeCitationModal").addEventListener("click", closeCitationModal);
+    document.getElementById("confirmPrivacyExamples").addEventListener("click", function () {
+      privacyExamplesConfirmed = true;
+      closePrivacyModal(true);
+    });
+    document.getElementById("citationModalBackdrop").addEventListener("click", function (event) {
+      if (event.target === event.currentTarget) {
+        closeCitationModal();
+      }
+    });
+    document.getElementById("privacyModalBackdrop").addEventListener("click", function (event) {
+      if (event.target === event.currentTarget) {
+        closePrivacyModal(false);
+      }
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeCitationModal();
+        closePrivacyModal(false);
+      }
+    });
+  </script>
+  <script src="js/i18n.js"></script>
+</body>
+</html>

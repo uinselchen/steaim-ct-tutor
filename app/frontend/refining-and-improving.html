@@ -6,7 +6,7 @@
   <title>Refining and Improving</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="analysis-page refinement-page">
+<body class="analysis-page refinement-page tutor-1-1">
   <div class="page-shell">
     <header class="page-header">
       <div class="header-left">
@@ -16,7 +16,7 @@
         </div>
         <div>
           <p class="header-subtitle">AI Tutor for Lesson Plans</p>
-          <p class="header-note">Prototype 1.0</p>
+          <p class="header-note">Prototype 1.1</p>
         </div>
       </div>
       <button class="header-button secondary-button" id="moreInfoButton" type="button">Need more information?</button>
@@ -211,6 +211,10 @@
       var fromValue = value.from === 0 || value.from ? String(value.from) : "?";
       var toValue = value.to === 0 || value.to ? String(value.to) : "?";
       return fromValue + " to " + toValue;
+    }
+
+    function uiText(text) {
+      return window.tutorTranslate ? window.tutorTranslate(text, text) : text;
     }
 
     function formatTextList(items) {
@@ -704,12 +708,12 @@
 
     function buildConversationNodes() {
       var categories = [
-        { id: "time_scope", label: "Time scope", defaultPrompt: "I want to check whether the timing still feels realistic." },
-        { id: "goals_competencies", label: "Goals and competencies", defaultPrompt: "I want to make the learning goal easier to see in the plan." },
-        { id: "adaptability", label: "Adaptability", defaultPrompt: "I want to make the lesson easier to adapt for different learners." },
-        { id: "curriculum_alignment", label: "Curriculum alignment", defaultPrompt: "I want to add a clear curriculum reference." },
-        { id: "detail_level", label: "Detail level", defaultPrompt: "I want to adjust how detailed the plan is." },
-        { id: "target_group", label: "Target group", defaultPrompt: "I want to clarify who this lesson is for." }
+        { id: "time_scope", label: uiText("Time scope"), defaultPrompt: uiText("I want to check whether the timing still feels realistic.") },
+        { id: "goals_competencies", label: uiText("Goals and competencies"), defaultPrompt: uiText("I want to make the learning goal easier to see in the plan.") },
+        { id: "adaptability", label: uiText("Adaptability"), defaultPrompt: uiText("I want to make the lesson easier to adapt for different learners.") },
+        { id: "curriculum_alignment", label: uiText("Curriculum alignment"), defaultPrompt: uiText("I want to add a clear curriculum reference.") },
+        { id: "detail_level", label: uiText("Detail level"), defaultPrompt: uiText("I want to adjust how detailed the plan is.") },
+        { id: "target_group", label: uiText("Target group"), defaultPrompt: uiText("I want to clarify who this lesson is for.") }
       ];
       var categoryMap = {};
       categories.forEach(function (entry) {
@@ -811,7 +815,7 @@
         input.value = "";
       }
       state.awaitingFreeText = false;
-      addConversation("tutor", "Understood. I will keep this part as it is and move to the next topic.");
+          addConversation("tutor", uiText("Understood. I will keep this part as it is and move to the next topic."));
       state.currentNodeIndex += 1;
       state.activeNode = null;
       persistState();
@@ -896,9 +900,9 @@
       if (!didChange && reply.indexOf("skip") !== -1) {
         addConversation("tutor", "No problem, we will keep this point for later.");
       } else if (!didChange && reply.indexOf("keep") !== -1) {
-        addConversation("tutor", "Understood. I will leave this part as it is for now.");
+        addConversation("tutor", uiText("Understood. I will leave this part as it is for now."));
       } else if (!didChange && reply.indexOf("alternative") !== -1) {
-        addConversation("tutor", "Please type the alternative you want, and I will apply it.");
+        addConversation("tutor", uiText("Please type the alternative you want, and I will apply it."));
         state.awaitingFreeText = true;
         persistState();
         renderQuickReplies(node);
@@ -946,7 +950,7 @@
       renderQuickReplies(state.activeNode);
       var input = document.getElementById("replyInput");
       if (input) {
-        input.placeholder = "Type your answer or add more details...";
+        input.placeholder = uiText("Type your answer or add more details...");
       }
       var topicSelector = '.chat-topic-group[data-topic-id="' + state.activeNode.id.replace(/"/g, "\\\"") + '"]';
       var existingGroup = document.querySelector(topicSelector);
@@ -965,14 +969,14 @@
       var latestChange = (ensureDraft().changes || []).slice(-1)[0] || null;
       var progress = total ? Math.round((completed / total) * 100) : 0;
 
-      setText("overviewProgress", total ? completed + " of " + total + " topics" : "Preparing topics");
-      setText("overviewCurrentFocus", active ? (active.pointTitle || active.label) : "All topics reviewed");
-      setText("overviewCurrentDetail", active ? "Question " + (state.currentNodeIndex + 1) + " of " + total : "The draft is ready for a final review.");
-      setText("overviewNextFocus", upcoming.length ? (upcoming[0].pointTitle || upcoming[0].label) : "Nothing queued");
-      setText("overviewNextDetail", upcoming.length > 1 ? upcoming.length + " more topics after this one" : (upcoming.length ? "This is the final queued topic" : "You can continue to download when ready."));
-      setText("overviewLastChange", latestChange ? formatHistoryTitle(latestChange) : "No changes yet");
-      setText("overviewLastDetail", latestChange ? formatHistoryLocation(latestChange) : "Your decisions will be summarized here.");
-      setText("overviewStatus", active ? "In progress" : (total ? "Ready to review" : "Preparing"));
+      setText("overviewProgress", total ? completed + " " + uiText("of") + " " + total + " " + uiText("topics") : uiText("Preparing topics"));
+      setText("overviewCurrentFocus", active ? (active.pointTitle || active.label) : uiText("All topics reviewed"));
+      setText("overviewCurrentDetail", active ? uiText("Question") + " " + (state.currentNodeIndex + 1) + " " + uiText("of") + " " + total : uiText("The draft is ready for a final review."));
+      setText("overviewNextFocus", upcoming.length ? (upcoming[0].pointTitle || upcoming[0].label) : uiText("Nothing queued"));
+      setText("overviewNextDetail", upcoming.length > 1 ? upcoming.length + " " + uiText("more topics after this one") : (upcoming.length ? uiText("This is the final queued topic") : uiText("You can continue to download when ready.")));
+      setText("overviewLastChange", latestChange ? formatHistoryTitle(latestChange) : uiText("No changes yet"));
+      setText("overviewLastDetail", latestChange ? formatHistoryLocation(latestChange) : uiText("Your decisions will be summarized here."));
+      setText("overviewStatus", active ? uiText("In progress") : (total ? uiText("Ready to review") : uiText("Preparing")));
 
       var progressBar = document.getElementById("overviewProgressBar");
       if (progressBar) {
@@ -1032,7 +1036,7 @@
         var button = document.createElement("button");
         button.type = "button";
         button.className = "quick-reply";
-        button.textContent = label;
+        button.textContent = uiText(label);
         button.disabled = !!state.isReplyBusy;
         button.addEventListener("click", function () {
           var input = document.getElementById("replyInput");
@@ -1045,12 +1049,12 @@
 
     function buildPreviewTabs() {
       return [
-        { id: "goals", label: "Goals" },
-        { id: "skills", label: "Skills" },
-        { id: "steps", label: "Steps" },
-        { id: "materials", label: "Materials" },
-        { id: "assessment", label: "Assessment" },
-        { id: "reflection", label: "Reflection" }
+        { id: "goals", label: uiText("Goals") },
+        { id: "skills", label: uiText("Skills") },
+        { id: "steps", label: uiText("Steps") },
+        { id: "materials", label: uiText("Materials") },
+        { id: "assessment", label: uiText("Assessment") },
+        { id: "reflection", label: uiText("Reflection") }
       ];
     }
 
@@ -1070,7 +1074,7 @@
         if (changedSections[tab.id]) {
           var marker = document.createElement("span");
           marker.className = "preview-tab-change";
-          marker.textContent = "Changed";
+          marker.textContent = uiText("Changed");
           button.appendChild(marker);
         }
         button.addEventListener("click", function () {
@@ -1120,23 +1124,23 @@
         var head = document.createElement("div");
         head.className = "section-heading";
         var headTitle = document.createElement("h4");
-        headTitle.textContent = sectionTitle;
+        headTitle.textContent = uiText(sectionTitle);
         head.appendChild(headTitle);
         var badge = document.createElement("span");
         badge.className = "change-pill";
-        badge.textContent = status;
+        badge.textContent = uiText(status);
         head.appendChild(badge);
         card.appendChild(head);
         if (note) {
           var noteNode = document.createElement("p");
           noteNode.className = "section-note";
-          noteNode.textContent = note;
+          noteNode.textContent = uiText(note);
           card.appendChild(noteNode);
         }
         if (changedSections[state.section]) {
           var changedNote = document.createElement("p");
           changedNote.className = "section-change-note";
-          changedNote.textContent = "Changed based on our discussion. See change history for details.";
+          changedNote.textContent = uiText("Changed based on our discussion. See change history for details.");
           card.appendChild(changedNote);
         }
         bodyNodes.forEach(function (node) {
@@ -1181,7 +1185,7 @@
           top.appendChild(left);
           var badge = document.createElement("span");
           badge.className = "change-pill";
-          badge.textContent = step.status;
+          badge.textContent = uiText(step.status);
           top.appendChild(badge);
           stepCard.appendChild(top);
           var desc = document.createElement("p");
@@ -1239,7 +1243,7 @@
         }
       });
 
-      summary.textContent = changes.length ? (changes.length + " changes made") : "No changes made yet";
+      summary.textContent = changes.length ? (changes.length + " " + uiText("changes made")) : uiText("No changes made yet");
       breakdown.textContent = [
         counts.addition ? counts.addition + " addition" + (counts.addition === 1 ? "" : "s") : "",
         counts["time adjustment"] ? counts["time adjustment"] + " time adjustment" + (counts["time adjustment"] === 1 ? "" : "s") : "",
@@ -1269,7 +1273,7 @@
       if (!ensureDraft().changes.length) {
         var empty = document.createElement("div");
         empty.className = "history-empty";
-        empty.textContent = "No changes yet.";
+        empty.textContent = uiText("No changes yet.");
         body.appendChild(empty);
       }
     }
@@ -1344,7 +1348,7 @@
         button.setAttribute("aria-busy", isBusy ? "true" : "false");
       }
       if (label) {
-        label.textContent = isBusy ? "Thinking..." : "Send";
+        label.textContent = isBusy ? uiText("Thinking...") : uiText("Send");
       }
       quickButtons.forEach(function (quickButton) {
         quickButton.disabled = !!isBusy;
@@ -1831,7 +1835,7 @@
 
           if (!state.activeNode) {
             renderQuickReplies(null);
-            input.placeholder = "Add more details if needed...";
+        input.placeholder = uiText("Add more details if needed...");
             return;
           }
 
@@ -1842,7 +1846,7 @@
           } else {
             state.activeNode = state.nodes[state.currentNodeIndex] || null;
             renderQuickReplies(state.activeNode, nextReplies);
-            input.placeholder = "Type your answer or add more details...";
+        input.placeholder = uiText("Type your answer or add more details...");
           }
         })
         .catch(function (error) {
@@ -1862,7 +1866,7 @@
         state.activeNode = null;
         addConversation("tutor", "That gives us a solid draft. The preview on the right now shows the refined version. You can continue to the download step whenever you are ready.");
         renderQuickReplies(null);
-        document.getElementById("replyInput").placeholder = "Add more details if needed...";
+        document.getElementById("replyInput").placeholder = uiText("Add more details if needed...");
         return;
       }
 
@@ -1872,9 +1876,9 @@
       renderRefinementOverview();
       var intro = state.currentNodeIndex === 0
         ? (selections.length
-          ? "You marked " + node.pointTitle + " in Step 2, so let us start there. " + node.prompt
-          : "I will start with " + node.label.toLowerCase() + ". " + node.prompt)
-        : "Next, let us look at " + node.label.toLowerCase() + ". " + node.prompt;
+          ? uiText("You marked") + " " + node.pointTitle + " " + uiText("in Step 2, so let us start there.") + " " + node.prompt
+          : uiText("I will start with") + " " + node.label.toLowerCase() + ". " + node.prompt)
+        : uiText("Next, let us look at") + " " + node.label.toLowerCase() + ". " + node.prompt;
       if (state.currentNodeIndex === 0 && meta && meta.specifics) {
         intro += " You also added this note: " + meta.specifics + ".";
       }
@@ -1883,7 +1887,7 @@
       }
       addConversation("tutor", intro);
       renderQuickReplies(node);
-      document.getElementById("replyInput").placeholder = "Type your answer or add more details...";
+      document.getElementById("replyInput").placeholder = uiText("Type your answer or add more details...");
     }
 
     function resetConversation() {
@@ -1922,7 +1926,7 @@
       renderPreview();
 
       if (!state.conversation.length) {
-        addConversation("tutor", "Welcome. We will refine the lesson together, one decision at a time.");
+        addConversation("tutor", uiText("Welcome. We will refine the lesson together, one decision at a time."));
         startNextNode();
       } else if (state.currentNodeIndex >= state.nodes.length) {
         state.activeNode = null;
@@ -1983,5 +1987,6 @@
 
     init();
   </script>
+  <script src="js/i18n.js"></script>
 </body>
 </html>

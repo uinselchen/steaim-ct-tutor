@@ -1,3 +1,14 @@
+"""Optional local email export backend.
+
+The UI currently hides email controls, but this module remains available for
+local deployments that need it. Configure SMTP_HOST, SMTP_PORT,
+SMTP_USERNAME, SMTP_PASSWORD, MAIL_FROM_ADDRESS, and MAIL_TO_ADDRESS in
+app/server/.env, then POST the same payload used by the former download-page
+email action to /send-email. The service sends change-steps, pros, and cons
+as text attachments and deliberately does not attach the lesson export or
+conversation log.
+"""
+
 import re
 import smtplib
 import traceback
