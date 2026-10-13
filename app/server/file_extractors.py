@@ -12,17 +12,14 @@ except ImportError:
 
 
 def extract_text_from_file(file_path):
-    lower_name = file_path.lower()
-    if lower_name.endswith(".txt") or lower_name.endswith(".md") or lower_name.endswith(".csv"):
+    file_path = file_path.lower()
+    if file_path.endswith(".txt") or file_path.endswith(".md") or file_path.endswith(".csv"):
         with open(file_path, "r", encoding="utf-8", errors="ignore") as text_file:
             return text_file.read()
-
-    if lower_name.endswith(".pdf"):
+    elif file_path.endswith(".pdf"):
         return extract_text_from_pdf(file_path)
-
-    if lower_name.endswith(".docx"):
+    elif file_path.endswith(".docx"):
         return extract_text_from_docx(file_path)
-
     log_message(f"[extract] No extractor available for {os.path.basename(file_path)}")
     return ""
 
@@ -38,7 +35,7 @@ def extract_text_from_pdf(file_path):
         for index, page in enumerate(reader.pages, start=1):
             try:
                 page_text = page.extract_text() or ""
-            except Exception:
+            except:
                 log_message(f"[extract] Failed to extract text from PDF page {index}")
                 page_text = ""
             if page_text.strip():
@@ -50,7 +47,7 @@ def extract_text_from_pdf(file_path):
             f"across {len(reader.pages)} pages"
         )
         return extracted
-    except Exception:
+    except:
         log_message(f"[extract] Failed to extract PDF text from {os.path.basename(file_path)}")
         log_message(traceback.format_exc())
         return ""
@@ -71,7 +68,7 @@ def extract_text_from_docx(file_path):
         extracted = "\n".join(paragraphs)
         log_message(f"[extract] DOCX extracted {len(extracted)} chars from {os.path.basename(file_path)}")
         return extracted
-    except Exception:
+    except:
         log_message(f"[extract] Failed to extract DOCX text from {os.path.basename(file_path)}")
         log_message(traceback.format_exc())
         return ""
