@@ -14,7 +14,7 @@ def parse_subjects_value(value):
         try:
             parsed = json.loads(text)
             values = parsed if isinstance(parsed, list) else [parsed]
-        except:
+        except json.JSONDecodeError:
             values = [part.strip() for part in re.split(r"[;,]", text)]
 
     cleaned = []

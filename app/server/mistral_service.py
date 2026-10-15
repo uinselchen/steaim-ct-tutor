@@ -95,7 +95,7 @@ def summarize_step3_changes(draft):
     draft = draft if isinstance(draft, dict) else {}
     changes = draft.get("changes") if isinstance(draft.get("changes"), list) else []
     lines = []
-    for index, change in enumerate(changes[-8:], start=1):  #TODO: Why are only the last 8 changes considered?
+    for index, change in enumerate(changes[-8:], start=1):
         change = change if isinstance(change, dict) else {}
         title = str(change.get("title") or change.get("kind") or "Change").strip()
         reason = str(change.get("reason", "")).strip()
@@ -198,7 +198,6 @@ def extract_json_block(text):
 
 
 def repair_json_quotes(text):
-    #TODO: What does this do? There's some sus stuff in here. (E.g. the inner loop via next_index skips ahead, but then the outer loop will continue on at the same spot anyway?)
     if not text:
         return text
 
@@ -299,7 +298,6 @@ def build_mistral_request_body(system_prompt, user_prompt, temperature=0.2):
 
 
 def post_mistral_chat_completion(request_body, timeout):
-    #TODO: Maybe rename this function. It could be more self-explanatory.
     request = urllib.request.Request(
         config.MISTRAL_API_URL,
         data=json.dumps(request_body).encode("utf-8"),
@@ -356,7 +354,6 @@ def parse_mistral_json_content(content, label, timeout):
 
 
 def maybe_retry_without_response_format(request_body, timeout, label):
-    #TODO: Why does function name contain "maybe"?
     response_format = request_body.pop("response_format", None)
     if response_format is None:
         return post_mistral_chat_completion(request_body, timeout)
